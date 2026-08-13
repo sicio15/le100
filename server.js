@@ -14,11 +14,13 @@ const TICK = 30;
 const players = new Map();
 const bots = new Map();
 let foods = [];
+let hotspots = [];   // 🍖 zonas con cadáveres (comida abundante)
 let foodId = 0;
+let tickCount = 0;
 
 const AB = {
     dash:   { cd: 180, dur: 60  },
-    shield: { cd: 720, dur: 90  },  // NERF: 3s de duración, 24s de cooldown
+    shield: { cd: 720, dur: 90  },
     magnet: { cd: 420, dur: 300 },
     poison: { cd: 600, dur: 300 }
 };
@@ -52,6 +54,15 @@ function trigger(p, k) {
     p.abilities[k].cd = AB[k].cd;
 }
 
+// 🧲 Imán autoritativo en el servidor (arregla el bug)
+function pullFoods(e, radius, k) {
+    const r2 = radius * radius;
+    for (const f of foods) {
+        const dx = e.x - f.x, dy = e.y - f.y, d2 = dx * dx + dy * dy;
+        if (d2 < r2 && d2 > 400) { f.x += dx * k; f.y += dy * k; }
+    }
+}
+
 /* ============ BOTS ============ */
 const BOT_NAMES = ['Cientron', 'Paticas', 'Nervio', 'Doña Pies', 'Turbo', 'Venena', 'La Mole', 'Cien Pies Jr.'];
 
@@ -68,11 +79,9 @@ function makeBot(name) {
         angle: Math.random() * Math.PI * 2,
         alive: true, abilities: freshAbilities(),
         tx: 0, ty: 0, aiTimer: 0, segments: [],
-        // 🧠 personalidad
-        aggro: Math.random(),          // qué tan cazador es (0..1)
+        aggro: Math.random(),
         speed: 2 + Math.random() * 0.4,
-        mode: 'forage',                // forage | hunt | flee
-        huntTimer: 0, prey: null
+        mode: 'forage', huntTimer: 0, prey: null, rank: 99
     };
     fillSegments(b, 15 + (Math.random() * 60 | 0));
     b.tx = b.x; b.ty = b.y;
@@ -83,6 +92,7 @@ BOT_NAMES.forEach(n => bots.set('bot_' + n, makeBot(n)));
 function killBot(b) {
     if (!b.alive) return;
     b.alive = false;
+    hotspots.push({ x: b.x, y: b.y, ttl: 600 });
     for (let i = 0; i < b.segments.length; i += 3) {
         foods.push({ id: foodId++, x: b.segments[i].x, y: b.segments[i].y, type: Math.random() < 0.2 ? 'big' : 'normal' });
     }
@@ -106,7 +116,6 @@ function bodyHit(b, other) {
     }
     return false;
 }
-// ¿Hay un cuerpo ajeno en el punto delantero? (ignora a `ignore` si caza)
 function pointDanger(b, fx, fy, ignore) {
     const all = [...players.values(), ...bots.values()];
     for (const e of all) {
@@ -122,7 +131,6 @@ function pointDanger(b, fx, fy, ignore) {
     }
     return null;
 }
-// ¿Se va a morder a sí mismo?
 function selfDanger(b, fx, fy) {
     for (let i = 10; i < b.segments.length; i += 2) {
         const dx = b.segments[i].x - fx, dy = b.segments[i].y - fy;
@@ -139,62 +147,89 @@ function tickBots() {
         if (!b.alive) return;
 
         if (b.abilities.poison.cd === 0 && Math.random() < 0.002) trigger(b, 'poison');
-        if (b.abilities.magnet.cd === 0 && Math.random() < 0.003) trigger(b, 'magnet');
 
-        // ---- PERCEPCIÓN: presa (más chico) y amenaza (más grande) ----
+        // ---- PERCEPCIÓN: presa = CUALQUIERA más chico (humano o bot) ----
         let prey = null, preyD = 1e9, threat = null, threatD = 1e9;
-        for (const h of humans) {
-            const d = Math.hypot(h.x - b.x, h.y - b.y);
-            if (d < preyD && d < 900 && h.score < b.score * 0.9 && h.abilities.shield.active <= 0) { prey = h; preyD = d; }
-            if (d < threatD && d < 600 && h.score > b.score * 1.3) { threat = h; threatD = d; }
+        for (const e of everyone) {
+            if (e === b || !e.alive) continue;
+            const d = Math.hypot(e.x - b.x, e.y - b.y);
+            if (d < preyD && d < 900 && e.score < b.score * 0.85 && e.abilities.shield.active <= 0) { prey = e; preyD = d; }
+            if (d < threatD && d < 600 && e.score > b.score * 1.25) { threat = e; threatD = d; }
         }
 
-        // ---- DECISIÓN: huir, cazar o comer ----
+        const isLeader = (b.rank || 99) <= 1;
+        const isBaby = b.maxSegments < 18;
+
+        // ---- DECISIÓN ----
         if (threat && threatD < 500) {
+            // HUIR (y el líder usa escudo más seguido)
             b.mode = 'flee'; b.prey = null;
             b.tx = clampW(b.x + (b.x - threat.x) * 3);
             b.ty = clampW(b.y + (b.y - threat.y) * 3);
             if (threatD < 260 && b.abilities.dash.cd === 0 && Math.random() < 0.12) trigger(b, 'dash');
-            if (threatD < 160 && b.abilities.shield.cd === 0 && Math.random() < 0.25) trigger(b, 'shield');
-        } else if (prey && b.aggro > 0.35 && (b.mode === 'hunt' ? preyD < 1000 : (preyD < 700 && Math.random() < 0.03))) {
+            if (threatD < (isLeader ? 300 : 160) && b.abilities.shield.cd === 0 && Math.random() < (isLeader ? 0.4 : 0.25)) trigger(b, 'shield');
+        } else if (!isBaby && prey && b.aggro > 0.35 && (isLeader ? preyD < 500 && b.aggro > 0.6 : true) &&
+                   (b.mode === 'hunt' ? preyD < 1000 : (preyD < 700 && Math.random() < 0.03))) {
+            // 🎯 CAZA con tácticas
             if (b.mode !== 'hunt') {
                 b.mode = 'hunt'; b.huntTimer = 400;
-                if (Math.random() < 0.6) {
+                if (Math.random() < 0.6 && prey.name) {
                     io.emit('chatMessage', { name: b.name, message: pick(HUNT_TAUNTS).replace('{n}', prey.name) });
                 }
             }
             b.prey = prey;
-            // INTERCEPTAR: apunta DELANTE de tu cabeza para cruzarse en tu camino
-            const lead = Math.min(260, preyD * 0.7);
-            b.tx = prey.x + Math.cos(prey.angle) * lead;
-            b.ty = prey.y + Math.sin(prey.angle) * lead;
+            const nearWall = prey.x < 500 || prey.x > WORLD_SIZE-500 || prey.y < 500 || prey.y > WORLD_SIZE-500;
+            if (nearWall) {
+                // 🧱 TRAMPA DE BORDE: cortar la salida y empujarlo contra la pared
+                const dxp = prey.x - b.x, dyp = prey.y - b.y, dl = Math.hypot(dxp, dyp) || 1;
+                b.tx = Math.max(60, Math.min(WORLD_SIZE-60, prey.x + dxp/dl * 180));
+                b.ty = Math.max(60, Math.min(WORLD_SIZE-60, prey.y + dyp/dl * 180));
+            } else {
+                // Interceptar delante de la cabeza
+                const lead = Math.min(260, preyD * 0.7);
+                b.tx = prey.x + Math.cos(prey.angle) * lead;
+                b.ty = prey.y + Math.sin(prey.angle) * lead;
+            }
             if (preyD < 320 && b.abilities.dash.cd === 0 && Math.random() < 0.06) trigger(b, 'dash');
             if (--b.huntTimer <= 0) b.mode = 'forage';
         } else {
+            // 🍓 FORRAJEO inteligente: cadáveres > comida valiosa
             b.mode = 'forage'; b.prey = null;
+            if (b.abilities.magnet.cd === 0 && Math.random() < 0.004) trigger(b, 'magnet');
             if (--b.aiTimer <= 0) {
-                b.aiTimer = 30 + Math.random() * 60;
-                let best = null, bd = 700 * 700;
-                for (const f of foods) {
-                    const dx = f.x - b.x, dy = f.y - b.y, d = dx * dx + dy * dy;
-                    if (d < bd) { bd = d; best = f; }
+                b.aiTimer = 20 + Math.random() * 40;
+                let hs = null, hd = 1200 * 1200;
+                for (const h of hotspots) {
+                    const dx = h.x - b.x, dy = h.y - b.y, d = dx * dx + dy * dy;
+                    if (d < hd) { hd = d; hs = h; }
                 }
-                if (best) { b.tx = best.x; b.ty = best.y; }
-                else { b.tx = 300 + Math.random() * (WORLD_SIZE - 600); b.ty = 300 + Math.random() * (WORLD_SIZE - 600); }
+                if (hs) { b.tx = hs.x; b.ty = hs.y; }
+                else {
+                    let best = null, bs = -1;
+                    for (let s = 0; s < 50; s++) {
+                        const f = foods[Math.random() * foods.length | 0];
+                        if (!f) continue;
+                        const v = f.type === 'big' ? 5 : f.type === 'special' ? 3 : 1;
+                        const score = v / (Math.hypot(f.x - b.x, f.y - b.y) + 120);
+                        if (score > bs) { bs = score; best = f; }
+                    }
+                    if (best) { b.tx = best.x; b.ty = best.y; }
+                    else { b.tx = 300 + Math.random() * (WORLD_SIZE-600); b.ty = 300 + Math.random() * (WORLD_SIZE-600); }
+                }
             }
         }
 
         // borde del mundo
-        if (b.x < 400 || b.x > WORLD_SIZE - 400 || b.y < 400 || b.y > WORLD_SIZE - 400) {
-            b.tx = WORLD_SIZE / 2 + (Math.random() - 0.5) * 1500;
-            b.ty = WORLD_SIZE / 2 + (Math.random() - 0.5) * 1500;
+        if (b.x < 400 || b.x > WORLD_SIZE-400 || b.y < 400 || b.y > WORLD_SIZE-400) {
+            b.tx = WORLD_SIZE/2 + (Math.random()-0.5) * 1500;
+            b.ty = WORLD_SIZE/2 + (Math.random()-0.5) * 1500;
         }
 
-        // ---- GIRO hacia el objetivo ----
+        // ---- GIRO ----
         const ta = Math.atan2(b.ty - b.y, b.tx - b.x);
         b.angle += norm(ta - b.angle) * 0.08;
 
-        // ---- EVASIÓN: no morderse ni chocar de frente ----
+        // ---- EVASIÓN ----
         const fx = b.x + Math.cos(b.angle) * 70, fy = b.y + Math.sin(b.angle) * 70;
         if (selfDanger(b, fx, fy)) {
             b.angle += 0.35;
@@ -210,22 +245,22 @@ function tickBots() {
         let sp = b.speed;
         if (b.mode === 'hunt') sp = 2.6;
         if (b.abilities.dash.active > 0) sp = 4.6;
-        b.x = Math.max(10, Math.min(WORLD_SIZE - 10, b.x + Math.cos(b.angle) * sp));
-        b.y = Math.max(10, Math.min(WORLD_SIZE - 10, b.y + Math.sin(b.angle) * sp));
+        b.x = Math.max(10, Math.min(WORLD_SIZE-10, b.x + Math.cos(b.angle) * sp));
+        b.y = Math.max(10, Math.min(WORLD_SIZE-10, b.y + Math.sin(b.angle) * sp));
 
         b.segments[0].x = b.x; b.segments[0].y = b.y;
         for (let i = 1; i < b.segments.length; i++) {
-            const p = b.segments[i - 1], s = b.segments[i];
+            const p = b.segments[i-1], s = b.segments[i];
             const dx = p.x - s.x, dy = p.y - s.y, dist = Math.hypot(dx, dy);
-            if (dist > 10) { const a = Math.atan2(dy, dx); s.x = p.x - Math.cos(a) * 10; s.y = p.y - Math.sin(a) * 10; }
+            if (dist > 10) { const a = Math.atan2(dy, dx); s.x = p.x - Math.cos(a)*10; s.y = p.y - Math.sin(a)*10; }
         }
         while (b.segments.length > b.maxSegments) b.segments.pop();
 
-        // ---- COMER ----
-        for (let i = foods.length - 1; i >= 0; i--) {
+        // ---- COMER (con imán server-side) ----
+        if (b.abilities.magnet.active > 0) pullFoods(b, 200, 0.08);
+        for (let i = foods.length-1; i >= 0; i--) {
             const f = foods[i];
             const dx = f.x - b.x, dy = f.y - b.y, d2 = dx * dx + dy * dy;
-            if (b.abilities.magnet.active > 0 && d2 < 40000 && d2 > 900) { f.x -= dx * 0.05; f.y -= dy * 0.05; }
             if (d2 < 625) {
                 const v = f.type === 'big' ? 5 : f.type === 'special' ? 3 : 1;
                 b.maxSegments = Math.min(160, b.maxSegments + v);
@@ -235,7 +270,7 @@ function tickBots() {
             }
         }
 
-        // ---- MUERTES (también se muerden solos) ----
+        // ---- MUERTES ----
         if (b.abilities.shield.active <= 0) {
             for (let i = 14; i < b.segments.length; i += 2) {
                 const dx = b.segments[i].x - b.x, dy = b.segments[i].y - b.y;
@@ -247,12 +282,11 @@ function tickBots() {
             }
         }
 
-        // chat ambiental (muy raro)
         if (Math.random() < 0.0004) io.emit('chatMessage', { name: b.name, message: pick(AMBIENT) });
     });
 }
 
-/* ============ JUGADORES HUMANOS ============ */
+/* ============ HUMANOS ============ */
 io.on('connection', (socket) => {
     socket.on('joinGame', (data) => {
         const p = {
@@ -262,7 +296,7 @@ io.on('connection', (socket) => {
             x: Math.random() * WORLD_SIZE, y: Math.random() * WORLD_SIZE,
             angle: 0, segments: [{ x: 0, y: 0 }],
             maxSegments: 10, score: 10, alive: true,
-            abilities: freshAbilities()
+            abilities: freshAbilities(), rank: 99
         };
         players.set(socket.id, p);
         socket.emit('init', { playerId: socket.id, foods, worldSize: WORLD_SIZE });
@@ -292,8 +326,8 @@ io.on('connection', (socket) => {
         const p = players.get(socket.id);
         if (!p) return;
         p.alive = false;
+        hotspots.push({ x: p.x, y: p.y, ttl: 600 });
         io.emit('playerDied', { id: socket.id, killedBy: 'world', segments: p.segments });
-        // 😈 un bot se burla cuando morís
         if (Math.random() < 0.7) {
             const bs = [...bots.values()];
             const b = bs[Math.random() * bs.length | 0];
@@ -322,13 +356,29 @@ io.on('connection', (socket) => {
     });
 });
 
-/* ============ GAME LOOP ============ */
+/* ============ LOOP ============ */
 setInterval(() => {
+    tickCount++;
     const all = [...players.values(), ...bots.values()];
+
     all.forEach(p => Object.keys(p.abilities).forEach(k => {
         if (p.abilities[k].cd > 0) p.abilities[k].cd--;
         if (p.abilities[k].active > 0) p.abilities[k].active--;
     }));
+
+    // 🏆 ranking cada 15 ticks (para la estrategia del líder)
+    if (tickCount % 15 === 0) {
+        all.filter(e => e.alive).sort((a, b) => b.score - a.score)
+           .forEach((e, i) => { e.rank = i; });
+    }
+
+    // 🧲 imán de humanos (autoritativo)
+    players.forEach(p => {
+        if (p.alive && p.abilities.magnet.active > 0) pullFoods(p, 220, 0.1);
+    });
+
+    hotspots = hotspots.filter(h => --h.ttl > 0);
+
     tickBots();
     io.emit('gameState', { players: all, foods, humans: players.size });
 }, 1000 / TICK);

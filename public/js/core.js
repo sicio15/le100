@@ -6,10 +6,11 @@ let W = 0, H = 0, DPR = 1;
 
 // visualViewport = tamaño real en móviles (arregla descentrado en iOS/Android)
 function fit() {
-    DPR = Math.min(window.devicePixelRatio || 1, 2);
     const vv = window.visualViewport;
     W = Math.round(vv ? vv.width : window.innerWidth);
     H = Math.round(vv ? vv.height : window.innerHeight);
+    // En pantallas grandes/4K limitamos el DPR: menos píxeles = más FPS
+    DPR = Math.min(window.devicePixelRatio || 1, (W * H > 1900000 ? 1.25 : 2));
     canvas.width = W * DPR;
     canvas.height = H * DPR;
     canvas.style.width = W + 'px';

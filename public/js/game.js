@@ -63,10 +63,8 @@ function updateMe() {
     }
 
     // Comer
-    const magnetOn = me.abilities.magnet.active > 0;
     G.foods = G.foods.filter(f => {
         const dx = f.x-head.x, dy = f.y-head.y, dist = Math.hypot(dx,dy);
-        if (magnetOn && dist < 200 && dist > 25) { f.x -= dx*0.06; f.y -= dy*0.06; }
         if (dist < 28) {
             const v = f.type === 'big' ? 5 : f.type === 'special' ? 3 : 1;
             me.maxSegments = Math.min(400, me.maxSegments + v);
