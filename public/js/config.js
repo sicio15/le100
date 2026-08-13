@@ -21,3 +21,20 @@ const ACH = [
     { id:'d10',   d:'Daño nivel 10',            r:{g:2000}, c:()=>S.ups.dmg>=10 },
     { id:'v5',    d:'Veneno nivel 5',           r:{g:2500}, c:()=>S.ups.venom>=5 }
 ];
+/* ===== Settings persistentes ===== */
+const SETTINGS_KEY = 'le100_settings_v1';
+const DEFAULT_SETTINGS = { audio:true, musicVol:0.5, sfxVol:0.7, speed:1, reduceFx:false, tutorialDone:false };
+let SETTINGS = loadSettings();
+function loadSettings() {
+    try { const s = JSON.parse(localStorage.getItem(SETTINGS_KEY)); if (s) return Object.assign({}, DEFAULT_SETTINGS, s); } catch (e) {}
+    return Object.assign({}, DEFAULT_SETTINGS);
+}
+function saveSettings() { localStorage.setItem(SETTINGS_KEY, JSON.stringify(SETTINGS)); }
+
+/* Capítulos temáticos (cambian fondo/paleta cada 10 etapas) */
+const CHAPTERS = [
+    { name:'Bosque Nocturno', bg:'img/bg.png' },
+    { name:'Cueva Cristal',   bg:'img/bg_cave.png' },
+    { name:'Pantano Tóxico',  bg:'img/bg_swamp.png' }
+];
+const chapterOf = stage => CHAPTERS[Math.min(CHAPTERS.length - 1, Math.floor((stage - 1) / 10))];

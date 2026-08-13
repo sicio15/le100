@@ -2,14 +2,17 @@
 let hero = { hp: maxHP(), atkT: 0, venT: 3, lunge: 0, recoil: 0, dead: 0, flash: 0, venFlash: 0 };
 let enemies = [], floats = [], parts = [], coins = [], dust = [], flies = [];
 let spawnT = 1, bossT = 0, shake = 0, time = 0, stageFlash = 0, dustT = 0;
+let lastChapter = -1;
 
 for (let i = 0; i < 14; i++) flies.push({ x: Math.random(), y: .5 + Math.random() * .5, p: Math.random() * TAU, s: .5 + Math.random() });
 
 const heroX = () => Math.min(230, W * 0.22);
 const groundY = () => H - 78;
 
-function float(x, y, txt, color) { floats.push({ x, y, txt, color, life: 1.2 }); }
+function float(x, y, txt, color, big) { floats.push({ x, y, txt, color, life: 1.2, big: !!big }); }
 function burst(x, y, color, n) {
+    const k = SETTINGS.reduceFx ? 0.4 : 1;
+    n = Math.max(2, Math.round(n * k));
     for (let i = 0; i < n; i++) {
         const a = TAU * i / n, s = 2 + Math.random() * 3;
         parts.push({ x, y, vx: Math.cos(a)*s, vy: Math.sin(a)*s - 2, life: .7, color });
@@ -37,6 +40,7 @@ function spawnBoss() {
         spd: 40, hue: 0, size: 2.2, state: 'walk', flash: 0, lungeX: 0, kb: 0, pop: 0 });
     bossT = 30; shake = 10;
     $('bossBar').classList.remove('hidden');
+    Audio.SFX.boss();
     toast('👑 ¡JEFE en la etapa ' + S.stage + '!');
 }
 function killEnemy(e) {
@@ -45,9 +49,10 @@ function killEnemy(e) {
     puff(e.x, groundY() + 2);
     const g = goldKill(S.stage) * (e.boss ? 8 : 1);
     S.gold += g; S.kills++; S.ks++;
-    float(e.x, groundY() - 60, '+' + fmt(g) + ' 🪙', '#ffd700');
+    float(e.x, groundY() - 60, '+' + fmt(g), '#ffd700');
     burst(e.x, groundY() - 30, 'hsl(' + e.hue + ',80%,60%)', e.boss ? 40 : 14);
     spawnCoins(e.x, groundY() - 40, e.boss ? 8 : 3);
+    Audio.SFX.coin();
     if (e.boss) { shake = 14; $('bossBar').classList.add('hidden'); nextStage(); }
     else if (S.ks >= killsNeed()) nextStage();
 }
@@ -55,11 +60,16 @@ function nextStage() {
     S.stage++; S.best = Math.max(S.best, S.stage); S.ks = 0;
     hero.hp = maxHP(); enemies = []; spawnT = 0.6;
     stageFlash = 0.5;
+    // Cambio de capítulo → cambia música y fondo
+    const ch = Math.floor((S.stage - 1) / 10);
+    if (ch !== lastChapter) { lastChapter = ch; Audio.setChapter(ch); Audio.SFX.levelup(); toast('🌄 ' + chapterOf(S.stage).name); }
+    else Audio.SFX.levelup();
     persist(); netScore(S.name, S.best);
     toast('⚔️ Etapa ' + S.stage + (isBossStage() ? ' 👑' : ''));
 }
 
-function update(dt) {
+function update(rawDt) {
+    const dt = rawDt * SETTINGS.speed;   // ⏩ velocidad de batalla
     time += dt;
     stageFlash = Math.max(0, stageFlash - dt);
     hero.flash = Math.max(0, hero.flash - dt);
@@ -78,10 +88,12 @@ function update(dt) {
             const t = enemies.filter(e => e.dying === null && e.x < hx + 330).sort((a,b) => a.x - b.x)[0];
             if (t) {
                 hero.lunge = 1;
-                const d = dps() * 0.5;
-                t.hp -= d; t.flash = 0.15; t.kb = 7;
-                float(t.x, gy - 70 * t.size, fmt(d), '#fff');
-                burst(t.x, gy - 45 * t.size, '#ffffff', 6);
+                const isCrit = Math.random() < 0.2;          // 💥 20% crítico
+                const d = dps() * 0.5 * (isCrit ? 2.2 : 1);
+                t.hp -= d; t.flash = 0.15; t.kb = isCrit ? 11 : 7;
+                float(t.x, gy - 70 * t.size, fmt(d), isCrit ? '#ffeb3b' : '#fff', isCrit);
+                burst(t.x, gy - 45 * t.size, isCrit ? '#ffeb3b' : '#ffffff', isCrit ? 10 : 6);
+                if (isCrit) { shake = Math.max(shake, 3); Audio.SFX.crit(); } else Audio.SFX.hit();
                 if (t.hp <= 0) killEnemy(t);
             }
         }
@@ -90,10 +102,10 @@ function update(dt) {
             hero.venT = venomCd();
             const alive = enemies.filter(e => e.dying === null);
             if (alive.length) {
-                hero.venFlash = 0.3;
-                hero.recoil = 1;
+                hero.venFlash = 0.3; hero.recoil = 1;
                 const d = venomDm();
-                float(hx + 140, gy - 90, '☠️ ' + fmt(d), '#a020f0');
+                float(hx + 140, gy - 90, '☠️ ' + fmt(d), '#a020f0', true);
+                Audio.SFX.venom();
                 alive.forEach(e => {
                     e.hp -= d; e.flash = 0.15; e.kb = 5;
                     burst(e.x, gy - 30, '#a020f0', 8);
@@ -133,14 +145,15 @@ function update(dt) {
                     hero.hp -= d; hero.flash = 0.15;
                     float(hx, gy - 80, '-' + fmt(d), '#ff4757');
                     shake = Math.max(shake, 4);
+                    Audio.SFX.hit();
                     if (hero.hp <= 0) {
-                        // 💀 REGRESIÓN: volvés a la etapa anterior a farmear y reintentar
                         hero.dead = 4;
                         if (S.stage > 1) S.stage--;
                         S.ks = 0;
                         enemies.forEach(x => { if (x.dying === null) { x.dying = 0.45; puff(x.x, groundY() + 2); } });
                         $('bossBar').classList.add('hidden');
                         spawnT = 0.8;
+                        Audio.SFX.death();
                         persist(); netScore(S.name, S.best);
                         toast('💀 Caíste → Etapa ' + S.stage + '. ¡Farmeá oro y volvé más fuerte!');
                     }

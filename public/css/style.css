@@ -86,3 +86,31 @@ html, body { position:fixed; inset:0; overflow:hidden; background:#0d0a1a;
 .err { color:#ff6b81; font-size:12px; min-height:16px; margin:6px 0; }
 .hintTxt { color:#8fa3c8; font-size:11px; margin-top:10px; }
 #cv { image-rendering: pixelated; image-rendering: crisp-edges; }
+/* ===== FASE 1: pixel + HUD + settings + tutorial ===== */
+#cv { image-rendering: pixelated; image-rendering: crisp-edges; }
+h2, .big, #stageTxt, #goldTxt, #adnTxt, .tbtn, .ubuy, .mbtn, .tab, #speedBtn { font-family:'Press Start 2P', monospace; }
+.panel { font-family:'Rubik',sans-serif; }
+
+/* Barra de progreso de etapa */
+#stageProg { position:relative; width:90px; height:12px; margin-top:4px;
+    background:rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.2); border-radius:3px; overflow:hidden; }
+#stageProgFill { height:100%; width:0%; background:linear-gradient(90deg,#7bed9f,#2ed573); transition:width .2s; }
+#stageProgTxt { position:absolute; inset:0; text-align:center; font-size:8px; line-height:12px;
+    color:#fff; font-family:'Press Start 2P'; text-shadow:1px 1px 0 #000; }
+
+/* Botón velocidad */
+#speedBtn { color:#7efcff; }
+
+/* Settings */
+.setRow { display:flex; justify-content:space-between; align-items:center; gap:10px;
+    background:rgba(255,255,255,.06); border-radius:10px; padding:10px 12px; margin:8px 0;
+    color:#fff; font-size:13px; cursor:pointer; }
+.setRow input[type=range] { width:120px; }
+.setRow b { color:#ffd700; }
+
+/* Tutorial */
+#tutOv { position:fixed; inset:0; z-index:300; transition:background .2s; }
+#tutBox { position:absolute; background:#171230; border:2px solid #ffd700; border-radius:14px;
+    padding:16px; width:300px; box-shadow:0 0 30px rgba(255,215,0,.4); }
+.tutTxt { color:#fff; font-size:14px; line-height:1.5; margin-bottom:12px; }
+.tutCtr { display:flex; justify-content:space-between; align-items:center; color:#8fa3c8; font-size:12px; }
