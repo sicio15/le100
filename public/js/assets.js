@@ -4,7 +4,7 @@ function chroma(g, c) {
     const d = g.getImageData(0, 0, w, h), px = d.data;
     const seen = new Uint8Array(w * h);
     const st = [0, w - 1, (h - 1) * w, (h - 1) * w + w - 1];
-    const isW = i => { const j = i * 4; return px[j] > 230 && px[j+1] > 230 && px[j+2] > 228; };
+    const isW = i => { const j = i * 4; return px[j] > 205 && px[j+1] > 205 && px[j+2] > 200; };
     while (st.length) {
         const i = st.pop();
         if (i < 0 || i >= w * h || seen[i]) continue;
@@ -18,36 +18,51 @@ function chroma(g, c) {
     }
     g.putImageData(d, 0, 0);
 }
-/* Recorta cada frame por su bounding box real y mide el frame más alto,
-   así todos se dibujan alineados por los pies y a la misma escala (adiós vibración) */
-function analyze(c, n) {
-    const w = c.width, h = c.height, fw = w / n;
+/* Detecta los frames automáticamente (cualquier grilla) por connected
+   components y los ordena en orden de lectura (filas de arriba a abajo) */
+function analyze(c) {
+    const w = c.width, h = c.height;
     const d = c.getContext('2d').getImageData(0, 0, w, h).data;
-    const frames = [];
-    let maxH = 1;
-    for (let f = 0; f < n; f++) {
-        let minX = w, maxX = 0, minY = h, maxY = 0;
-        const x0 = Math.floor(fw * f), x1 = Math.floor(fw * (f + 1));
-        for (let y = 0; y < h; y++) {
-            for (let x = x0; x < x1; x++) {
-                if (d[(y * w + x) * 4 + 3] > 20) {
-                    if (x < minX) minX = x;
-                    if (x > maxX) maxX = x;
-                    if (y < minY) minY = y;
-                    if (y > maxY) maxY = y;
-                }
+    const vis = new Uint8Array(w * h);
+    const stack = [];
+    const blobs = [];
+    function tryPush(j) { if (!vis[j] && d[j*4+3] >= 25) { vis[j] = 1; stack.push(j); } }
+    for (let y = 0; y < h; y += 2) {
+        for (let x = 0; x < w; x += 2) {
+            const i = y * w + x;
+            if (vis[i] || d[i*4+3] < 25) continue;
+            let minX = x, maxX = x, minY = y, maxY = y;
+            stack.length = 0; stack.push(i); vis[i] = 1;
+            while (stack.length) {
+                const j = stack.pop();
+                const jx = j % w, jy = (j / w) | 0;
+                if (jx < minX) minX = jx; if (jx > maxX) maxX = jx;
+                if (jy < minY) minY = jy; if (jy > maxY) maxY = jy;
+                if (jx > 0) tryPush(j - 1);
+                if (jx < w - 1) tryPush(j + 1);
+                if (jy > 0) tryPush(j - w);
+                if (jy < h - 1) tryPush(j + w);
+            }
+            if (maxX - minX > 40 && maxY - minY > 40) {
+                blobs.push({ sx: minX, sy: minY, sw: maxX - minX + 1, sh: maxY - minY + 1,
+                             cx: (minX + maxX) / 2, cy: (minY + maxY) / 2 });
             }
         }
-        if (maxX <= minX) { minX = x0; maxX = x1 - 1; minY = 0; maxY = h - 1; }
-        const fr = { sx: minX, sy: minY, sw: maxX - minX + 1, sh: maxY - minY + 1 };
-        frames.push(fr);
-        if (fr.sh > maxH) maxH = fr.sh;
     }
+    blobs.sort((a, b) => a.cy - b.cy || a.cx - b.cx);
+    const rows = [];
+    blobs.forEach(f => {
+        const r = rows[rows.length - 1];
+        if (r && Math.abs(r.cy - f.cy) < Math.min(r.sh, f.sh) * 0.5) { r.items.push(f); r.sh = Math.max(r.sh, f.sh); }
+        else rows.push({ cy: f.cy, sh: f.sh, items: [f] });
+    });
+    const frames = [];
+    rows.forEach(r => { r.items.sort((a, b) => a.cx - b.cx); frames.push(...r.items); });
+    const maxH = frames.reduce((m, f) => Math.max(m, f.sh), 1);
     return { frames, maxH };
 }
-function loadSprite(src, n) {
-    n = n || 1;
-    const o = { ready:false, cv:null, tint:null, frames:null, maxH:1, n };
+function loadSprite(src) {
+    const o = { ready:false, cv:null, tint:null, frames:[], maxH:1 };
     const img = new Image();
     img.onload = () => {
         const c = document.createElement('canvas');
@@ -62,8 +77,8 @@ function loadSprite(src, n) {
         tg.globalCompositeOperation = 'source-atop';
         tg.fillStyle = '#fff';
         tg.fillRect(0, 0, t.width, t.height);
-        const a = analyze(c, n);
-        o.cv = c; o.tint = t; o.frames = a.frames; o.maxH = a.maxH; o.ready = true;
+        const a = analyze(c);
+        o.cv = c; o.tint = t; o.frames = a.frames; o.maxH = a.maxH; o.ready = o.frames.length > 0;
     };
     img.src = src;
     return o;
@@ -76,10 +91,14 @@ function loadRaw(src) {
     return o;
 }
 const SPR = {
-    heroWalk: loadSprite('img/hero_walk.png', 4),   // sheet de 4 frames
-    heroIdle: loadSprite('img/hero.png'),
-    beetle:   loadSprite('img/enemy_beetle.png'),
-    spider:   loadSprite('img/enemy_spider.png'),
-    boss:     loadSprite('img/enemy_boss.png')
+    heroWalk:   loadSprite('img/hero_walk.png'),
+    heroIdle:   loadSprite('img/hero_idle.png'),
+    heroAttack: loadSprite('img/hero_attack.png'),
+    heroCast:   loadSprite('img/hero_cast.png'),
+    heroHurt:   loadSprite('img/hero_hurt.png'),
+    heroDeath:  loadSprite('img/hero_death.png'),
+    beetle:     loadSprite('img/enemy_beetle.png'),
+    spider:     loadSprite('img/enemy_spider.png'),
+    boss:       loadSprite('img/enemy_boss.png')
 };
 const BG = loadRaw('img/bg.png');

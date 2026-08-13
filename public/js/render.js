@@ -9,9 +9,12 @@ function fit() {
 }
 window.addEventListener('resize', fit);
 const easeOutBack = p => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); };
+const pingpong = (i, n) => { if (n <= 1) return 0; const m = 2 * (n - 1); const k = i % m; return k < n ? k : m - k; };
 
 function drawFrame(sp, f, targetH, flash) {
-    const fr = sp.frames[f], sc = targetH / sp.maxH;
+    const fr = sp.frames[f];
+    if (!fr) return;
+    const sc = targetH / sp.maxH;
     const dw = fr.sw * sc, dh = fr.sh * sc;
     ctx.drawImage(sp.cv, fr.sx, fr.sy, fr.sw, fr.sh, -dw / 2, -dh, dw, dh);
     if (flash > 0) {
@@ -46,45 +49,68 @@ function drawBG() {
     });
 }
 
-/* ===== HÉROE: rig procedural (animación real, no sprites) ===== */
+/* ===== HÉROE: máquina de estados de clips ===== */
+const CLIPS = {
+    idle:   { sp: () => SPR.heroIdle,   fps: 2,  loop: true  },
+    walk:   { sp: () => SPR.heroWalk,   fps: 8,  loop: true  },
+    strike: { sp: () => SPR.heroAttack, fps: 10, loop: false },
+    venom:  { sp: () => SPR.heroCast,   fps: 7,  loop: false },
+    hurt:   { sp: () => SPR.heroHurt,   fps: 8,  loop: false },
+    dead:   { sp: () => SPR.heroDeath,  fps: 4,  loop: false }
+};
+const HA = { st: '', t: 0, last: 0 };
+
 function drawHero(hx, gy, scale) {
-    const phW = time * (enemies.length ? 7 : 2.5);
-    ctx.fillStyle = 'rgba(0,0,0,.35)';
-    ctx.beginPath(); ctx.ellipse(hx, gy + 6, (50 - Math.abs(Math.sin(phW)) * 4) * scale, 9 * scale, 0, 0, TAU); ctx.fill();
+    const dt = Math.max(0, time - HA.last); HA.last = time;
 
-    const striking = hero.lunge > 0.4;
-    const windup = !striking && hero.dead <= 0 && hero.atkT <= 0.12;
-    const venom = hero.venFlash > 0;
-    const state = hero.dead > 0 ? 'dead' : striking ? 'strike' : windup ? 'windup' : venom ? 'venom' : (enemies.length ? 'walk' : 'idle');
+    const st = hero.dead > 0 ? 'dead'
+        : hero.flash > 0 ? 'hurt'
+        : hero.lunge > 0.35 ? 'strike'
+        : hero.venFlash > 0 ? 'venom'
+        : enemies.length ? 'walk' : 'idle';
+    if (st !== HA.st) { HA.st = st; HA.t = 0; }
+    HA.t += dt;
 
-    const bt = (time + 1.3) % 3.4;
-    const blink = bt < 0.14 ? Math.sin(bt / 0.14 * Math.PI) : 0;
-
-    let lx = .6, ly = 0, best = null, bd = 1e9;
-    enemies.forEach(e => { if (e.dying === null) { const d = Math.abs(e.x - hx); if (d < bd) { bd = d; best = e; } } });
-    if (best) { const dx = best.x - hx, dy = -24; const dl = Math.hypot(dx, dy) || 1; lx = dx / dl; ly = dy / dl; }
-
-    drawHeroRig({
-        x: hx, y: gy, scale,
-        t: time,
-        ph: state === 'walk' ? phW : state === 'strike' ? time * 12 : time * 2.2,
-        amp: state === 'walk' ? 4 : state === 'idle' ? 1.3 : 2,
-        state,
-        flash: hero.flash,
-        deadP: hero.dead > 0 ? Math.min(1, (4 - hero.dead) * 2.5) : 0,
-        lunge: hero.lunge, recoil: hero.recoil,
-        hop: state === 'walk' ? -Math.abs(Math.sin(phW)) * 2.2 : 0,
-        blink, lookX: lx, lookY: ly
-    });
-
-    if (venom) {
-        ctx.fillStyle = '#a855f7';
-        ctx.beginPath(); ctx.ellipse(hx + 52 * scale, gy - 30 * scale, 10, 7, 0, 0, TAU); ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,.7)';
-        ctx.beginPath(); ctx.arc(hx + 50 * scale, gy - 33 * scale, 2.5, 0, TAU); ctx.fill();
+    const clip = CLIPS[st];
+    const sp = clip.sp();
+    const n = sp.ready ? sp.frames.length : 0;
+    let f = 0;
+    if (n) {
+        f = Math.floor(HA.t * clip.fps);
+        f = clip.loop ? f % n : Math.min(f, n - 1);
     }
+
+    // sombra
+    const phW = time * 7;
+    ctx.fillStyle = 'rgba(0,0,0,.35)';
+    ctx.beginPath(); ctx.ellipse(hx, gy + 6, (50 - (st === 'walk' ? Math.abs(Math.sin(phW)) * 4 : 0)) * scale, 9 * scale, 0, 0, TAU); ctx.fill();
+
+    ctx.save();
+    ctx.translate(hx, gy);
+    if (st === 'dead') {
+        const p = Math.min(1, (4 - hero.dead) * 2.5);
+        ctx.rotate(-(1 - Math.pow(1 - p, 3)) * 1.5);
+        ctx.globalAlpha = 1 - p * .6;
+    } else {
+        ctx.translate(hero.lunge * 22 - hero.recoil * 7, st === 'walk' ? -Math.abs(Math.sin(phW)) * 2.2 : 0);
+    }
+    const sy = 1 + Math.cos(phW * 2) * (st === 'walk' ? 0.02 : 0.008);
+    ctx.scale(scale * (2 - sy), scale * sy);
+    if (st === 'walk') ctx.rotate(0.02);
+    if (st === 'strike') ctx.rotate(0.06);
+    if (st === 'windup') ctx.rotate(-0.05);
+
+    if (sp.ready) drawFrame(sp, f, 105, hero.flash);
+    else {
+        for (let i = 0; i < 7; i++) {
+            ctx.fillStyle = i % 2 ? '#2ecc71' : '#27ae60';
+            ctx.beginPath(); ctx.arc(-i * 16 + 20, -30, 16 - i, 0, TAU); ctx.fill();
+        }
+    }
+    ctx.restore();
 }
 
+/* ===== ENEMIGOS: walk cycle + estados ===== */
 function drawEnemy(e, gy) {
     const grow = 1 + Math.min(0.5, S.stage * 0.004);
     const pop = e.pop < 1 ? Math.max(0.01, easeOutBack(e.pop)) : 1;
@@ -95,6 +121,12 @@ function drawEnemy(e, gy) {
     ctx.beginPath(); ctx.ellipse(ex, gy + 6, 34 * s, 8 * s, 0, 0, TAU); ctx.fill();
 
     const sp = e.boss ? SPR.boss : (e.kind === 'spider' ? SPR.spider : SPR.beetle);
+    const fps = e.boss ? 3 : (e.kind === 'spider' ? 10 : 7);
+    const n = sp.ready ? sp.frames.length : 0;
+    const ti = Math.floor(time * fps + e.slot * 1.7);
+    const moving = e.state === 'walk';
+    const f = n ? ((e.boss || n <= 2) ? pingpong(ti, n) : (moving ? ti % n : Math.floor(time * 2) % n)) : 0;
+
     ctx.save();
     ctx.translate(ex, gy);
     if (e.dying !== null) {
@@ -102,7 +134,7 @@ function drawEnemy(e, gy) {
         ctx.rotate(p * 1.35); ctx.globalAlpha = 1 - p; ctx.translate(0, p * 12);
     } else {
         let hop = 0, tilt = 0, sx = 1, sy = 1;
-        if (e.state === 'walk') {
+        if (moving) {
             const pw = time * (e.kind === 'spider' ? 10 : 8);
             hop = -Math.abs(Math.sin(pw)) * 2.5;
             tilt = Math.sin(pw) * 0.035;
@@ -112,7 +144,7 @@ function drawEnemy(e, gy) {
         ctx.rotate(tilt); ctx.scale(sx, sy); ctx.translate(0, hop);
     }
     ctx.scale(s, s);
-    if (sp.ready) drawFrame(sp, 0, e.boss ? 115 : 80, e.flash);
+    if (sp.ready) drawFrame(sp, f, e.boss ? 115 : 80, e.flash);
     else {
         ctx.fillStyle = 'hsl(' + e.hue + ',75%,50%)';
         ctx.beginPath(); ctx.ellipse(0, -22, 26, 16, 0, 0, TAU); ctx.fill();
