@@ -9,7 +9,9 @@ const io = new Server(server, {
     cors: { origin: "*" }
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 // Estado del servidor
 const WORLD_SIZE = 5000;
