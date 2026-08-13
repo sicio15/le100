@@ -88,6 +88,14 @@ function updateMe() {
             }
         }
     });
+        // 🌀 Auto-colisión: morder tu propio cuerpo mata (el escudo NO salva)
+    for (let i = 14; i < me.segments.length; i++) {
+        const s = me.segments[i];
+        if (Math.hypot(s.x - head.x, s.y - head.y) < 20) {
+            die('🌀 ¡Te mordiste tu propio cuerpo!');
+            break;
+        }
+    }
     if (me.alive && canMove &&
         (head.x <= 2 || head.x >= G.worldSize-2 || head.y <= 2 || head.y >= G.worldSize-2)) {
         die('💥 Te estrellaste contra el borde');
