@@ -11,7 +11,7 @@ function toast(t) {
 }
 
 /* ================= GUARDADO ================= */
-const KEY = 'le100_idle_v2';
+const KEY = 'le100_idle_v3';
 const DEF = { name:'', gold:0, adn:0, stage:1, best:1, kills:0, ks:0, prestiges:0,
     ups:{ dmg:0, vit:0, regen:0, venom:0, fortune:0 }, ach:{}, last:Date.now() };
 let S = loadSave();
@@ -39,7 +39,58 @@ const isBossStage = () => S.stage % 5 === 0;
 const killsNeed = () => isBossStage() ? 1 : 8;
 const prGain = () => Math.floor(3 * Math.sqrt(Math.max(0, S.best - 8)));
 
-/* ================= CANVAS + SPRITE ================= */
+/* ================= ASSETS (con chroma-key de fondo blanco) ================= */
+function chroma(g, c) {
+    const w = c.width, h = c.height;
+    const d = g.getImageData(0, 0, w, h), px = d.data;
+    const seen = new Uint8Array(w * h);
+    const st = [0, w - 1, (h - 1) * w, (h - 1) * w + w - 1];
+    const isW = i => { const j = i * 4; return px[j] > 230 && px[j+1] > 230 && px[j+2] > 228; };
+    while (st.length) {
+        const i = st.pop();
+        if (i < 0 || i >= w * h || seen[i]) continue;
+        seen[i] = 1;
+        if (!isW(i)) continue;
+        px[i*4+3] = 0;
+        const x = i % w;
+        if (x > 0) st.push(i - 1);
+        if (x < w - 1) st.push(i + 1);
+        st.push(i - w, i + w);
+    }
+    g.putImageData(d, 0, 0);
+}
+function loadSprite(src) {
+    const o = { ready:false, cv:null };
+    const img = new Image();
+    img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = img.width; c.height = img.height;
+        const g = c.getContext('2d');
+        g.drawImage(img, 0, 0);
+        try { chroma(g, c); } catch (e) {}
+        o.cv = c; o.ready = true;
+    };
+    img.src = src;
+    return o;
+}
+function loadRaw(src) {
+    const o = { ready:false, img:null };
+    const i = new Image();
+    i.onload = () => { o.img = i; o.ready = true; };
+    i.src = src;
+    return o;
+}
+const SPR = {
+    heroIdle: loadSprite('img/hero.png'),
+    heroWalk: loadSprite('img/hero_walk.png'),
+    heroAtk:  loadSprite('img/hero_attack.png'),
+    beetle:   loadSprite('img/enemy_beetle.png'),
+    spider:   loadSprite('img/enemy_spider.png'),
+    boss:     loadSprite('img/enemy_boss.png')
+};
+const BG = loadRaw('img/bg.png');
+
+/* ================= CANVAS ================= */
 const cv = $('cv'), ctx = cv.getContext('2d');
 let W = 0, H = 0;
 function fit() {
@@ -49,32 +100,6 @@ function fit() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 window.addEventListener('resize', fit);
-
-// Usa tu sprite img/hero.png; si falla, SVG de respaldo
-const HERO_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 150">' +
-'<g stroke="#1c5a33" stroke-width="5" stroke-linecap="round" fill="none">' +
-'<path d="M30 116 q-5 14 -12 18"/><path d="M48 120 q-2 14 -8 20"/><path d="M70 122 q0 14 -5 20"/>' +
-'<path d="M95 124 q2 14 -2 20"/><path d="M120 124 q4 14 0 20"/><path d="M145 122 q6 12 3 19"/>' +
-'<path d="M165 116 q10 10 9 17"/><path d="M180 108 q12 8 13 15"/></g>' +
-'<g stroke="#14351f" stroke-width="4">' +
-'<ellipse cx="32" cy="100" rx="20" ry="19" fill="#2fae62"/><ellipse cx="58" cy="92" rx="23" ry="24" fill="#37c06d"/>' +
-'<ellipse cx="90" cy="88" rx="26" ry="27" fill="#3fca74"/><ellipse cx="122" cy="88" rx="26" ry="27" fill="#48d67e"/>' +
-'<ellipse cx="150" cy="93" rx="24" ry="25" fill="#52e088"/></g>' +
-'<g fill="rgba(255,255,255,.35)"><ellipse cx="84" cy="76" rx="9" ry="5"/><ellipse cx="116" cy="76" rx="9" ry="5"/><ellipse cx="52" cy="80" rx="7" ry="4"/></g>' +
-'<g stroke="#2fae62" stroke-width="6" stroke-linecap="round" fill="#57e58d">' +
-'<path d="M163 32 q-8 -18 2 -26" fill="none"/><circle cx="166" cy="6" r="7"/>' +
-'<path d="M188 32 q8 -16 22 -18" fill="none"/><circle cx="212" cy="13" r="7"/></g>' +
-'<circle cx="174" cy="62" r="34" fill="#57e58d" stroke="#14351f" stroke-width="4"/>' +
-'<circle cx="163" cy="56" r="12" fill="#fff" stroke="#14351f" stroke-width="3"/>' +
-'<circle cx="187" cy="56" r="12" fill="#fff" stroke="#14351f" stroke-width="3"/>' +
-'<circle cx="165" cy="58" r="5.5" fill="#111"/><circle cx="189" cy="58" r="5.5" fill="#111"/>' +
-'<circle cx="167" cy="56" r="2" fill="#fff"/><circle cx="191" cy="56" r="2" fill="#fff"/>' +
-'<path d="M168 78 q11 8 23 2" stroke="#14351f" stroke-width="4" fill="none" stroke-linecap="round"/></svg>';
-const heroImg = new Image();
-let heroReady = false;
-heroImg.onload = () => { heroReady = true; };
-heroImg.onerror = () => { heroImg.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(HERO_SVG); };
-heroImg.src = 'img/hero.png';
 
 /* ================= BATALLA ================= */
 let hero = { hp: maxHP(), atkT: 0, venT: 3, lunge: 0, dead: 0 };
@@ -89,12 +114,14 @@ function spawnEnemy() {
     enemies.forEach(e => { const i = slots.indexOf(e.slot); if (i >= 0) slots.splice(i, 1); });
     if (!slots.length) return;
     const slot = slots[Math.random() * slots.length | 0];
-    const hp = eHP(S.stage);
-    enemies.push({ hp, max: hp, slot, x: W + 60, atkT: 1, boss: false, hue: (S.stage * 25) % 360, size: 1 });
+    const kind = Math.random() < 0.5 ? 'beetle' : 'spider';
+    const hp = eHP(S.stage) * (kind === 'beetle' ? 1.25 : 1);
+    enemies.push({ hp, max: hp, slot, x: W + 60, atkT: 1, boss: false, kind,
+        spd: kind === 'spider' ? 95 : 70, hue: (S.stage * 25) % 360, size: 1 });
 }
 function spawnBoss() {
     const hp = eHP(S.stage) * 10;
-    enemies.push({ hp, max: hp, slot: 1, x: W + 80, atkT: 1, boss: true, hue: (S.stage * 25) % 360, size: 2.2 });
+    enemies.push({ hp, max: hp, slot: 1, x: W + 80, atkT: 1, boss: true, kind: 'boss', spd: 40, hue: 0, size: 2.2 });
     bossT = 30;
     $('bossBar').classList.remove('hidden');
     toast('👑 ¡JEFE en la etapa ' + S.stage + '!');
@@ -166,7 +193,7 @@ function update(dt) {
 
     enemies.forEach(e => {
         const slotX = hx + 150 + e.slot * 46;
-        if (e.x > slotX) e.x -= (e.boss ? 40 : 70) * dt;
+        if (e.x > slotX) e.x -= (e.spd || 70) * dt;
         else if (hero.dead <= 0) {
             e.atkT -= dt;
             if (e.atkT <= 0) {
@@ -199,13 +226,85 @@ function update(dt) {
 }
 
 /* ================= DRAW ================= */
+function drawBG() {
+    if (BG.ready) {
+        const iw = BG.img.width, ih = BG.img.height;
+        const sc = Math.max(W / iw, H / ih);
+        const dw = iw * sc, dh = ih * sc;
+        ctx.drawImage(BG.img, (W - dw) / 2, H - dh, dw, dh);
+        ctx.fillStyle = 'rgba(8,5,18,.28)';
+        ctx.fillRect(0, 0, W, H);
+    } else {
+        const sky = ctx.createLinearGradient(0, 0, 0, H);
+        sky.addColorStop(0, '#151030'); sky.addColorStop(1, '#241640');
+        ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = '#1b2b1e'; ctx.fillRect(0, groundY() + 26, W, H);
+        ctx.fillStyle = '#28402c'; ctx.fillRect(0, groundY() + 22, W, 8);
+    }
+}
+
+function drawHero(hx, gy, scale) {
+    const bob = Math.sin(time * 4) * 4;
+    ctx.save();
+    ctx.translate(hx + hero.lunge * 22, gy + bob * 0.4);
+    if (hero.dead > 0) { ctx.globalAlpha = 0.4; ctx.rotate(-0.2); }
+    ctx.scale(scale, scale);
+    const attacking = hero.lunge > 0.45;
+    if (attacking && SPR.heroAtk.ready) {
+        ctx.drawImage(SPR.heroAtk.cv, -70, -102, 152, 106);
+    } else if (hero.dead <= 0 && SPR.heroWalk.ready) {
+        const fw = SPR.heroWalk.cv.width / 4, fh = SPR.heroWalk.cv.height;
+        const f = Math.floor(time * 7) % 4;
+        ctx.drawImage(SPR.heroWalk.cv, f * fw, 0, fw, fh, -70, -100, 140, 100);
+    } else if (SPR.heroIdle.ready) {
+        ctx.drawImage(SPR.heroIdle.cv, -70, -95, 140, 100);
+    } else {
+        for (let i = 0; i < 7; i++) {
+            ctx.fillStyle = i % 2 ? '#2ecc71' : '#27ae60';
+            ctx.beginPath(); ctx.arc(-i * 16 + 20, -30 + Math.sin(time*6 + i) * 3, 16 - i, 0, TAU); ctx.fill();
+        }
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(28, -40, 6, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(30, -40, 3, 0, TAU); ctx.fill();
+    }
+    ctx.restore();
+}
+
+function drawEnemy(e, gy) {
+    const s = e.size * (1 + Math.min(0.5, S.stage * 0.004));
+    const ex = e.x, ey = gy;
+    const bobE = Math.sin(time * 6 + e.slot * 2) * 3;
+    const sp = e.boss ? SPR.boss : (e.kind === 'spider' ? SPR.spider : SPR.beetle);
+
+    ctx.fillStyle = 'rgba(0,0,0,.35)';
+    ctx.beginPath(); ctx.ellipse(ex, ey + 6, 34 * s, 8 * s, 0, 0, TAU); ctx.fill();
+
+    if (sp.ready) {
+        const w = (e.boss ? 160 : 100) * s, h = (e.boss ? 115 : 78) * s;
+        ctx.drawImage(sp.cv, ex - w / 2, ey - h + 10 + bobE, w, h);
+    } else {
+        ctx.save();
+        ctx.translate(ex, ey); ctx.scale(s, s);
+        ctx.strokeStyle = 'hsl(' + e.hue + ',60%,35%)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+        ctx.beginPath();
+        for (let i = 0; i < 4; i++) {
+            const sw = Math.sin(time * 10 + i) * 6;
+            ctx.moveTo(-15 + i * 10, -12); ctx.lineTo(-19 + i * 10 + sw, 2);
+        }
+        ctx.stroke();
+        ctx.fillStyle = 'hsl(' + e.hue + ',75%,50%)';
+        ctx.beginPath(); ctx.ellipse(0, -22, 26, 16, 0, 0, TAU); ctx.fill();
+        ctx.restore();
+    }
+
+    const bw = 56 * s;
+    ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(ex - bw/2, ey - 78 * s, bw, 6);
+    ctx.fillStyle = e.boss ? '#ff4757' : '#7bed9f';
+    ctx.fillRect(ex - bw/2, ey - 78 * s, bw * Math.max(0, e.hp / e.max), 6);
+}
+
 function draw() {
     ctx.clearRect(0, 0, W, H);
-    const sky = ctx.createLinearGradient(0, 0, 0, H);
-    sky.addColorStop(0, '#151030'); sky.addColorStop(1, '#241640');
-    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#1b2b1e'; ctx.fillRect(0, groundY() + 26, W, H);
-    ctx.fillStyle = '#28402c'; ctx.fillRect(0, groundY() + 22, W, 8);
+    drawBG();
 
     let ox = 0, oy = 0;
     if (shake > 0) { ox = (Math.random()-.5)*shake; oy = (Math.random()-.5)*shake; }
@@ -218,47 +317,8 @@ function draw() {
     }
 
     const scale = 1 + Math.min(0.6, (S.ups.dmg + S.ups.vit) * 0.012);
-    const bob = Math.sin(time * 4) * 4;
-    ctx.save();
-    ctx.translate(hx + hero.lunge * 22, gy + bob * 0.4);
-    if (hero.dead > 0) ctx.globalAlpha = 0.4;
-    ctx.scale(scale, scale);
-    if (heroReady) {
-        ctx.drawImage(heroImg, -70, -95, 140, 100);
-    } else {
-        for (let i = 0; i < 7; i++) {
-            ctx.fillStyle = i % 2 ? '#2ecc71' : '#27ae60';
-            ctx.beginPath(); ctx.arc(-i * 16 + 20, -30 + Math.sin(time*6 + i) * 3, 16 - i, 0, TAU); ctx.fill();
-        }
-        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(28, -40, 6, 0, TAU); ctx.fill();
-        ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(30, -40, 3, 0, TAU); ctx.fill();
-    }
-    ctx.restore();
-
-    enemies.forEach(e => {
-        const s = e.size, ex = e.x, ey = gy;
-        ctx.save();
-        ctx.translate(ex, ey); ctx.scale(s, s);
-        ctx.strokeStyle = 'hsl(' + e.hue + ',60%,35%)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
-        ctx.beginPath();
-        for (let i = 0; i < 4; i++) {
-            const sw = Math.sin(time * 10 + i) * 6;
-            ctx.moveTo(-15 + i * 10, -12); ctx.lineTo(-19 + i * 10 + sw, 2);
-        }
-        ctx.stroke();
-        ctx.fillStyle = 'hsl(' + e.hue + ',75%,50%)';
-        ctx.beginPath(); ctx.ellipse(0, -22, 26, 16, 0, 0, TAU); ctx.fill();
-        ctx.fillStyle = 'hsl(' + e.hue + ',75%,38%)';
-        ctx.beginPath(); ctx.arc(-22, -24, 11, 0, TAU); ctx.fill();
-        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-24, -27, 5, 0, TAU); ctx.fill();
-        ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(-25, -27, 2.5, 0, TAU); ctx.fill();
-        ctx.restore();
-        const bw = 50 * s;
-        ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(ex - bw/2, ey - 60 * s, bw, 6);
-        ctx.fillStyle = e.boss ? '#ff4757' : '#7bed9f';
-        ctx.fillRect(ex - bw/2, ey - 60 * s, bw * Math.max(0, e.hp / e.max), 6);
-        if (e.boss) { ctx.font = '20px serif'; ctx.textAlign = 'center'; ctx.fillText('👑', ex, ey - 70 * s); }
-    });
+    drawHero(hx, gy, scale);
+    enemies.forEach(e => drawEnemy(e, gy));
 
     parts.forEach(p => {
         ctx.globalAlpha = Math.max(0, p.life / .7);
