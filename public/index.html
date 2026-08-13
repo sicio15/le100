@@ -3,73 +3,78 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>le100.io - Cienpies Battle Online</title>
+<title>le100.io - Idle Cienpies</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rubik:wght@400;600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-<canvas id="gameCanvas"></canvas>
-<div id="vignette"></div>
-
-<div id="scorePanel" class="hud panel"><div class="lbl">LONGITUD</div><div class="big" id="scoreVal">10</div><div id="coinTxt">🪙 0</div><div id="rankTxt">Rank #-</div></div>
-<div id="onlinePill" class="hud panel"><span class="dot"></span><span id="onlineCount">1</span> en sala</div>
-<div id="leaderboard" class="hud panel"><h3>🏆 RANKING</h3><div id="lbList"></div></div>
-<div id="hint" class="hud panel"><b>1-4</b> Habilidades · <b>Q</b> AUTO · <b>Enter</b> Chat<br>⚠️ ¡No muerdas tu propio cuerpo!</div>
-<div id="abilities" class="hud"></div>
-<div id="minimapBox" class="hud panel"><canvas id="minimap" width="170" height="170"></canvas></div>
-<div id="chat" class="hud panel"><div id="chatMsgs"></div><input id="chatInput" placeholder="Enter para chatear..." maxlength="80"></div>
-<div id="toasts"></div>
-
-<div id="joyZone"></div>
-<div id="joyBase"></div>
-<div id="joyKnob"></div>
-<div id="mAbs"></div>
-
-<div id="menu">
-    <div class="card">
-        <canvas id="logoCanvas" width="190" height="150"></canvas>
-        <div class="title">le100.io</div>
-        <div class="subtitle">CIENPIES BATTLE · IDLE ARENA</div>
-        <input id="nameInput" placeholder="Tu nombre..." maxlength="14" value=""><br>
-        <div class="skins" id="skins"></div>
-        <button id="playBtn">JUGAR</button>
-        <div class="menuRow">
-            <button id="shopBtn">🛒 MEJORAS</button>
-            <div id="menuCoins">🪙 0</div>
+<div id="app">
+    <div id="topbar">
+        <div class="tb-left">
+            <div class="panel">⚔️ Etapa <b id="stageTxt">1</b> <span id="bossTag" class="hidden">👑</span></div>
+            <div class="panel">🪙 <b id="goldTxt">0</b></div>
+            <div class="panel">🧬 <b id="adnTxt">0</b></div>
         </div>
+        <div class="tb-right">
+            <button class="tbtn" id="btnAch">🏅<span class="dot" id="achDot"></span></button>
+            <button class="tbtn" id="btnLb">🏆</button>
+            <button class="tbtn" id="btnPrestige">🧬<span class="dot" id="prDot"></span></button>
+        </div>
+    </div>
+
+    <div id="battleWrap">
+        <canvas id="cv"></canvas>
+        <div id="bossBar" class="hidden"><div id="bossFill"></div><span id="bossTime"></span></div>
+        <div id="heroHpWrap"><div id="heroHp"></div></div>
+    </div>
+
+    <div id="bottombar">
+        <div id="heroStats" class="panel">
+            <div>❤️ <span id="hpTxt">100</span></div>
+            <div>⚔️ <span id="dpsTxt">5</span>/s</div>
+        </div>
+        <div id="ups"></div>
     </div>
 </div>
 
-<div id="shop"><div class="card shopCard">
-    <h2>🛒 MEJORAS</h2>
-    <div id="shopCoins">🪙 0</div>
-    <div id="shopList"></div>
-    <button id="shopClose">CERRAR</button>
-</div></div>
-
-<div id="offline"><div class="card">
+<div id="mOffline" class="modal"><div class="mcard">
     <h2>🌙 ¡Bienvenido de nuevo!</h2>
     <p style="color:#cfd8ea">Tu cienpiés siguió luchando mientras no estabas:</p>
-    <div id="offlineAmt">🪙 0</div>
-    <button id="offlineBtn">RECLAMAR</button>
+    <div id="offlineAmt" class="big">🪙 0</div>
+    <button class="mbtn" id="offlineBtn">RECLAMAR</button>
 </div></div>
 
-<div id="death"><div class="card">
-    <h1>💀 ELIMINADO</h1>
-    <div id="deathReason"></div>
-    <div id="deathScore"></div>
-    <div id="respawnTxt">Renaciendo en 5...</div>
+<div id="mStart" class="modal"><div class="mcard">
+    <h2>🐛 le100.io</h2>
+    <p style="color:#cfd8ea;margin-bottom:12px">IDLE ARENA · tu cienpiés lucha solo</p>
+    <input id="nameInput" placeholder="Tu nombre..." maxlength="14">
+    <br><button class="mbtn" id="startBtn">ENTRAR</button>
 </div></div>
+
+<div id="mPrestige" class="modal"><div class="mcard">
+    <h2>🧬 PRESTIGIO</h2>
+    <p style="color:#cfd8ea">Mudá de piel: reiniciás etapa, oro y mejoras, pero ganás <b style="color:#7efcff">ADN</b> permanente.<br>Cada 🧬 = <b>+10% daño y oro</b> para siempre.</p>
+    <div id="prGain" class="big">+0 🧬</div>
+    <button class="mbtn" id="prBtn">MUDAR DE PIEL</button>
+    <button class="mbtn gray" id="prClose">CERRAR</button>
+</div></div>
+
+<div id="mAch" class="modal"><div class="mcard">
+    <h2>🏅 LOGROS</h2>
+    <div id="achList"></div>
+    <button class="mbtn gray" id="achClose">CERRAR</button>
+</div></div>
+
+<div id="mLb" class="modal"><div class="mcard">
+    <h2>🏆 RANKING ONLINE</h2>
+    <div id="lbList"></div>
+    <button class="mbtn gray" id="lbClose">CERRAR</button>
+</div></div>
+
+<div id="rotate">📱<br>Girá el celular<br><small>le100.io se juega en horizontal</small></div>
+<div id="toasts"></div>
 
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-<script src="js/config.js"></script>
-<script src="js/idle.js"></script>
-<script src="js/core.js"></script>
-<script src="js/state.js"></script>
-<script src="js/render.js"></script>
-<script src="js/input.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/net.js"></script>
 <script src="js/game.js"></script>
 </body>
 </html>
