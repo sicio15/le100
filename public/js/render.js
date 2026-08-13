@@ -8,6 +8,19 @@ function fit() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 window.addEventListener('resize', fit);
+const easeOutBack = p => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); };
+
+/* Dibuja un frame recortado, centrado y apoyado en el suelo (pies fijos) */
+function drawFrame(sp, f, targetH, flash) {
+    const fr = sp.frames[f], sc = targetH / sp.maxH;
+    const dw = fr.sw * sc, dh = fr.sh * sc;
+    ctx.drawImage(sp.cv, fr.sx, fr.sy, fr.sw, fr.sh, -dw / 2, -dh, dw, dh);
+    if (flash > 0) {
+        ctx.globalAlpha = Math.min(1, flash * 8);
+        ctx.drawImage(sp.tint, fr.sx, fr.sy, fr.sw, fr.sh, -dw / 2, -dh, dw, dh);
+        ctx.globalAlpha = 1;
+    }
+}
 
 function drawBG() {
     if (BG.ready) {
@@ -23,7 +36,6 @@ function drawBG() {
         ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
         ctx.fillStyle = '#1b2b1e'; ctx.fillRect(0, groundY() + 26, W, H);
     }
-    // luciérnagas ambientales
     flies.forEach(f => {
         const x = (f.x + Math.sin(time * .12 * f.s + f.p) * .06) * W;
         const y = (f.y + Math.sin(time * .2 * f.s + f.p * 2) * .05) * H;
@@ -36,45 +48,50 @@ function drawBG() {
 }
 
 function drawHero(hx, gy, scale) {
+    // sombra que respira con el paso
+    const ph = time * (enemies.length ? 6 : 3);
     ctx.fillStyle = 'rgba(0,0,0,.35)';
-    ctx.beginPath(); ctx.ellipse(hx, gy + 6, 52 * scale, 10 * scale, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(hx, gy + 6, (50 - Math.abs(Math.sin(ph)) * 4) * scale, 9 * scale, 0, 0, TAU); ctx.fill();
+
     ctx.save();
     ctx.translate(hx, gy);
+
     if (hero.dead > 0) {
-        const p = Math.min(1, (4 - hero.dead) * 2);
-        ctx.rotate(-p * 1.4);
-        ctx.globalAlpha = 0.45 + 0.55 * (1 - p);
-    } else ctx.translate(hero.lunge * 22, 0);
-    const breath = 1 + Math.sin(time * 3) * 0.015;
-    ctx.scale(scale, scale * breath);
-    const sheet = SPR.heroWalk;
-    if (sheet.ready) {
-        const fw = sheet.cv.width / 4, fh = sheet.cv.height;
-        let f = 0, hop = 0, tilt = 0;
-        if (hero.dead <= 0) {
-            if (hero.lunge > 0.4) { f = 2; tilt = 0.07; }
-            else {
-                const ph = time * 5;
-                f = Math.floor(ph) % 4;
-                hop = -Math.abs(Math.sin(ph)) * 2;
-                tilt = Math.sin(ph) * 0.02;
-            }
+        const p = Math.min(1, (4 - hero.dead) * 2.5);
+        const e = 1 - Math.pow(1 - p, 3);
+        ctx.rotate(-e * 1.5);
+        ctx.globalAlpha = 1 - p * .6;
+    } else {
+        ctx.translate(hero.lunge * 24 - hero.recoil * 7, 0);
+    }
+
+    // squash & stretch sutil anclado a los pies
+    const sy = 1 + Math.cos(ph * 2) * 0.02;
+    ctx.scale(scale * (2 - sy), scale * sy);
+
+    let tilt = 0, f = 0, hop = 0;
+    if (hero.dead <= 0) {
+        if (hero.lunge > 0.4)      { f = 3; tilt = 0.09; }              // golpe
+        else if (hero.atkT <= 0.12){ f = 1; tilt = -0.07; }             // windup
+        else {
+            f = Math.floor(ph) % 4;
+            hop = -Math.abs(Math.sin(ph)) * 2.2;
+            tilt = Math.sin(ph) * 0.02 + 0.03;
         }
-        ctx.rotate(tilt);
-        ctx.drawImage(sheet.cv, f * fw, 0, fw, fh, -70, -100 + hop, 140, 100);
-        if (hero.flash > 0) {
-            ctx.globalAlpha = Math.min(1, hero.flash * 8);
-            ctx.drawImage(sheet.tint, f * fw, 0, fw, fh, -70, -100 + hop, 140, 100);
-            ctx.globalAlpha = 1;
-        }
+    }
+    ctx.rotate(tilt);
+    ctx.translate(0, hop);
+
+    if (SPR.heroWalk.ready) {
+        drawFrame(SPR.heroWalk, f, 105, hero.flash);
         if (hero.venFlash > 0) {
             ctx.fillStyle = '#a855f7';
-            ctx.beginPath(); ctx.ellipse(72, -52, 12, 8, 0, 0, TAU); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(66, -52, 12, 8, 0, 0, TAU); ctx.fill();
             ctx.fillStyle = 'rgba(255,255,255,.7)';
-            ctx.beginPath(); ctx.arc(70, -55, 3, 0, TAU); ctx.fill();
+            ctx.beginPath(); ctx.arc(64, -55, 3, 0, TAU); ctx.fill();
         }
     } else if (SPR.heroIdle.ready) {
-        ctx.drawImage(SPR.heroIdle.cv, -70, -95, 140, 100);
+        drawFrame(SPR.heroIdle, 0, 100, hero.flash);
     } else {
         for (let i = 0; i < 7; i++) {
             ctx.fillStyle = i % 2 ? '#2ecc71' : '#27ae60';
@@ -85,45 +102,47 @@ function drawHero(hx, gy, scale) {
 }
 
 function drawEnemy(e, gy) {
-    const s = e.size * (1 + Math.min(0.5, S.stage * 0.004)) * (0.6 + 0.4 * e.pop);
-    const ex = e.x + e.lungeX;
+    const grow = 1 + Math.min(0.5, S.stage * 0.004);
+    const pop = e.pop < 1 ? Math.max(0.01, easeOutBack(e.pop)) : 1;
+    const s = e.size * grow * pop;
+    const ex = e.x + e.lungeX + e.kb;
+
     ctx.fillStyle = 'rgba(0,0,0,.35)';
     ctx.beginPath(); ctx.ellipse(ex, gy + 6, 34 * s, 8 * s, 0, 0, TAU); ctx.fill();
+
     const sp = e.boss ? SPR.boss : (e.kind === 'spider' ? SPR.spider : SPR.beetle);
     ctx.save();
     ctx.translate(ex, gy);
     if (e.dying !== null) {
         const p = 1 - Math.max(0, e.dying) / 0.45;
-        ctx.rotate(p * 1.3); ctx.globalAlpha = 1 - p; ctx.translate(0, p * 10);
+        ctx.rotate(p * 1.35);
+        ctx.globalAlpha = 1 - p;
+        ctx.translate(0, p * 12);
     } else {
-        let hop = 0, tilt = 0;
+        let hop = 0, tilt = 0, sx = 1, sy = 1;
         if (e.state === 'walk') {
-            const ph = time * (e.kind === 'spider' ? 9 : 7);
-            hop = -Math.abs(Math.sin(ph)) * 2.5;
-            tilt = Math.sin(ph) * 0.03;
-        } else if (e.state === 'windup') tilt = -0.08;
-        else if (e.state === 'strike') tilt = 0.1;
-        else tilt = Math.sin(time * 2.5 + e.slot) * 0.015;
-        ctx.rotate(tilt); ctx.translate(0, hop);
+            const pw = time * (e.kind === 'spider' ? 10 : 8);
+            hop = -Math.abs(Math.sin(pw)) * 2.5;
+            tilt = Math.sin(pw) * 0.035;
+        } else if (e.state === 'windup') { tilt = -0.1;  sy = .93; sx = 1.05; }  // se agacha
+        else if (e.state === 'strike') { tilt = 0.12;  sx = 1.1; sy = .94; }     // embestida
+        else { sy = 1 + Math.sin(time * 3 + e.slot) * .015; sx = 2 - sy; }       // respira
+        ctx.rotate(tilt);
+        ctx.scale(sx, sy);
+        ctx.translate(0, hop);
     }
     ctx.scale(s, s);
-    if (sp.ready) {
-        const w = e.boss ? 160 : 100, h = e.boss ? 115 : 78;
-        ctx.drawImage(sp.cv, -w / 2, -h + 8, w, h);
-        if (e.flash > 0 && e.dying === null) {
-            ctx.globalAlpha = Math.min(1, e.flash * 8);
-            ctx.drawImage(sp.tint, -w / 2, -h + 8, w, h);
-            ctx.globalAlpha = 1;
-        }
-    } else {
+    if (sp.ready) drawFrame(sp, 0, e.boss ? 115 : 80, e.flash);
+    else {
         ctx.fillStyle = 'hsl(' + e.hue + ',75%,50%)';
         ctx.beginPath(); ctx.ellipse(0, -22, 26, 16, 0, 0, TAU); ctx.fill();
     }
     ctx.restore();
+
     const bw = 56 * s;
-    ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(ex - bw/2, gy - 78 * s, bw, 6);
+    ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(ex - bw/2, gy - 82 * s, bw, 6);
     ctx.fillStyle = e.boss ? '#ff4757' : '#7bed9f';
-    ctx.fillRect(ex - bw/2, gy - 78 * s, bw * Math.max(0, e.hp / e.max), 6);
+    ctx.fillRect(ex - bw/2, gy - 82 * s, bw * Math.max(0, e.hp / e.max), 6);
 }
 
 function draw() {
