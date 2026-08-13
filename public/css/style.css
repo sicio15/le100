@@ -85,3 +85,4 @@ html, body { position:fixed; inset:0; overflow:hidden; background:#0d0a1a;
 .minput:focus { border-color:#ffd700; }
 .err { color:#ff6b81; font-size:12px; min-height:16px; margin:6px 0; }
 .hintTxt { color:#8fa3c8; font-size:11px; margin-top:10px; }
+#cv { image-rendering: pixelated; image-rendering: crisp-edges; }
