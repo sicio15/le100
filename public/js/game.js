@@ -39,7 +39,7 @@ const isBossStage = () => S.stage % 5 === 0;
 const killsNeed = () => isBossStage() ? 1 : 8;
 const prGain = () => Math.floor(3 * Math.sqrt(Math.max(0, S.best - 8)));
 
-/* ================= ASSETS (con chroma-key de fondo blanco) ================= */
+/* ================= ASSETS (chroma-key + copia blanca para flash de daño) ================= */
 function chroma(g, c) {
     const w = c.width, h = c.height;
     const d = g.getImageData(0, 0, w, h), px = d.data;
@@ -60,7 +60,7 @@ function chroma(g, c) {
     g.putImageData(d, 0, 0);
 }
 function loadSprite(src) {
-    const o = { ready:false, cv:null };
+    const o = { ready:false, cv:null, tint:null };
     const img = new Image();
     img.onload = () => {
         const c = document.createElement('canvas');
@@ -68,7 +68,14 @@ function loadSprite(src) {
         const g = c.getContext('2d');
         g.drawImage(img, 0, 0);
         try { chroma(g, c); } catch (e) {}
-        o.cv = c; o.ready = true;
+        const t = document.createElement('canvas');
+        t.width = c.width; t.height = c.height;
+        const tg = t.getContext('2d');
+        tg.drawImage(c, 0, 0);
+        tg.globalCompositeOperation = 'source-atop';
+        tg.fillStyle = '#fff';
+        tg.fillRect(0, 0, t.width, t.height);
+        o.cv = c; o.tint = t; o.ready = true;
     };
     img.src = src;
     return o;
@@ -81,9 +88,8 @@ function loadRaw(src) {
     return o;
 }
 const SPR = {
-    heroIdle: loadSprite('img/hero.png'),
-    heroWalk: loadSprite('img/hero_walk.png'),
-    heroAtk:  loadSprite('img/hero_attack.png'),
+    heroWalk: loadSprite('img/hero_walk.png'),   // ÚNICO diseño del héroe (4 frames)
+    heroIdle: loadSprite('img/hero.png'),        // solo fallback
     beetle:   loadSprite('img/enemy_beetle.png'),
     spider:   loadSprite('img/enemy_spider.png'),
     boss:     loadSprite('img/enemy_boss.png')
@@ -102,7 +108,7 @@ function fit() {
 window.addEventListener('resize', fit);
 
 /* ================= BATALLA ================= */
-let hero = { hp: maxHP(), atkT: 0, venT: 3, lunge: 0, dead: 0 };
+let hero = { hp: maxHP(), atkT: 0, venT: 3, lunge: 0, dead: 0, flash: 0, venFlash: 0 };
 let enemies = [], floats = [], parts = [];
 let spawnT = 1, bossT = 0, shake = 0, time = 0;
 
@@ -111,22 +117,26 @@ const groundY = () => H - 78;
 
 function spawnEnemy() {
     const slots = [0,1,2,3,4];
-    enemies.forEach(e => { const i = slots.indexOf(e.slot); if (i >= 0) slots.splice(i, 1); });
+    enemies.forEach(e => { if (e.dying === null) { const i = slots.indexOf(e.slot); if (i >= 0) slots.splice(i, 1); } });
     if (!slots.length) return;
     const slot = slots[Math.random() * slots.length | 0];
     const kind = Math.random() < 0.5 ? 'beetle' : 'spider';
     const hp = eHP(S.stage) * (kind === 'beetle' ? 1.25 : 1);
-    enemies.push({ hp, max: hp, slot, x: W + 60, atkT: 1, boss: false, kind,
-        spd: kind === 'spider' ? 95 : 70, hue: (S.stage * 25) % 360, size: 1 });
+    enemies.push({ hp, max: hp, slot, x: W + 60, atkT: 1, boss: false, kind, dying: null,
+        spd: kind === 'spider' ? 95 : 70, hue: (S.stage * 25) % 360, size: 1,
+        state: 'walk', flash: 0, lungeX: 0 });
 }
 function spawnBoss() {
     const hp = eHP(S.stage) * 10;
-    enemies.push({ hp, max: hp, slot: 1, x: W + 80, atkT: 1, boss: true, kind: 'boss', spd: 40, hue: 0, size: 2.2 });
+    enemies.push({ hp, max: hp, slot: 1, x: W + 80, atkT: 1, boss: true, kind: 'boss', dying: null,
+        spd: 40, hue: 0, size: 2.2, state: 'walk', flash: 0, lungeX: 0 });
     bossT = 30;
     $('bossBar').classList.remove('hidden');
     toast('👑 ¡JEFE en la etapa ' + S.stage + '!');
 }
 function killEnemy(e) {
+    if (e.dying !== null) return;
+    e.dying = 0.45;
     const g = goldKill(S.stage) * (e.boss ? 8 : 1);
     S.gold += g; S.kills++; S.ks++;
     float(e.x, groundY() - 60, '+' + fmt(g) + ' 🪙', '#ffd700');
@@ -152,6 +162,9 @@ function burst(x, y, color, n) {
 function update(dt) {
     time += dt;
     const hx = heroX(), gy = groundY();
+    hero.flash = Math.max(0, hero.flash - dt);
+    hero.venFlash = Math.max(0, hero.venFlash - dt);
+
     if (hero.dead > 0) {
         hero.dead -= dt;
         if (hero.dead <= 0) { hero.hp = maxHP(); toast('✨ ¡Revivió!'); }
@@ -160,27 +173,31 @@ function update(dt) {
         hero.atkT -= dt;
         if (hero.atkT <= 0) {
             hero.atkT = 0.5;
-            const t = enemies.filter(e => e.x < hx + 330).sort((a,b) => a.x - b.x)[0];
+            const t = enemies.filter(e => e.dying === null && e.x < hx + 330).sort((a,b) => a.x - b.x)[0];
             if (t) {
                 hero.lunge = 1;
                 const d = dps() * 0.5;
                 t.hp -= d;
+                t.flash = 0.15;
                 float(t.x, gy - 70 * t.size, fmt(d), '#fff');
-                if (t.hp <= 0) { enemies.splice(enemies.indexOf(t), 1); killEnemy(t); }
+                burst(t.x, gy - 45 * t.size, '#ffffff', 6);
+                if (t.hp <= 0) killEnemy(t);
             }
         }
         hero.venT -= dt;
         if (hero.venT <= 0) {
             hero.venT = venomCd();
-            if (enemies.length) {
+            const alive = enemies.filter(e => e.dying === null);
+            if (alive.length) {
+                hero.venFlash = 0.3;
                 const d = venomDm();
                 float(hx + 140, gy - 90, '☠️ ' + fmt(d), '#a020f0');
-                for (let i = enemies.length - 1; i >= 0; i--) {
-                    const e = enemies[i];
+                alive.forEach(e => {
                     e.hp -= d;
+                    e.flash = 0.15;
                     burst(e.x, gy - 30, '#a020f0', 8);
-                    if (e.hp <= 0) { enemies.splice(i, 1); killEnemy(e); }
-                }
+                    if (e.hp <= 0) killEnemy(e);
+                });
             }
         }
     }
@@ -188,28 +205,42 @@ function update(dt) {
 
     if (!isBossStage()) {
         spawnT -= dt;
-        if (spawnT <= 0 && enemies.length < 4) { spawnT = 1.6; spawnEnemy(); }
+        if (spawnT <= 0 && enemies.filter(e => e.dying === null).length < 4) { spawnT = 1.6; spawnEnemy(); }
     } else if (!enemies.length && S.ks === 0) spawnBoss();
 
     enemies.forEach(e => {
+        e.flash = Math.max(0, e.flash - dt);
+        if (e.dying !== null) { e.dying -= dt; return; }
         const slotX = hx + 150 + e.slot * 46;
-        if (e.x > slotX) e.x -= (e.spd || 70) * dt;
-        else if (hero.dead <= 0) {
-            e.atkT -= dt;
-            if (e.atkT <= 0) {
-                e.atkT = 1;
-                const d = eDmg(S.stage) * (e.boss ? 3 : 1);
-                hero.hp -= d;
-                float(hx, gy - 80, '-' + fmt(d), '#ff4757');
-                shake = Math.max(shake, 4);
-                if (hero.hp <= 0) {
-                    hero.dead = 4;
-                    toast('💀 Tu cienpiés cayó...');
-                    enemies.forEach(x => { x.x += 260; x.atkT = 1.5; });
+        let lungeT = 0;
+        if (e.x > slotX) {
+            e.x -= e.spd * dt;
+            e.state = 'walk';
+        } else {
+            if (e.state === 'walk') e.state = 'idle';
+            if (hero.dead <= 0) {
+                e.atkT -= dt;
+                if (e.atkT <= 0.3 && e.atkT > 0.12) { e.state = 'windup'; lungeT = 10 * e.size; }
+                else if (e.atkT <= 0.12) { e.state = 'strike'; lungeT = -18 * e.size; }
+                if (e.atkT <= 0) {
+                    e.atkT = 1 + Math.random() * 0.4;
+                    e.state = 'idle';
+                    const d = eDmg(S.stage) * (e.boss ? 3 : 1);
+                    hero.hp -= d;
+                    hero.flash = 0.15;
+                    float(hx, gy - 80, '-' + fmt(d), '#ff4757');
+                    shake = Math.max(shake, 4);
+                    if (hero.hp <= 0) {
+                        hero.dead = 4;
+                        toast('💀 Tu cienpiés cayó...');
+                        enemies.forEach(x => { x.x += 260; x.atkT = 1.5; x.state = 'walk'; });
+                    }
                 }
             }
         }
+        e.lungeX += (lungeT - e.lungeX) * Math.min(1, dt * 18);
     });
+    enemies = enemies.filter(e => e.dying === null || e.dying > 0);
 
     if (isBossStage() && enemies.length) {
         bossT -= dt;
@@ -243,19 +274,49 @@ function drawBG() {
     }
 }
 
+/* Héroe: UN solo diseño (spritesheet), estados con sentido, anclado al suelo */
 function drawHero(hx, gy, scale) {
-    const bob = Math.sin(time * 4) * 4;
+    ctx.fillStyle = 'rgba(0,0,0,.35)';
+    ctx.beginPath(); ctx.ellipse(hx, gy + 6, 52 * scale, 10 * scale, 0, 0, TAU); ctx.fill();
+
     ctx.save();
-    ctx.translate(hx + hero.lunge * 22, gy + bob * 0.4);
-    if (hero.dead > 0) { ctx.globalAlpha = 0.4; ctx.rotate(-0.2); }
-    ctx.scale(scale, scale);
-    const attacking = hero.lunge > 0.45;
-    if (attacking && SPR.heroAtk.ready) {
-        ctx.drawImage(SPR.heroAtk.cv, -70, -102, 152, 106);
-    } else if (hero.dead <= 0 && SPR.heroWalk.ready) {
-        const fw = SPR.heroWalk.cv.width / 4, fh = SPR.heroWalk.cv.height;
-        const f = Math.floor(time * 7) % 4;
-        ctx.drawImage(SPR.heroWalk.cv, f * fw, 0, fw, fh, -70, -100, 140, 100);
+    ctx.translate(hx, gy);
+    if (hero.dead > 0) {
+        const p = Math.min(1, (4 - hero.dead) * 2);
+        ctx.rotate(-p * 1.4);
+        ctx.globalAlpha = 0.45 + 0.55 * (1 - p);
+    } else {
+        ctx.translate(hero.lunge * 22, 0);
+    }
+    const breath = 1 + Math.sin(time * 3) * 0.015;
+    ctx.scale(scale, scale * breath);
+
+    const sheet = SPR.heroWalk;
+    if (sheet.ready) {
+        const fw = sheet.cv.width / 4, fh = sheet.cv.height;
+        let f = 0, hop = 0, tilt = 0;
+        if (hero.dead <= 0) {
+            if (hero.lunge > 0.4) { f = 2; tilt = 0.07; }          // golpe
+            else {
+                const ph = time * 5;                                // caminata suave en el lugar
+                f = Math.floor(ph) % 4;
+                hop = -Math.abs(Math.sin(ph)) * 2;
+                tilt = Math.sin(ph) * 0.02;
+            }
+        }
+        ctx.rotate(tilt);
+        ctx.drawImage(sheet.cv, f * fw, 0, fw, fh, -70, -100 + hop, 140, 100);
+        if (hero.flash > 0) {
+            ctx.globalAlpha = Math.min(1, hero.flash * 8);
+            ctx.drawImage(sheet.tint, f * fw, 0, fw, fh, -70, -100 + hop, 140, 100);
+            ctx.globalAlpha = 1;
+        }
+        if (hero.venFlash > 0) {                                    // gota de veneno en la boca
+            ctx.fillStyle = '#a855f7';
+            ctx.beginPath(); ctx.ellipse(72, -52, 12, 8, 0, 0, TAU); ctx.fill();
+            ctx.fillStyle = 'rgba(255,255,255,.7)';
+            ctx.beginPath(); ctx.arc(70, -55, 3, 0, TAU); ctx.fill();
+        }
     } else if (SPR.heroIdle.ready) {
         ctx.drawImage(SPR.heroIdle.cv, -70, -95, 140, 100);
     } else {
@@ -269,21 +330,44 @@ function drawHero(hx, gy, scale) {
     ctx.restore();
 }
 
+/* Enemigos: caminan, respiran, telegrafian el golpe, flashean y caen al morir */
 function drawEnemy(e, gy) {
     const s = e.size * (1 + Math.min(0.5, S.stage * 0.004));
-    const ex = e.x, ey = gy;
-    const bobE = Math.sin(time * 6 + e.slot * 2) * 3;
-    const sp = e.boss ? SPR.boss : (e.kind === 'spider' ? SPR.spider : SPR.beetle);
+    const ex = e.x + e.lungeX;
 
     ctx.fillStyle = 'rgba(0,0,0,.35)';
-    ctx.beginPath(); ctx.ellipse(ex, ey + 6, 34 * s, 8 * s, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(ex, gy + 6, 34 * s, 8 * s, 0, 0, TAU); ctx.fill();
 
-    if (sp.ready) {
-        const w = (e.boss ? 160 : 100) * s, h = (e.boss ? 115 : 78) * s;
-        ctx.drawImage(sp.cv, ex - w / 2, ey - h + 10 + bobE, w, h);
+    const sp = e.boss ? SPR.boss : (e.kind === 'spider' ? SPR.spider : SPR.beetle);
+    ctx.save();
+    ctx.translate(ex, gy);
+    if (e.dying !== null) {
+        const p = 1 - Math.max(0, e.dying) / 0.45;
+        ctx.rotate(p * 1.3);
+        ctx.globalAlpha = 1 - p;
+        ctx.translate(0, p * 10);
     } else {
-        ctx.save();
-        ctx.translate(ex, ey); ctx.scale(s, s);
+        let hop = 0, tilt = 0;
+        if (e.state === 'walk') {
+            const ph = time * (e.kind === 'spider' ? 9 : 7);
+            hop = -Math.abs(Math.sin(ph)) * 2.5;
+            tilt = Math.sin(ph) * 0.03;
+        } else if (e.state === 'windup') tilt = -0.08;
+        else if (e.state === 'strike') tilt = 0.1;
+        else tilt = Math.sin(time * 2.5 + e.slot) * 0.015;
+        ctx.rotate(tilt);
+        ctx.translate(0, hop);
+    }
+    ctx.scale(s, s);
+    if (sp.ready) {
+        const w = e.boss ? 160 : 100, h = e.boss ? 115 : 78;
+        ctx.drawImage(sp.cv, -w / 2, -h + 8, w, h);
+        if (e.flash > 0 && e.dying === null) {
+            ctx.globalAlpha = Math.min(1, e.flash * 8);
+            ctx.drawImage(sp.tint, -w / 2, -h + 8, w, h);
+            ctx.globalAlpha = 1;
+        }
+    } else {
         ctx.strokeStyle = 'hsl(' + e.hue + ',60%,35%)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
         ctx.beginPath();
         for (let i = 0; i < 4; i++) {
@@ -293,13 +377,13 @@ function drawEnemy(e, gy) {
         ctx.stroke();
         ctx.fillStyle = 'hsl(' + e.hue + ',75%,50%)';
         ctx.beginPath(); ctx.ellipse(0, -22, 26, 16, 0, 0, TAU); ctx.fill();
-        ctx.restore();
     }
+    ctx.restore();
 
     const bw = 56 * s;
-    ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(ex - bw/2, ey - 78 * s, bw, 6);
+    ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(ex - bw/2, gy - 78 * s, bw, 6);
     ctx.fillStyle = e.boss ? '#ff4757' : '#7bed9f';
-    ctx.fillRect(ex - bw/2, ey - 78 * s, bw * Math.max(0, e.hp / e.max), 6);
+    ctx.fillRect(ex - bw/2, gy - 78 * s, bw * Math.max(0, e.hp / e.max), 6);
 }
 
 function draw() {
@@ -409,7 +493,7 @@ $('prBtn').onclick = () => {
     S.adn += g; S.prestiges++;
     S.gold = 0; S.stage = 1; S.ks = 0;
     S.ups = { dmg:0, vit:0, regen:0, venom:0, fortune:0 };
-    hero = { hp: maxHP(), atkT: 0, venT: 3, lunge: 0, dead: 0 };
+    hero = { hp: maxHP(), atkT: 0, venT: 3, lunge: 0, dead: 0, flash: 0, venFlash: 0 };
     enemies = [];
     save(); submitScore();
     $('mPrestige').style.display = 'none';
