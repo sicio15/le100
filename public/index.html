@@ -21,13 +21,11 @@
             <button class="tbtn" id="btnPrestige">🧬<span class="dot" id="prDot"></span></button>
         </div>
     </div>
-
     <div id="battleWrap">
         <canvas id="cv"></canvas>
         <div id="bossBar" class="hidden"><div id="bossFill"></div><span id="bossTime"></span></div>
         <div id="heroHpWrap"><div id="heroHp"></div></div>
     </div>
-
     <div id="bottombar">
         <div id="heroStats" class="panel">
             <div>❤️ <span id="hpTxt">100</span></div>
@@ -37,18 +35,25 @@
     </div>
 </div>
 
+<div id="mAuth" class="modal"><div class="mcard">
+    <h2>🐛 le100.io</h2>
+    <p style="color:#8fa3c8;margin-bottom:10px">IDLE ARENA · tu cuenta, tu partida</p>
+    <div class="tabs">
+        <button id="tabLogin" class="tab sel">ENTRAR</button>
+        <button id="tabReg" class="tab">CREAR CUENTA</button>
+    </div>
+    <input id="authName" class="minput" placeholder="Nombre" maxlength="14">
+    <input id="authPass" class="minput" type="password" placeholder="Contraseña" maxlength="30">
+    <div id="authErr" class="err"></div>
+    <button class="mbtn" id="authBtn">JUGAR</button>
+    <p class="hintTxt">Tu progreso se guarda en la cuenta y funciona en cualquier dispositivo.</p>
+</div></div>
+
 <div id="mOffline" class="modal"><div class="mcard">
     <h2>🌙 ¡Bienvenido de nuevo!</h2>
     <p style="color:#cfd8ea">Tu cienpiés siguió luchando mientras no estabas:</p>
     <div id="offlineAmt" class="big">🪙 0</div>
     <button class="mbtn" id="offlineBtn">RECLAMAR</button>
-</div></div>
-
-<div id="mStart" class="modal"><div class="mcard">
-    <h2>🐛 le100.io</h2>
-    <p style="color:#cfd8ea;margin-bottom:12px">IDLE ARENA · tu cienpiés lucha solo</p>
-    <input id="nameInput" placeholder="Tu nombre..." maxlength="14">
-    <br><button class="mbtn" id="startBtn">ENTRAR</button>
 </div></div>
 
 <div id="mPrestige" class="modal"><div class="mcard">
@@ -75,6 +80,13 @@
 <div id="toasts"></div>
 
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-<script src="js/game.js"></script>
+<script src="js/config.js"></script>
+<script src="js/store.js"></script>
+<script src="js/assets.js"></script>
+<script src="js/net.js"></script>
+<script src="js/battle.js"></script>
+<script src="js/render.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
 </body>
 </html>
