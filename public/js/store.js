@@ -1,12 +1,20 @@
 'use strict';
 const KEY = 'le100_cache_v4';
-const DEF = { name:'', gold:0, adn:0, stage:1, best:1, kills:0, ks:0, prestiges:0,
+const DEF = { name:'', gold:0, adn:0, stage:1, best:1, kills:0, ks:0, prestiges:0, prBase:1,
     ups:{ dmg:0, vit:0, regen:0, venom:0, fortune:0 }, ach:{}, last:Date.now() };
 let S = loadCache();
 let authed = false;
 
 function loadCache() {
-    try { const s = JSON.parse(localStorage.getItem(KEY)); if (s) return Object.assign({}, JSON.parse(JSON.stringify(DEF)), s, { ups: Object.assign({}, DEF.ups, s.ups) }); } catch (e) {}
+    try {
+        const s = JSON.parse(localStorage.getItem(KEY));
+        if (s) {
+            const out = Object.assign({}, JSON.parse(JSON.stringify(DEF)), s, { ups: Object.assign({}, DEF.ups, s.ups) });
+            out.adn = Math.min(out.adn || 0, 5000);
+            out.prBase = Math.max(1, out.prBase || 1);
+            return out;
+        }
+    } catch (e) {}
     return JSON.parse(JSON.stringify(DEF));
 }
 function persist() {
@@ -37,4 +45,5 @@ const eDmg    = st => 4 * Math.pow(1.22, st);
 const cost    = k => Math.floor(COSTS[k][0] * Math.pow(COSTS[k][1], S.ups[k]));
 const isBossStage = () => S.stage % 5 === 0;
 const killsNeed = () => isBossStage() ? 1 : 8;
-const prGain  = () => Math.floor(3 * Math.sqrt(Math.max(0, S.best - 8)));
+const prTotal = x => Math.floor(3 * Math.sqrt(Math.max(0, x - 8)));
+const prGain  = () => Math.max(0, prTotal(S.best) - prTotal(S.prBase || 1));

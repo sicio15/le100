@@ -10,7 +10,7 @@ const io = new Server(server, { cors: { origin: '*' } });
 app.use(express.static(path.join(__dirname, 'public')));
 
 /* ========== ALMACENAMIENTO (Mongo si hay MONGO_URI, si no memoria) ========== */
-const DEF_SAVE = { gold:0, adn:0, stage:1, best:1, kills:0, prestiges:0,
+const DEF_SAVE = { gold:0, adn:0, stage:1, best:1, kills:0, prestiges:0, prBase:1,
     ups:{ dmg:0, vit:0, regen:0, venom:0, fortune:0 }, ach:{}, last:Date.now() };
 let col = null;
 const mem = new Map();
@@ -34,9 +34,13 @@ function sanitizeSave(s) {
     const o = JSON.parse(JSON.stringify(DEF_SAVE));
     if (!s || typeof s !== 'object') return o;
     const num = (v, max) => Math.max(0, Math.min(max, Number(v) || 0));
-    o.gold = num(s.gold, 1e12); o.adn = num(s.adn, 1e6);
-    o.stage = Math.max(1, num(s.stage, 9999)); o.best = Math.max(1, num(s.best, 9999));
-    o.kills = num(s.kills, 1e9); o.prestiges = num(s.prestiges, 1e6);
+    o.gold = num(s.gold, 1e12);
+    o.adn = num(s.adn, 5000);                       // tope anti-bug
+    o.stage = Math.max(1, num(s.stage, 9999));
+    o.best = Math.max(1, num(s.best, 9999));
+    o.prBase = Math.max(1, num(s.prBase, 9999));    // ✅ persiste el progreso ya prestigiado
+    o.kills = num(s.kills, 1e9);
+    o.prestiges = num(s.prestiges, 1e6);
     if (s.ups) Object.keys(o.ups).forEach(k => o.ups[k] = num(s.ups[k], 999));
     if (s.ach) o.ach = Object.fromEntries(Object.entries(s.ach).filter(([, v]) => v).map(([k]) => [k, 1]));
     o.last = Number(s.last) || Date.now();

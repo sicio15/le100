@@ -160,6 +160,7 @@ wire('prBtn', 'click', () => {
     const g = prGain();
     if (g <= 0) return;
     S.adn += g; S.prestiges++;
+    S.prBase = S.best;   // ✅ el próximo ADN solo cuenta progreso NUEVO
     S.gold = 0; S.stage = 1; S.ks = 0;
     S.ups = { dmg:0, vit:0, regen:0, venom:0, fortune:0 };
     hero = { hp: maxHP(), atkT: 0, venT: 3, lunge: 0, recoil: 0, dead: 0, flash: 0, venFlash: 0 };
