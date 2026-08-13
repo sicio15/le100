@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>le100.io - Cienpies Battle Online</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rubik:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+<div id="vignette"></div>
+
+<div id="scorePanel" class="hud panel"><div class="lbl">LONGITUD</div><div class="big" id="scoreVal">10</div><div id="rankTxt">Rank #-</div></div>
+<div id="onlinePill" class="hud panel"><span class="dot"></span><span id="onlineCount">1</span> en sala</div>
+<div id="leaderboard" class="hud panel"><h3>🏆 RANKING</h3><div id="lbList"></div></div>
+<div id="hint" class="hud panel"><b>1</b> Dash · <b>2</b> Escudo · <b>3</b> Imán · <b>4</b> Veneno<br><b>Enter</b> Chat · Muévete con el mouse</div>
+<div id="abilities" class="hud"></div>
+<div id="minimapBox" class="hud panel"><canvas id="minimap" width="170" height="170"></canvas></div>
+<div id="chat" class="hud panel"><div id="chatMsgs"></div><input id="chatInput" placeholder="Enter para chatear..." maxlength="80"></div>
+<div id="toasts"></div>
+
+<div id="joyZone"></div>
+<div id="joyBase"></div>
+<div id="joyKnob"></div>
+<div id="mAbs"></div>
+
+<div id="menu">
+    <div class="card">
+        <canvas id="logoCanvas" width="190" height="150"></canvas>
+        <div class="title">le100.io</div>
+        <div class="subtitle">CIENPIES BATTLE ONLINE</div>
+        <input id="nameInput" placeholder="Tu nombre..." maxlength="14" value=""><br>
+        <div class="skins" id="skins"></div>
+        <button id="playBtn">JUGAR</button>
+        <div class="ctrlGrid">
+            <div class="ctrl"><span class="k">🖱️</span>Mover</div>
+            <div class="ctrl"><span class="k">1</span>Dash</div>
+            <div class="ctrl"><span class="k">2</span>Escudo</div>
+            <div class="ctrl"><span class="k">3</span>Imán</div>
+            <div class="ctrl"><span class="k">4</span>Veneno</div>
+        </div>
+    </div>
+</div>
+
+<div id="death"><div class="card">
+    <h1>💀 ELIMINADO</h1>
+    <div id="deathReason"></div>
+    <div id="deathScore"></div>
+    <div id="respawnTxt">Renaciendo en 5...</div>
+</div></div>
+
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/core.js"></script>
+<script src="js/state.js"></script>
+<script src="js/render.js"></script>
+<script src="js/input.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/net.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
