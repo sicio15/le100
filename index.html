@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>le100.io - Online</title>
+    <style>
+        /* ... mismos estilos que antes ... */
+        body { font-family: Arial; overflow: hidden; background: #0a0a0a; user-select: none; }
+        canvas { display: block; cursor: none; }
+        #cursor { position: fixed; width: 20px; height: 20px; border: 2px solid #fff; border-radius: 50%; pointer-events: none; z-index: 9999; transform: translate(-50%, -50%); }
+        .ui-overlay { position: fixed; z-index: 1000; color: white; font-weight: bold; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); }
+        #score { top: 20px; left: 20px; font-size: 24px; }
+        #leaderboard { top: 20px; right: 20px; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 10px; min-width: 200px; }
+        #chat { bottom: 20px; left: 20px; width: 300px; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 10px; }
+        #chatMessages { height: 150px; overflow-y: auto; font-size: 12px; margin-bottom: 5px; }
+        #chatInput { width: 100%; background: rgba(255,255,255,0.1); border: 1px solid #555; color: white; padding: 5px; border-radius: 5px; }
+        #startScreen { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 2000; }
+        #startScreen h1 { font-size: 72px; color: #ffd700; margin-bottom: 20px; }
+        #startScreen input { padding: 15px; font-size: 20px; margin: 10px; border-radius: 10px; border: none; text-align: center; }
+        #startButton { padding: 20px 60px; font-size: 24px; background: linear-gradient(45deg, #ff6b6b, #ffd700); border: none; border-radius: 50px; color: white; font-weight: bold; cursor: pointer; }
+        #onlinePlayers { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,100,0,0.8); padding: 10px 20px; border-radius: 10px; color: #0f0; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div id="cursor"></div>
+    <canvas id="gameCanvas"></canvas>
+    <div id="onlinePlayers">👥 Jugadores online: <span id="playerCount">0</span></div>
+    
+    <div id="score" class="ui-overlay">Longitud: <span id="scoreValue">10</span></div>
+    <div id="leaderboard" class="ui-overlay"><h3>🏆 Ranking</h3><div id="leaderboardList"></div></div>
+    
+    <div id="chat">
+        <div id="chatMessages"></div>
+        <input type="text" id="chatInput" placeholder="Presiona Enter para chatear...">
+    </div>
+
+    <div id="startScreen">
+        <h1>le100.io</h1>
+        <h2 style="color:white">🦶 Cienpies Battle ONLINE 🦶</h2>
+        <input type="text" id="nameInput" placeholder="Tu nombre" maxlength="15" value="Jugador">
+        <button id="startButton">JUGAR</button>
+    </div>
+
+    <!-- Cargar Socket.io del CDN -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const cursor = document.getElementById('cursor');
+        let mouseX = canvas.width / 2, mouseY = canvas.height / 2;
+        document.addEventListener('mousemove', e => {
+            mouseX = e.clientX; mouseY = e.clientY;
+            cursor.style.left = e.clientX + 'px';
+            cursor.style.top = e.clientY + 'px';
+        });
+
+        // === Conexión Socket.io ===
+        const socket = io(); // Se conecta al servidor donde se aloja la página
+        let myId = null;
+        let players = new Map();
+        let foods = [];
+        let WORLD_SIZE = 5000;
+
+        socket.on('connect', () => console.log('✅ Conectado al servidor'));
+        
+        socket.on('init', (data) => {
+            myId = data.playerId;
+            foods = data.foods;
+            WORLD_SIZE = data.worldSize;
+            console.log('🎮 Juego iniciado! Mi ID:', myId);
+        });
+
+        socket.on('playerJoined', (player) => {
+            players.set(player.id, player);
+            addChatMessage(`📥 ${player.name} se unió`, '#0f0');
+            updatePlayerCount();
+        });
+
+        socket.on('playerLeft', (id) => {
+            const p = players.get(id);
+            if (p) addChatMessage(`📤 ${p.name} se fue`, '#f00');
+            players.delete(id);
+            updatePlayerCount();
+        });
+
+        socket.on('gameState', (data) => {
+            data.players.forEach(p => players.set(p.id, p));
+            foods = data.foods;
+            updatePlayerCount();
+        });
+
+        socket.on('foodEaten', (data) => {
+            foods = foods.filter(f => f.id !== data.foodId);
+        });
+
+        socket.on('foodUpdate', (newFoods) => {
+            foods = newFoods;
+        });
+
+        socket.on('playerDied', (data) => {
+            const p = players.get(data.id);
+            if (p) addChatMessage(`💀 ${p.name} murió`, '#f80');
+        });
+
+        socket.on('respawned', (data) => {
+            const me = players.get(myId);
+            if (me) {
+                me.x = data.x;
+                me.y = data.y;
+                me.alive = true;
+                addChatMessage('✨ ¡Has renacido!', '#0ff');
+            }
+        });
+
+        socket.on('chatMessage', (data) => {
+            addChatMessage(`${data.name}: ${data.message}`, '#fff');
+        });
+
+        function addChatMessage(text, color) {
+            const div = document.createElement('div');
+            div.style.color = color;
+            div.textContent = text;
+            const messages = document.getElementById('chatMessages');
+            messages.appendChild(div);
+            messages.scrollTop = messages.scrollHeight;
+            // Limitar mensajes
+            while (messages.children.length > 50) messages.removeChild(messages.firstChild);
+        }
+
+        function updatePlayerCount() {
+            document.getElementById('playerCount').textContent = players.size;
+        }
+
+        // === Chat con Enter ===
+        const chatInput = document.getElementById('chatInput');
+        chatInput.addEventListener('keydown', (e) => {
+            e.stopPropagation(); // Para que no afecte al juego
+            if (e.key === 'Enter' && chatInput.value.trim()) {
+                socket.emit('chatMessage', chatInput.value.trim());
+                chatInput.value = '';
+                chatInput.blur();
+            }
+        });
+
+        // === Lógica del juego (similar a antes) ===
+        class Centipede {
+            constructor(id, data) {
+                this.id = id;
+                this.name = data.name;
+                this.color = data.color;
+                this.segments = [{ x: data.x, y: data.y }];
+                this.angle = data.angle || 0;
+                this.score = data.score || 10;
+                this.maxSegments = data.maxSegments || 10;
+                this.alive = data.alive !== false;
+                this.targetAngle = 0;
+            }
+
+            update(data) {
+                if (data) {
+                    this.name = data.name;
+                    this.score = data.score;
+                    this.maxSegments = data.maxSegments;
+                    this.alive = data.alive;
+                    // Interpolar suavemente la posición
+                    this.segments = data.segments || this.segments;
+                    this.angle = data.angle;
+                }
+            }
+
+            draw(cameraX, cameraY) {
+                if (!this.alive) return;
+                this.segments.forEach((seg, i) => {
+                    const sx = seg.x - cameraX;
+                    const sy = seg.y - cameraY;
+                    if (sx < -100 || sx > canvas.width + 100 || sy < -100 || sy > canvas.height + 100) return;
+                    const size = i === 0 ? 15 : 12 - (i / this.segments.length) * 3;
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, size, 0, Math.PI * 2);
+                    ctx.fillStyle = this.color;
+                    ctx.fill();
+                    // Patas
+                    if (i % 3 === 0) {
+                        const ang = this.angle + Math.PI / 2;
+                        for (let s = -1; s <= 1; s += 2) {
+                            ctx.beginPath();
+                            ctx.moveTo(sx, sy);
+                            ctx.lineTo(sx + Math.cos(ang) * size * 0.8 * s, sy + Math.sin(ang) * size * 0.8 * s);
+                            ctx.strokeStyle = this.color;
+                            ctx.lineWidth = 2;
+                            ctx.stroke();
+                        }
+                    }
+                    if (i === 0) {
+                        ctx.fillStyle = 'white';
+                        ctx.font = 'bold 14px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(this.name, sx, sy - size - 10);
+                    }
+                });
+            }
+        }
+
+        // === Mi cienpies local ===
+        let myCentipede = null;
+
+        function initMyCentipede() {
+            myCentipede = {
+                segments: [],
+                angle: 0,
+                score: 10,
+                maxSegments: 10,
+                x: 0, y: 0,
+                alive: true,
+                abilities: {
+                    dash: { cooldown: 0, active: 0 },
+                    shield: { cooldown: 0, active: 0 },
+                    magnet: { cooldown: 0, active: 0 },
+                    poison: { cooldown: 0, active: 0 }
+                }
+            };
+            // Crear segmentos iniciales
+            for (let i = 0; i < 10; i++) {
+                myCentipede.segments.push({ x: WORLD_SIZE/2, y: WORLD_SIZE/2 });
+            }
+            myCentipede.x = WORLD_SIZE/2;
+            myCentipede.y = WORLD_SIZE/2;
+        }
+
+        function updateMyCentipede() {
+            if (!myCentipede || !myCentipede.alive) return;
+            
+            // Actualizar cooldowns
+            Object.keys(myCentipede.abilities).forEach(a => {
+                if (myCentipede.abilities[a].cooldown > 0) myCentipede.abilities[a].cooldown--;
+                if (myCentipede.abilities[a].active > 0) myCentipede.abilities[a].active--;
+            });
+
+            let speed = 3;
+            if (myCentipede.abilities.dash.active > 0) speed = 6;
+
+            // Calcular ángulo hacia el mouse
+            const dx = mouseX - canvas.width / 2;
+            const dy = mouseY - canvas.height / 2;
+            const targetAngle = Math.atan2(dy, dx);
+            let angleDiff = targetAngle - myCentipede.angle;
+            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+            myCentipede.angle += angleDiff * 0.1;
+
+            // Mover cabeza
+            const head = myCentipede.segments[0];
+            head.x += Math.cos(myCentipede.angle) * speed;
+            head.y += Math.sin(myCentipede.angle) * speed;
+            myCentipede.x = head.x;
+            myCentipede.y = head.y;
+
+            // Limitar al mundo
+            head.x = Math.max(0, Math.min(WORLD_SIZE, head.x));
+            head.y = Math.max(0, Math.min(WORLD_SIZE, head.y));
+
+            // Seguir segmentos
+            for (let i = 1; i < myCentipede.segments.length; i++) {
+                const prev = myCentipede.segments[i-1];
+                const curr = myCentipede.segments[i];
+                const dx = prev.x - curr.x;
+                const dy = prev.y - curr.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist > 10) {
+                    const ang = Math.atan2(dy, dx);
+                    curr.x = prev.x - Math.cos(ang) * 10;
+                    curr.y = prev.y - Math.sin(ang) * 10;
+                }
+            }
+
+            while (myCentipede.segments.length > myCentipede.maxSegments) {
+                myCentipede.segments.pop();
+            }
+            while (myCentipede.segments.length < myCentipede.maxSegments) {
+                const last = myCentipede.segments[myCentipede.segments.length-1];
+                myCentipede.segments.push({ x: last.x, y: last.y });
+            }
+
+            // Comer comida cercana
+            foods = foods.filter(food => {
+                const dx = food.x - head.x;
+                const dy = food.y - head.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                const magnetRange = myCentipede.abilities.magnet.active > 0 ? 200 : 50;
+                if (myCentipede.abilities.magnet.active > 0 && dist < magnetRange && dist > 30) {
+                    food.x -= dx * 0.05;
+                    food.y -= dy * 0.05;
+                }
+                if (dist < 30) {
+                    const value = food.type === 'big' ? 5 : food.type === 'special' ? 3 : 1;
+                    myCentipede.maxSegments += value;
+                    myCentipede.score += value;
+                    socket.emit('eatFood', food.id);
+                    return false;
+                }
+                return true;
+            });
+
+            // Colisión con otros jugadores
+            players.forEach((p, id) => {
+                if (id === myId || !p.alive) return;
+                p.segments.forEach((seg, i) => {
+                    if (i === 0) return;
+                    const dx = seg.x - head.x;
+                    const dy = seg.y - head.y;
+                    if (Math.sqrt(dx*dx + dy*dy) < 25) {
+                        if (myCentipede.abilities.shield.active === 0) {
+                            myCentipede.alive = false;
+                            socket.emit('playerDied', { killedBy: id });
+                        }
+                    }
+                });
+            });
+
+            // Bordes
+            if (head.x <= 0 || head.x >= WORLD_SIZE || head.y <= 0 || head.y >= WORLD_SIZE) {
+                myCentipede.alive = false;
+                socket.emit('playerDied', { killedBy: 'wall' });
+            }
+
+            // Enviar mi estado al servidor
+            socket.emit('updatePlayer', {
+                x: head.x,
+                y: head.y,
+                angle: myCentipede.angle,
+                segments: myCentipede.segments,
+                maxSegments: myCentipede.maxSegments,
+                score: myCentipede.score,
+                abilities: myCentipede.abilities
+            });
+        }
+
+        // Habilidades
+        document.addEventListener('keydown', (e) => {
+            if (!myCentipede) return;
+            const map = { '1': 'dash', '2': 'shield', '3': 'magnet', '4': 'poison' };
+            const ab = map[e.key];
+            if (ab && myCentipede.abilities[ab].cooldown === 0) {
+                const durations = { dash: 60, shield: 180, magnet: 300, poison: 300 };
+                const cooldowns = { dash: 180, shield: 300, magnet: 420, poison: 600 };
+                myCentipede.abilities[ab].active = durations[ab];
+                myCentipede.abilities[ab].cooldown = cooldowns[ab];
+                socket.emit('useAbility', ab);
+            }
+        });
+
+        // === Renderizado ===
+        function drawFood(cameraX, cameraY) {
+            foods.forEach(f => {
+                const sx = f.x - cameraX, sy = f.y - cameraY;
+                if (sx < -50 || sx > canvas.width+50 || sy < -50 || sy > canvas.height+50) return;
+                const color = f.type === 'big' ? '#ffd700' : f.type === 'special' ? '#4ecdc4' : '#ff6b6b';
+                const size = f.type === 'big' ? 10 : f.type === 'special' ? 8 : 5;
+                ctx.beginPath();
+                ctx.arc(sx, sy, size, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.fill();
+            });
+        }
+
+        function drawGrid(cameraX, cameraY) {
+            ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+            ctx.lineWidth = 1;
+            const gridSize = 100;
+            const startX = Math.floor(cameraX / gridSize) * gridSize;
+            const startY = Math.floor(cameraY / gridSize) * gridSize;
+            for (let x = startX; x < cameraX + canvas.width + gridSize; x += gridSize) {
+                ctx.beginPath(); ctx.moveTo(x-cameraX, 0); ctx.lineTo(x-cameraX, canvas.height); ctx.stroke();
+            }
+            for (let y = startY; y < cameraY + canvas.height + gridSize; y += gridSize) {
+                ctx.beginPath(); ctx.moveTo(0, y-cameraY); ctx.lineTo(canvas.width, y-cameraY); ctx.stroke();
+            }
+            ctx.strokeStyle = 'rgba(255,0,0,0.5)'; ctx.lineWidth = 5;
+            ctx.strokeRect(-cameraX, -cameraY, WORLD_SIZE, WORLD_SIZE);
+        }
+
+        function updateLeaderboard() {
+            const me = players.get(myId);
+            const allPlayers = Array.from(players.values()).filter(p => p.alive);
+            if (me) {
+                allPlayers.push({ ...me, id: myId });
+            }
+            const sorted = allPlayers.sort((a,b) => b.score - a.score).slice(0, 10);
+            const list = document.getElementById('leaderboardList');
+            list.innerHTML = sorted.map((p, i) => {
+                const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
+                const color = p.id === myId ? '#0f0' : '#fff';
+                return `<div style="color:${color}; margin:3px 0">${medal} ${i+1}. ${p.name}: ${p.score}</div>`;
+            }).join('');
+            if (me) document.getElementById('scoreValue').textContent = me.score || myCentipede?.score || 0;
+        }
+
+        function gameLoop() {
+            ctx.fillStyle = '#0a0e1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (!myCentipede) { requestAnimationFrame(gameLoop); return; }
+
+            updateMyCentipede();
+
+            const cameraX = myCentipede.x - canvas.width/2;
+            const cameraY = myCentipede.y - canvas.height/2;
+
+            drawGrid(cameraX, cameraY);
+            drawFood(cameraX, cameraY);
+
+            // Dibujar otros jugadores
+            players.forEach((p, id) => {
+                if (id === myId) return;
+                const cent = new Centipede(id, p);
+                cent.draw(cameraX, cameraY);
+            });
+
+            // Dibujarme a mí
+            if (myCentipede.alive) {
+                const tempData = {
+                    name: document.getElementById('nameInput').value || 'Jugador',
+                    color: '#00ff88',
+                    segments: myCentipede.segments,
+                    angle: myCentipede.angle,
+                    score: myCentipede.score,
+                    maxSegments: myCentipede.maxSegments,
+                    alive: myCentipede.alive
+                };
+                const myDraw = new Centipede(myId, tempData);
+                myDraw.draw(cameraX, cameraY);
+            }
+
+            updateLeaderboard();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // === Iniciar ===
+        document.getElementById('startButton').addEventListener('click', () => {
+            const name = document.getElementById('nameInput').value.trim() || 'Jugador';
+            document.getElementById('startScreen').style.display = 'none';
+            socket.emit('joinGame', {
+                name: name,
+                color: `hsl(${Math.random()*360}, 70%, 50%)`
+            });
+            initMyCentipede();
+            gameLoop();
+        });
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+    </script>
+</body>
+</html>
