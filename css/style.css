@@ -10,9 +10,9 @@ html, body { position:fixed; inset:0; overflow:hidden; background:#0d0a1a;
 .panel { background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12);
     border-radius:10px; padding:6px 12px; color:#fff; font-size:14px; }
 .panel b { color:#ffd700; }
-#adnBox b, .panel b#adnTxt { color:#7efcff; }
+.panel b#adnTxt { color:#7efcff; }
 .tbtn { position:relative; font-size:20px; padding:6px 12px; border-radius:10px;
-    border:1px solid rgba(255,255,255,.15); background:rgba(255,255,255,.08); cursor:pointer; }
+    border:1px solid rgba(255,255,255,.15); background:rgba(255,255,255,.08); cursor:pointer; color:#fff; }
 .tbtn:active { transform:scale(.92); }
 .dot { position:absolute; top:-5px; right:-5px; width:13px; height:13px; border-radius:50%;
     background:#ff4757; display:none; box-shadow:0 0 8px #ff4757; }
@@ -73,5 +73,3 @@ html, body { position:fixed; inset:0; overflow:hidden; background:#0d0a1a;
 .toast { background:rgba(23,18,48,.92); border:1px solid rgba(255,215,0,.4); color:#ffd700;
     padding:8px 22px; border-radius:30px; font-weight:800; font-size:14px; white-space:nowrap;
     animation:tIn 2.4s forwards; }
-@keyframes tIn { 0%{opacity:0;transform:translateY(-12px) scale(.85);} 12%{opacity:1;transform:none;}
-    80%{opacity:1;} 100%{opacity:0;transform:translateY(-8px);} }
