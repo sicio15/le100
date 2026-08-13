@@ -96,7 +96,6 @@ const SPR = {
     heroAttack: loadSprite('img/hero_attack.png'),
     heroCast:   loadSprite('img/hero_cast.png'),
     heroHurt:   loadSprite('img/hero_hurt.png'),
-    heroDeath:  loadSprite('img/hero_death.png'),
     beetle:     loadSprite('img/enemy_beetle.png'),
     spider:     loadSprite('img/enemy_spider.png'),
     boss:       loadSprite('img/enemy_boss.png')
