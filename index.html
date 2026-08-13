@@ -2,12 +2,14 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>le100.io - Cienpies Battle Online</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rubik:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family:'Rubik',sans-serif; overflow:hidden; background:#070b14; }
+    html, body { position:fixed; inset:0; overflow:hidden; overscroll-behavior:none; }
+    body { font-family:'Rubik',sans-serif; background:#070b14;
+        -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
     body.playing { cursor:none; }
     #gameCanvas { position:fixed; inset:0; display:block; }
     #vignette { position:fixed; inset:0; pointer-events:none; z-index:5;
@@ -31,8 +33,7 @@
     @keyframes blink { 50% { opacity:.4; } }
 
     #leaderboard { top:16px; right:16px; padding:14px 16px; min-width:210px; }
-    #leaderboard h3 { font-family:'Orbitron'; font-size:13px; color:#ffd700; margin-bottom:8px;
-        letter-spacing:2px; }
+    #leaderboard h3 { font-family:'Orbitron'; font-size:13px; color:#ffd700; margin-bottom:8px; letter-spacing:2px; }
     .lb-row { display:flex; justify-content:space-between; font-size:13px; padding:2px 0; color:#cfd8ea; }
     .lb-row.me { color:#7CFC7C; font-weight:800; }
 
@@ -41,10 +42,11 @@
         background:rgba(10,15,30,.7); border:2px solid rgba(255,255,255,.15);
         display:flex; align-items:center; justify-content:center; font-size:28px;
         backdrop-filter:blur(6px); transition:border-color .2s, box-shadow .2s; }
-    .slot .cd { position:absolute; inset:0; background:rgba(0,0,0,.75); transform-origin:bottom; transform:scaleY(0); }
+    .slot .cd, .mab .cd { position:absolute; inset:0; background:rgba(0,0,0,.75);
+        transform-origin:bottom; transform:scaleY(0); }
     .slot .key { position:absolute; top:2px; left:5px; font-size:10px; font-weight:800; color:#8fa3c8; }
-    .slot.ready { border-color:#7CFC7C; box-shadow:0 0 14px rgba(124,252,124,.35); }
-    .slot.active { border-color:#ffd700; box-shadow:0 0 22px rgba(255,215,0,.8); }
+    .slot.ready, .mab.ready { border-color:#7CFC7C; box-shadow:0 0 14px rgba(124,252,124,.35); }
+    .slot.active, .mab.active { border-color:#ffd700; box-shadow:0 0 22px rgba(255,215,0,.8); }
 
     #minimapBox { bottom:18px; right:18px; padding:8px; }
     #minimap { display:block; border-radius:8px; }
@@ -63,28 +65,51 @@
         display:flex; flex-direction:column; align-items:center; gap:6px; pointer-events:none; }
     .toast { background:rgba(10,15,30,.85); border:1px solid rgba(255,215,0,.4); color:#ffd700;
         padding:8px 22px; border-radius:30px; font-weight:800; font-size:15px;
-        animation:toastIn 2.4s forwards; text-shadow:0 0 10px rgba(255,215,0,.5); }
+        animation:toastIn 2.4s forwards; text-shadow:0 0 10px rgba(255,215,0,.5); white-space:nowrap; }
     @keyframes toastIn { 0%{opacity:0; transform:translateY(-15px) scale(.8);} 10%{opacity:1; transform:none;}
         80%{opacity:1;} 100%{opacity:0; transform:translateY(-10px);} }
+
+    /* ===== CONTROLES MÓVILES ===== */
+    #joyZone { position:fixed; left:0; top:0; width:55%; height:100%; z-index:14;
+        display:none; touch-action:none; }
+    body.mobile #joyZone { display:block; }
+    #joyBase { position:fixed; width:120px; height:120px; border:2px solid rgba(255,255,255,.35);
+        border-radius:50%; display:none; pointer-events:none; z-index:16;
+        background:rgba(255,255,255,.06); transform:translate(-50%,-50%); }
+    #joyKnob { position:fixed; width:56px; height:56px; border-radius:50%;
+        background:rgba(255,255,255,.5); display:none; pointer-events:none; z-index:17;
+        box-shadow:0 0 12px rgba(255,255,255,.4); transform:translate(-50%,-50%); }
+    #mAbs { position:fixed; right:14px; bottom:14px; z-index:15; display:none;
+        grid-template-columns:repeat(2,62px); gap:10px; }
+    body.mobile #mAbs { display:grid; }
+    .mab { width:62px; height:62px; border-radius:50%; position:relative; overflow:hidden;
+        background:rgba(10,15,30,.65); border:2px solid rgba(255,255,255,.2);
+        display:flex; align-items:center; justify-content:center; font-size:26px;
+        backdrop-filter:blur(4px); touch-action:none; }
+    .mab:active { transform:scale(.9); }
+    body.mobile #abilities { display:none; }
+    body.mobile #chat, body.mobile #hint, body.mobile #minimapBox { display:none; }
+    body.mobile #leaderboard { min-width:0; padding:8px 12px; transform:scale(.85); transform-origin:top right; }
+    body.mobile #scorePanel { transform:scale(.85); transform-origin:top left; }
 
     /* ===== MENU ===== */
     #menu { position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center;
         background:rgba(5,8,16,.55); backdrop-filter:blur(5px); }
-    .card { text-align:center; padding:36px 52px; border-radius:26px;
+    .card { text-align:center; padding:36px 52px; border-radius:26px; max-width:94vw;
         background:rgba(10,15,30,.72); border:1px solid rgba(255,255,255,.1);
         box-shadow:0 30px 80px rgba(0,0,0,.7), 0 0 60px rgba(78,205,196,.08); }
     #logoCanvas { width:190px; height:150px; margin:0 auto; display:block; }
-    .title { font-family:'Orbitron'; font-weight:900; font-size:62px; letter-spacing:2px;
+    .title { font-family:'Orbitron'; font-weight:900; font-size:clamp(40px, 9vw, 62px); letter-spacing:2px;
         background:linear-gradient(90deg,#ffd700,#ff6b6b,#4ecdc4,#ffd700); background-size:300% 100%;
         -webkit-background-clip:text; background-clip:text; color:transparent;
         animation:shine 4s linear infinite; filter:drop-shadow(0 0 18px rgba(255,215,0,.35)); }
     @keyframes shine { to { background-position:300% 0; } }
     .subtitle { color:#8fa3c8; letter-spacing:6px; font-size:13px; margin:4px 0 22px; font-weight:600; }
-    #nameInput { width:280px; padding:13px; font-size:17px; text-align:center; border-radius:12px;
+    #nameInput { width:280px; max-width:80vw; padding:13px; font-size:17px; text-align:center; border-radius:12px;
         border:2px solid rgba(255,255,255,.15); background:rgba(255,255,255,.06); color:#fff;
         font-family:'Rubik'; outline:none; margin-bottom:14px; transition:border-color .2s; }
     #nameInput:focus { border-color:#ffd700; }
-    .skins { display:flex; gap:10px; justify-content:center; margin-bottom:20px; }
+    .skins { display:flex; gap:10px; justify-content:center; margin-bottom:20px; flex-wrap:wrap; }
     .skin { width:38px; height:38px; border-radius:50%; cursor:pointer; border:3px solid transparent;
         transition:transform .15s, border-color .15s; }
     .skin:hover { transform:scale(1.15); }
@@ -109,6 +134,13 @@
     #deathReason { color:#cfd8ea; font-size:16px; margin-bottom:6px; }
     #deathScore { color:#ffd700; font-size:22px; font-weight:800; margin-bottom:14px; }
     #respawnTxt { color:#4ecdc4; font-size:15px; font-weight:600; }
+
+    @media (max-width:600px) {
+        .card { padding:24px 18px; }
+        #logoCanvas { width:150px; height:118px; }
+        .ctrlGrid { display:none; }
+        .subtitle { letter-spacing:3px; font-size:11px; }
+    }
 </style>
 </head>
 <body>
@@ -124,6 +156,12 @@
 <div id="minimapBox" class="hud panel"><canvas id="minimap" width="170" height="170"></canvas></div>
 <div id="chat" class="hud panel"><div id="chatMsgs"></div><input id="chatInput" placeholder="Enter para chatear..." maxlength="80"></div>
 <div id="toasts"></div>
+
+<!-- CONTROLES MÓVILES -->
+<div id="joyZone"></div>
+<div id="joyBase"></div>
+<div id="joyKnob"></div>
+<div id="mAbs"></div>
 
 <!-- MENU -->
 <div id="menu">
@@ -157,7 +195,7 @@
 'use strict';
 const TAU = Math.PI * 2;
 const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+let ctx = canvas.getContext('2d');
 const mm = document.getElementById('minimap').getContext('2d');
 let W = 0, H = 0, DPR = 1;
 function fit() {
@@ -166,10 +204,20 @@ function fit() {
     canvas.width = W * DPR; canvas.height = H * DPR;
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 }
-fit(); window.addEventListener('resize', fit);
+fit();
+window.addEventListener('resize', fit);
+window.addEventListener('orientationchange', fit);
+
+const isMobile = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+if (isMobile) document.body.classList.add('mobile');
 
 let mouseX = W / 2, mouseY = H / 2;
 window.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+
+// Bloqueos táctiles (zoom, scroll, menú contextual)
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('dblclick', e => e.preventDefault());
+window.addEventListener('contextmenu', e => { if (isMobile) e.preventDefault(); });
 
 /* ============ SKINS Y HABILIDADES ============ */
 const SKINS = [
@@ -196,25 +244,77 @@ const AB_DEF = {
 };
 const abUI = {};
 const abBox = document.getElementById('abilities');
+const mabUI = {};
+const mAbsBox = document.getElementById('mAbs');
 Object.keys(AB_DEF).forEach(k => {
     const d = AB_DEF[k];
+    // Desktop
     const el = document.createElement('div');
     el.className = 'slot ready';
     el.innerHTML = `<div class="cd"></div><span style="position:relative">${d.icon}</span><span class="key">${d.key}</span>`;
     abBox.appendChild(el);
     abUI[k] = { el, cdEl: el.querySelector('.cd') };
+    // Móvil
+    const b = document.createElement('div');
+    b.className = 'mab ready';
+    b.innerHTML = `<div class="cd"></div><span style="position:relative">${d.icon}</span>`;
+    b.addEventListener('touchstart', e => { e.preventDefault(); useAbility(k); }, { passive:false });
+    mAbsBox.appendChild(b);
+    mabUI[k] = { el:b, cdEl:b.querySelector('.cd') };
 });
+
+/* ============ JOYSTICK ============ */
+const joyZone = document.getElementById('joyZone');
+const joyBase = document.getElementById('joyBase');
+const joyKnob = document.getElementById('joyKnob');
+let joyId = null, joyCX = 0, joyCY = 0, joyActive = false;
+let joyVec = { x:0, y:0 };
+
+joyZone.addEventListener('touchstart', e => {
+    e.preventDefault();
+    const t = e.changedTouches[0];
+    joyId = t.identifier;
+    joyCX = t.clientX; joyCY = t.clientY;
+    joyBase.style.left = joyCX + 'px'; joyBase.style.top = joyCY + 'px';
+    joyKnob.style.left = joyCX + 'px'; joyKnob.style.top = joyCY + 'px';
+    joyBase.style.display = 'block'; joyKnob.style.display = 'block';
+    joyActive = true;
+}, { passive:false });
+
+joyZone.addEventListener('touchmove', e => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+        if (t.identifier !== joyId) continue;
+        let dx = t.clientX - joyCX, dy = t.clientY - joyCY;
+        const max = 45, d = Math.hypot(dx, dy);
+        if (d > max) { dx = dx/d*max; dy = dy/d*max; }
+        joyKnob.style.left = (joyCX + dx) + 'px';
+        joyKnob.style.top  = (joyCY + dy) + 'px';
+        if (d > 8) joyVec = { x: dx/max, y: dy/max };   // zona muerta
+    }
+}, { passive:false });
+
+function joyEnd(e) {
+    for (const t of e.changedTouches) {
+        if (t.identifier === joyId) {
+            joyId = null; joyActive = false;
+            joyBase.style.display = 'none'; joyKnob.style.display = 'none';
+        }
+    }
+}
+joyZone.addEventListener('touchend', joyEnd);
+joyZone.addEventListener('touchcancel', joyEnd);
 
 /* ============ ESTADO ============ */
 let WORLD_SIZE = 5000;
-let state = 'menu';           // menu | playing | dead
+let state = 'menu';
 let myId = null;
 let frame = 0;
 let shake = 0;
 let worldFoods = [];
 const remotes = new Map();
 const particles = [];
-let deathTime = 0, deathReason = '';
+let deathTime = 0;
 
 const me = {
     name:'Jugador', hue:120, segments:[], angle:0, score:10, maxSegments:10,
@@ -248,7 +348,7 @@ socket.on('foodUpdate', f => { worldFoods = f; });
 socket.on('playerDied', d => {
     const r = remotes.get(d.id);
     const segs = d.segments || (r && r.segments) || [];
-    if (segs[0]) { burst(segs[0].x, segs[0].y, r ? `hsl(${r.hue},85%,60%)` : '#fff', 40); }
+    if (segs[0]) burst(segs[0].x, segs[0].y, r ? `hsl(${r.hue},85%,60%)` : '#fff', 40);
     if (r) toast(`💀 ${r.name} murió`);
 });
 socket.on('respawned', d => {
@@ -289,7 +389,7 @@ function burst(x, y, color, n) {
 const FOOD_PAL = ['#ff6b6b','#ffa502','#7bed9f','#70a1ff','#ff7eb3'];
 function foodColor(f) { return f.type === 'big' ? '#ffd700' : f.type === 'special' ? '#4ecdc4' : FOOD_PAL[f.id % FOOD_PAL.length]; }
 
-/* ============ CIENTOPIÉS REMOTO (interpolado) ============ */
+/* ============ REMOTO ============ */
 class Remote {
     constructor(p) {
         this.id = p.id; this.hue = hueOf(p.color);
@@ -316,13 +416,13 @@ class Remote {
     }
 }
 
-/* ============ MODO DEMO (fondo del menú) ============ */
+/* ============ MODO DEMO ============ */
 const demoCents = [], demoFoods = [];
 for (let i = 0; i < 220; i++) demoFoods.push({ id:i, x:Math.random()*WORLD_SIZE, y:Math.random()*WORLD_SIZE, type:Math.random()<.08?'big':'normal' });
 for (let i = 0; i < 7; i++) {
     const c = { hue:Math.random()*360|0, segments:[], angle:Math.random()*TAU, alive:true,
         abilities:{}, tx:Math.random()*WORLD_SIZE, ty:Math.random()*WORLD_SIZE, score:20+i*9, name:'' };
-    let x = Math.random()*WORLD_SIZE, y = Math.random()*WORLD_SIZE;
+    const x = Math.random()*WORLD_SIZE, y = Math.random()*WORLD_SIZE;
     for (let j = 0; j < 15+i*8; j++) c.segments.push({x, y});
     demoCents.push(c);
 }
@@ -358,13 +458,11 @@ function drawCentipede(c, camX, camY, t) {
     const ab = c.abilities || {};
     const dashing = ab.dash && ab.dash.active > 0;
 
-    // Aura de veneno (debajo)
     if (ab.poison && ab.poison.active > 0) {
         const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, 55);
         g.addColorStop(0, 'rgba(160,32,240,.35)'); g.addColorStop(1, 'rgba(160,32,240,0)');
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, 55, 0, TAU); ctx.fill();
     }
-    // Campo de imán
     if (ab.magnet && ab.magnet.active > 0) {
         ctx.save();
         ctx.strokeStyle = 'rgba(78,205,196,.5)'; ctx.lineWidth = 2;
@@ -372,7 +470,6 @@ function drawCentipede(c, camX, camY, t) {
         ctx.beginPath(); ctx.arc(sx, sy, 90, 0, TAU); ctx.stroke();
         ctx.restore();
     }
-    // Estela de dash
     if (dashing) {
         for (let i = 2; i < Math.min(segs.length, 10); i += 2) {
             const s = segs[i];
@@ -383,7 +480,6 @@ function drawCentipede(c, camX, camY, t) {
         }
     }
 
-    // PATAS animadas
     ctx.lineCap = 'round';
     for (let i = segs.length-1; i >= 1; i--) {
         const p = segs[i], prev = segs[i-1];
@@ -400,7 +496,6 @@ function drawCentipede(c, camX, camY, t) {
         }
     }
 
-    // CUERPO (de cola a cabeza) con franjas
     for (let i = segs.length-1; i >= 0; i--) {
         const s = segs[i];
         const bx = s.x-camX, by = s.y-camY;
@@ -416,7 +511,6 @@ function drawCentipede(c, camX, camY, t) {
         ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1.5; ctx.stroke();
     }
 
-    // CABEZA: antenas + ojos
     const ha = c.angle;
     ctx.strokeStyle = `hsl(${hue},90%,70%)`; ctx.lineWidth = 2.5;
     for (const side of [-1, 1]) {
@@ -437,7 +531,6 @@ function drawCentipede(c, camX, camY, t) {
         ctx.beginPath(); ctx.arc(ex+Math.cos(ha)*2.2, ey+Math.sin(ha)*2.2, 2.5, 0, TAU); ctx.fill();
     }
 
-    // BURBUJA de escudo
     if (ab.shield && ab.shield.active > 0) {
         ctx.save();
         ctx.strokeStyle = 'rgba(0,255,255,.85)'; ctx.lineWidth = 3;
@@ -447,7 +540,6 @@ function drawCentipede(c, camX, camY, t) {
         ctx.restore();
     }
 
-    // NOMBRE
     if (c.name) {
         ctx.font = '800 13px Rubik'; ctx.textAlign = 'center';
         ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.7)';
@@ -493,7 +585,6 @@ function drawGrid(camX, camY) {
     for (let x = x0; x < camX+W+gs; x += gs) { ctx.moveTo(x-camX, 0); ctx.lineTo(x-camX, H); }
     for (let y = y0; y < camY+H+gs; y += gs) { ctx.moveTo(0, y-camY); ctx.lineTo(W, y-camY); }
     ctx.stroke();
-    // Borde del mundo
     ctx.save();
     ctx.strokeStyle = 'rgba(255,60,60,.8)'; ctx.lineWidth = 6;
     ctx.shadowColor = '#f00'; ctx.shadowBlur = 20;
@@ -514,9 +605,17 @@ function updateMe() {
     let speed = 3;
     if (me.abilities.dash.active > 0) speed = 6;
 
-    const ta = Math.atan2(mouseY - H/2, mouseX - W/2);
-    let d = ta - me.angle; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU;
-    me.angle += d * 0.12;
+    // Dirección: joystick en móvil, mouse en PC
+    let ta = null;
+    if (isMobile) {
+        if (joyActive) ta = Math.atan2(joyVec.y, joyVec.x);
+    } else {
+        ta = Math.atan2(mouseY - H/2, mouseX - W/2);
+    }
+    if (ta !== null) {
+        let d = ta - me.angle; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU;
+        me.angle += d * 0.12;
+    }
 
     const head = me.segments[0];
     head.x = Math.max(0, Math.min(WORLD_SIZE, head.x + Math.cos(me.angle)*speed));
@@ -531,7 +630,6 @@ function updateMe() {
         const l = me.segments[me.segments.length-1]; me.segments.push({x:l.x, y:l.y});
     }
 
-    // Comer
     const magnetOn = me.abilities.magnet.active > 0;
     worldFoods = worldFoods.filter(f => {
         const dx = f.x-head.x, dy = f.y-head.y, dist = Math.hypot(dx,dy);
@@ -547,7 +645,6 @@ function updateMe() {
         return true;
     });
 
-    // Chocar con otros
     remotes.forEach(r => {
         if (!r.alive) return;
         for (let i = 1; i < r.segments.length; i++) {
@@ -557,7 +654,6 @@ function updateMe() {
             }
         }
     });
-    // Borde
     if (me.alive && (head.x <= 2 || head.x >= WORLD_SIZE-2 || head.y <= 2 || head.y >= WORLD_SIZE-2)) {
         die('💥 Te estrellaste contra el borde');
     }
@@ -580,7 +676,7 @@ function useAbility(k) {
 function die(reason) {
     if (!me.alive) return;
     me.alive = false;
-    deathTime = performance.now(); deathReason = reason;
+    deathTime = performance.now();
     shake = 25;
     burst(me.segments[0].x, me.segments[0].y, `hsl(${me.hue},85%,60%)`, 50);
     socket.emit('playerDied', { killedBy: 'client' });
@@ -590,10 +686,10 @@ function die(reason) {
     state = 'dead';
 }
 
-/* ============ INPUT ============ */
+/* ============ INPUT TECLADO ============ */
 window.addEventListener('keydown', e => {
     if (e.target.tagName === 'INPUT') return;
-    if (e.key === 'Enter') { document.getElementById('chatInput').focus(); e.preventDefault(); return; }
+    if (e.key === 'Enter' && !isMobile) { document.getElementById('chatInput').focus(); e.preventDefault(); return; }
     const map = { '1':'dash', '2':'shield', '3':'magnet', '4':'poison', ' ':'dash' };
     if (map[e.key]) { useAbility(map[e.key]); e.preventDefault(); }
 });
@@ -611,10 +707,13 @@ chatInput.addEventListener('keydown', e => {
 function updateHUD() {
     document.getElementById('scoreVal').textContent = me.score;
     Object.keys(AB_DEF).forEach(k => {
-        const a = me.abilities[k], ui = abUI[k];
-        ui.cdEl.style.transform = `scaleY(${a.cd / AB_DEF[k].cd})`;
-        ui.el.classList.toggle('ready', a.cd === 0);
-        ui.el.classList.toggle('active', a.active > 0);
+        const a = me.abilities[k];
+        [abUI[k], mabUI[k]].forEach(ui => {
+            if (!ui) return;
+            ui.cdEl.style.transform = `scaleY(${a.cd / AB_DEF[k].cd})`;
+            ui.el.classList.toggle('ready', a.cd === 0);
+            ui.el.classList.toggle('active', a.active > 0);
+        });
     });
     const all = [{ name: me.name+' (Tú)', score: me.score, me: true, alive: me.alive }];
     remotes.forEach(r => { if (r.alive) all.push({ name: r.name, score: r.score, me: false }); });
@@ -650,7 +749,7 @@ function drawMinimap(camX, camY) {
     mm.strokeStyle = 'rgba(255,60,60,.6)'; mm.strokeRect(0.5, 0.5, S-1, S-1);
 }
 
-/* ============ LOGO ANIMADO ============ */
+/* ============ LOGO ============ */
 const logoCtx = document.getElementById('logoCanvas').getContext('2d');
 function drawLogo(t) {
     logoCtx.clearRect(0, 0, 190, 150);
@@ -663,8 +762,6 @@ function drawLogo(t) {
     }
     const fake = { segments: pts, angle: Math.atan2(pts[0].y-pts[1].y, pts[0].x-pts[1].x),
         hue: 120, name: '', alive: true, abilities: {} };
-    const oldCtx = ctx;
-    // dibujar sobre logoCtx reutilizando drawCentipede vía proxy
     drawCentOn(logoCtx, fake, 0, 0, t);
 }
 function drawCentOn(g, c, camX, camY, t) {
@@ -674,7 +771,7 @@ function drawCentOn(g, c, camX, camY, t) {
     ctx = prev; W = oldW; H = oldH;
 }
 
-/* ============ LOOP PRINCIPAL ============ */
+/* ============ LOOP ============ */
 function loop() {
     requestAnimationFrame(loop);
     frame++;
@@ -705,9 +802,8 @@ function loop() {
     drawGrid(camX, camY);
     worldFoods.forEach(f => drawFood(f, camX, camY, t));
     remotes.forEach(r => drawCentipede(r, camX, camY, t));
-    if (me.alive) drawCentipede({ ...me, hue: me.hue }, camX, camY, t);
+    if (me.alive) drawCentipede(me, camX, camY, t);
 
-    // Partículas
     for (let i = particles.length-1; i >= 0; i--) {
         const p = particles[i];
         p.x += p.vx; p.y += p.vy; p.vx *= 0.96; p.vy *= 0.96; p.life--;
@@ -718,8 +814,7 @@ function loop() {
         ctx.globalAlpha = 1;
     }
 
-    // Cursor personalizado
-    if (state === 'playing' && me.alive) {
+    if (state === 'playing' && me.alive && !isMobile) {
         ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(mouseX, mouseY, 9, 0, TAU); ctx.stroke();
         ctx.strokeStyle = 'rgba(255,255,255,.25)';
@@ -734,7 +829,7 @@ function loop() {
     }
 
     updateHUD();
-    drawMinimap(camX, camY);
+    if (!isMobile) drawMinimap(camX, camY);
 }
 loop();
 
@@ -743,11 +838,14 @@ document.getElementById('playBtn').addEventListener('click', () => {
     me.name = document.getElementById('nameInput').value.trim() || 'Jugador';
     me.hue = SKINS[selSkin].hue;
     document.getElementById('menu').style.display = 'none';
-    document.body.classList.add('playing');
+    if (!isMobile) document.body.classList.add('playing');
     resetMe(WORLD_SIZE/2, WORLD_SIZE/2);
     socket.emit('joinGame', { name: me.name, color: me.hue });
     state = 'playing';
     toast(`🎮 ¡Bienvenido, ${me.name}!`);
+    if (isMobile && window.innerHeight > window.innerWidth) {
+        setTimeout(() => toast('📱 Girá el celular para jugar mejor'), 1200);
+    }
 });
 </script>
 </body>
