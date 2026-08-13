@@ -1,4 +1,3 @@
-// HUD, toasts, chat, skins y botones de habilidades
 function toast(txt) {
     const t = document.createElement('div');
     t.className = 'toast'; t.textContent = txt;
@@ -15,7 +14,6 @@ function addChat(txt, color) {
     while (box.children.length > 40) box.firstChild.remove();
 }
 
-// Skins
 const skinsBox = document.getElementById('skins');
 SKINS.forEach((s, i) => {
     const b = document.createElement('div');
@@ -30,7 +28,6 @@ SKINS.forEach((s, i) => {
     skinsBox.appendChild(b);
 });
 
-// Botones de habilidades (desktop + móvil)
 const abUI = {}, mabUI = {};
 const abBox = document.getElementById('abilities');
 const mAbsBox = document.getElementById('mAbs');
@@ -50,18 +47,35 @@ Object.keys(AB_DEF).forEach(k => {
     mabUI[k] = { el:b, cdEl:b.querySelector('.cd') };
 });
 
+//  Botón AUTO (desktop + móvil)
+const autoSlot = document.createElement('div');
+autoSlot.className = 'slot';
+autoSlot.innerHTML = '<span style="position:relative">🤖</span><span class="key">Q</span>';
+autoSlot.onclick = () => setAuto(!G.auto);
+abBox.appendChild(autoSlot);
+
+const autoMab = document.createElement('div');
+autoMab.className = 'mab';
+autoMab.innerHTML = '<span style="position:relative">🤖</span>';
+autoMab.addEventListener('touchstart', e => { e.preventDefault(); setAuto(!G.auto); }, { passive:false });
+mAbsBox.appendChild(autoMab);
+
 function updateHUD() {
     document.getElementById('scoreVal').textContent = me.score;
+    updateCoinsUI();
 
+    const st = stats();
     Object.keys(AB_DEF).forEach(k => {
         const a = me.abilities[k];
         [abUI[k], mabUI[k]].forEach(ui => {
             if (!ui) return;
-            ui.cdEl.style.transform = `scaleY(${a.cd / AB_DEF[k].cd})`;
+            ui.cdEl.style.transform = `scaleY(${a.cd / (AB_DEF[k].cd * st.cdMult)})`;
             ui.el.classList.toggle('ready', a.cd === 0);
             ui.el.classList.toggle('active', a.active > 0);
         });
     });
+    autoSlot.classList.toggle('active', G.auto);
+    autoMab.classList.toggle('active', G.auto);
 
     const all = [{ name: me.name + ' (Tú)', score: me.score, me: true }];
     G.remotes.forEach(r => { if (r.alive) all.push({ name: r.name, score: r.score, me: false }); });

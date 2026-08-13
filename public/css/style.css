@@ -1,136 +1,25 @@
-* { margin:0; padding:0; box-sizing:border-box; }
-html, body { position:fixed; inset:0; overflow:hidden; overscroll-behavior:none; }
-body { font-family:'Rubik',sans-serif; background:#070b14;
-    -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
-body.playing { cursor:none; }
-#gameCanvas { position:fixed; inset:0; display:block; }
-#vignette { position:fixed; inset:0; pointer-events:none; z-index:5;
-    background:radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.55) 100%); }
-
-.panel { background:rgba(10,15,30,.6); backdrop-filter:blur(8px);
-    border:1px solid rgba(255,255,255,.08); border-radius:14px; }
-
-.hud { position:fixed; z-index:10; color:#fff; }
-#scorePanel { top:16px; left:16px; padding:12px 18px; }
-#scorePanel .big { font-family:'Orbitron'; font-size:30px; font-weight:900; color:#ffd700;
-    text-shadow:0 0 15px rgba(255,215,0,.6); }
-#scorePanel .lbl { font-size:11px; letter-spacing:2px; color:#8fa3c8; }
-#rankTxt { font-size:12px; color:#4ecdc4; margin-top:2px; }
-
-#onlinePill { top:16px; left:50%; transform:translateX(-50%); padding:8px 18px;
-    color:#7CFC7C; font-weight:600; font-size:13px; }
-#onlinePill .dot { display:inline-block; width:8px; height:8px; border-radius:50%;
-    background:#7CFC7C; box-shadow:0 0 8px #7CFC7C; margin-right:6px; animation:blink 1.5s infinite; }
-@keyframes blink { 50% { opacity:.4; } }
-
-#leaderboard { top:16px; right:16px; padding:14px 16px; min-width:210px; }
-#leaderboard h3 { font-family:'Orbitron'; font-size:13px; color:#ffd700; margin-bottom:8px; letter-spacing:2px; }
-.lb-row { display:flex; justify-content:space-between; font-size:13px; padding:2px 0; color:#cfd8ea; gap:12px; }
-.lb-row.me { color:#7CFC7C; font-weight:800; }
-
-#abilities { bottom:18px; left:50%; transform:translateX(-50%); display:flex; gap:12px; }
-.slot { width:64px; height:64px; border-radius:14px; position:relative; overflow:hidden;
-    background:rgba(10,15,30,.7); border:2px solid rgba(255,255,255,.15);
-    display:flex; align-items:center; justify-content:center; font-size:28px;
-    backdrop-filter:blur(6px); transition:border-color .2s, box-shadow .2s; }
-.slot .cd, .mab .cd { position:absolute; inset:0; background:rgba(0,0,0,.75);
-    transform-origin:bottom; transform:scaleY(0); }
-.slot .key { position:absolute; top:2px; left:5px; font-size:10px; font-weight:800; color:#8fa3c8; }
-.slot.ready, .mab.ready { border-color:#7CFC7C; box-shadow:0 0 14px rgba(124,252,124,.35); }
-.slot.active, .mab.active { border-color:#ffd700; box-shadow:0 0 22px rgba(255,215,0,.8); }
-
-#minimapBox { bottom:18px; right:18px; padding:8px; }
-#minimap { display:block; border-radius:8px; }
-
-#chat { bottom:18px; left:18px; width:290px; padding:10px; }
-#chatMsgs { max-height:130px; overflow-y:auto; font-size:12px; margin-bottom:6px; }
-#chatMsgs div { margin:2px 0; text-shadow:1px 1px 2px #000; }
-#chatInput { width:100%; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15);
-    color:#fff; padding:7px 10px; border-radius:8px; font-family:'Rubik'; font-size:12px; outline:none; }
-#chatInput:focus { border-color:#4ecdc4; }
-
-#hint { top:70px; left:16px; padding:10px 14px; font-size:11px; color:#8fa3c8; line-height:1.7; }
-#hint b { color:#fff; }
-
-#toasts { position:fixed; top:90px; left:50%; transform:translateX(-50%); z-index:50;
-    display:flex; flex-direction:column; align-items:center; gap:6px; pointer-events:none; }
-.toast { background:rgba(10,15,30,.85); border:1px solid rgba(255,215,0,.4); color:#ffd700;
-    padding:8px 22px; border-radius:30px; font-weight:800; font-size:15px;
-    animation:toastIn 2.4s forwards; text-shadow:0 0 10px rgba(255,215,0,.5); white-space:nowrap; }
-@keyframes toastIn { 0%{opacity:0; transform:translateY(-15px) scale(.8);} 10%{opacity:1; transform:none;}
-    80%{opacity:1;} 100%{opacity:0; transform:translateY(-10px);} }
-
-/* ===== MÓVIL ===== */
-#joyZone { position:fixed; left:0; top:0; width:55%; height:100%; z-index:14; display:none; touch-action:none; }
-body.mobile #joyZone { display:block; }
-#joyBase { position:fixed; width:120px; height:120px; border:2px solid rgba(255,255,255,.35);
-    border-radius:50%; display:none; pointer-events:none; z-index:16;
-    background:rgba(255,255,255,.06); transform:translate(-50%,-50%); }
-#joyKnob { position:fixed; width:56px; height:56px; border-radius:50%;
-    background:rgba(255,255,255,.5); display:none; pointer-events:none; z-index:17;
-    box-shadow:0 0 12px rgba(255,255,255,.4); transform:translate(-50%,-50%); }
-#mAbs { position:fixed; right:14px; bottom:14px; z-index:15; display:none;
-    grid-template-columns:repeat(2,62px); gap:10px; }
-body.mobile #mAbs { display:grid; }
-.mab { width:62px; height:62px; border-radius:50%; position:relative; overflow:hidden;
-    background:rgba(10,15,30,.65); border:2px solid rgba(255,255,255,.2);
-    display:flex; align-items:center; justify-content:center; font-size:26px;
-    backdrop-filter:blur(4px); touch-action:none; }
-.mab:active { transform:scale(.9); }
-body.mobile #abilities { display:none; }
-body.mobile #chat, body.mobile #hint { display:none; }
-body.mobile #leaderboard { min-width:0; padding:8px 12px; transform:scale(.85); transform-origin:top right; }
-body.mobile #scorePanel { transform:scale(.85); transform-origin:top left; }
-/* Minimapa en móvil: abajo a la izquierda, no bloquea el joystick */
-body.mobile #minimapBox { left:12px; bottom:12px; right:auto; padding:6px; opacity:.85; pointer-events:none; }
-body.mobile #minimap { width:110px; height:110px; }
-
-/* ===== MENU ===== */
-#menu { position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center;
-    background:rgba(5,8,16,.55); backdrop-filter:blur(5px); }
-.card { text-align:center; padding:36px 52px; border-radius:26px; max-width:94vw;
-    background:rgba(10,15,30,.72); border:1px solid rgba(255,255,255,.1);
-    box-shadow:0 30px 80px rgba(0,0,0,.7), 0 0 60px rgba(78,205,196,.08); }
-#logoCanvas { width:190px; height:150px; margin:0 auto; display:block; }
-.title { font-family:'Orbitron'; font-weight:900; font-size:clamp(40px, 9vw, 62px); letter-spacing:2px;
-    background:linear-gradient(90deg,#ffd700,#ff6b6b,#4ecdc4,#ffd700); background-size:300% 100%;
-    -webkit-background-clip:text; background-clip:text; color:transparent;
-    animation:shine 4s linear infinite; filter:drop-shadow(0 0 18px rgba(255,215,0,.35)); }
-@keyframes shine { to { background-position:300% 0; } }
-.subtitle { color:#8fa3c8; letter-spacing:6px; font-size:13px; margin:4px 0 22px; font-weight:600; }
-#nameInput { width:280px; max-width:80vw; padding:13px; font-size:17px; text-align:center; border-radius:12px;
-    border:2px solid rgba(255,255,255,.15); background:rgba(255,255,255,.06); color:#fff;
-    font-family:'Rubik'; outline:none; margin-bottom:14px; transition:border-color .2s; }
-#nameInput:focus { border-color:#ffd700; }
-.skins { display:flex; gap:10px; justify-content:center; margin-bottom:20px; flex-wrap:wrap; }
-.skin { width:38px; height:38px; border-radius:50%; cursor:pointer; border:3px solid transparent;
-    transition:transform .15s, border-color .15s; }
-.skin:hover { transform:scale(1.15); }
-.skin.sel { border-color:#fff; transform:scale(1.2); box-shadow:0 0 14px rgba(255,255,255,.5); }
-#playBtn { padding:16px 70px; font-size:22px; font-weight:800; font-family:'Orbitron';
-    letter-spacing:3px; color:#fff; border:none; border-radius:40px; cursor:pointer;
-    background:linear-gradient(45deg,#ff6b6b,#ffd700); box-shadow:0 8px 30px rgba(255,107,107,.4);
-    transition:transform .15s, box-shadow .15s; animation:pulseBtn 2s infinite; }
-#playBtn:hover { transform:scale(1.08); box-shadow:0 8px 45px rgba(255,215,0,.7); }
-@keyframes pulseBtn { 50% { box-shadow:0 8px 45px rgba(255,215,0,.65); } }
-.ctrlGrid { display:flex; gap:14px; justify-content:center; margin-top:22px; }
-.ctrl { font-size:11px; color:#8fa3c8; }
-.ctrl .k { display:inline-block; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2);
-    border-radius:6px; padding:2px 8px; color:#fff; font-weight:800; margin-right:5px; }
-
-/* ===== MUERTE ===== */
-#death { position:fixed; inset:0; z-index:90; display:none; align-items:center; justify-content:center;
-    background:rgba(20,0,0,.55); backdrop-filter:blur(4px); }
-#death .card { border-color:rgba(255,0,0,.3); }
-#death h1 { font-family:'Orbitron'; font-size:44px; color:#ff4757;
-    text-shadow:0 0 25px rgba(255,71,87,.7); margin-bottom:8px; }
-#deathReason { color:#cfd8ea; font-size:16px; margin-bottom:6px; }
-#deathScore { color:#ffd700; font-size:22px; font-weight:800; margin-bottom:14px; }
-#respawnTxt { color:#4ecdc4; font-size:15px; font-weight:600; }
-
-@media (max-width:600px) {
-    .card { padding:24px 18px; }
-    #logoCanvas { width:150px; height:118px; }
-    .ctrlGrid { display:none; }
-    .subtitle { letter-spacing:3px; font-size:11px; }
-}
+/* ===== IDLE / TIENDA ===== */
+.menuRow { display:flex; gap:14px; justify-content:center; align-items:center; margin-top:14px; }
+#menuCoins { color:#ffd700; font-weight:800; font-size:18px; }
+#coinTxt { color:#ffd700; font-size:13px; font-weight:700; margin-top:2px; }
+#shopBtn { padding:12px 26px; border:none; border-radius:30px; font-weight:800;
+    font-family:'Orbitron'; font-size:14px; color:#fff; cursor:pointer;
+    background:linear-gradient(45deg,#ffa502,#ffd700); box-shadow:0 6px 20px rgba(255,165,2,.4); }
+#shop, #offline { position:fixed; inset:0; z-index:120; display:none;
+    align-items:center; justify-content:center; background:rgba(0,0,0,.7); backdrop-filter:blur(4px); }
+.shopCard { width:min(430px, 92vw); max-height:82vh; overflow-y:auto; }
+.shopCard h2 { font-family:'Orbitron'; color:#ffd700; margin-bottom:4px; }
+#shopCoins { color:#ffd700; font-weight:800; font-size:18px; }
+#shopList { display:flex; flex-direction:column; gap:10px; margin:14px 0; }
+.srow { display:flex; justify-content:space-between; align-items:center; gap:10px;
+    background:rgba(255,255,255,.06); padding:10px 12px; border-radius:12px; text-align:left; }
+.srow .nm { font-weight:800; color:#fff; font-size:14px; }
+.srow .lv { font-size:10px; color:#4ecdc4; }
+.srow .ds { font-size:11px; color:#8fa3c8; }
+.buy { padding:9px 14px; border:none; border-radius:10px; white-space:nowrap;
+    background:linear-gradient(45deg,#4CAF50,#8BC34A); color:#fff; font-weight:800; cursor:pointer; }
+.buy:disabled { filter:grayscale(1); opacity:.5; cursor:not-allowed; }
+#offlineBtn, #shopClose { padding:12px 34px; border:none; border-radius:30px; font-weight:800;
+    font-family:'Orbitron'; color:#fff; cursor:pointer; background:linear-gradient(45deg,#4ecdc4,#4CAF50); }
+#offlineAmt { font-size:36px; color:#ffd700; font-weight:900; margin:12px 0;
+    text-shadow:0 0 20px rgba(255,215,0,.6); }

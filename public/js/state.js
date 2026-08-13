@@ -10,7 +10,8 @@ const G = {
     deathTime: 0,
     joyActive: false,
     joyUsed: false,       // en móvil, quieto hasta primer toque
-    joyVec: { x: 0, y: 0 }
+    joyVec: { x: 0, y: 0 },
+    auto: false
 };
 let selSkin = 0;
 
@@ -22,9 +23,9 @@ const me = {
 
 function resetMe(x, y) {
     me.segments = [];
-    me.maxSegments = 10;
+    me.maxSegments = stats().startLen;
     for (let i = 0; i < me.maxSegments; i++) me.segments.push({ x, y });
-    me.score = 10; me.alive = true; me.angle = 0;
+    me.score = me.maxSegments; me.alive = true; me.angle = 0;
     Object.keys(me.abilities).forEach(k => { me.abilities[k].cd = 0; me.abilities[k].active = 0; });
 }
 

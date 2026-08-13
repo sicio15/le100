@@ -1,4 +1,3 @@
-// Conexión con el servidor
 const socket = io();
 
 socket.on('init', d => {
@@ -8,7 +7,7 @@ socket.on('init', d => {
 });
 
 socket.on('playerJoined', p => {
-    if (p.id !== G.myId) { remotesAdd(p); toast(`📥 ${p.name} entró`); }
+    if (p.id !== G.myId) { G.remotes.set(p.id, new Remote(p)); toast(`📥 ${p.name} entró`); }
 });
 socket.on('playerLeft', id => {
     const r = G.remotes.get(id);
@@ -19,12 +18,25 @@ socket.on('playerLeft', id => {
 socket.on('gameState', d => {
     G.foods = d.foods;
     d.players.forEach(p => {
-        if (p.id === G.myId) return;
+        if (p.id === G.myId) {
+            // Sincronizar mi meta-datos (y cuerpo en AUTO)
+            const was = me.alive;
+            me.score = p.score;
+            me.maxSegments = p.maxSegments;
+            me.alive = p.alive !== false;
+            if (!G.auto) me.abilities = p.abilities || me.abilities;
+            if (was && !me.alive && G.auto) {
+                // Morí en modo AUTO: banco monedas sin pantallazo
+                const g = bankRun(me.score);
+                toast(`💀 AUTO cayó · 🪙 +${g}`);
+            }
+            if (G.auto) meTargets = p.segments;
+            return;
+        }
         if (G.remotes.has(p.id)) G.remotes.get(p.id).sync(p);
-        else remotesAdd(p);
+        else G.remotes.set(p.id, new Remote(p));
     });
 });
-function remotesAdd(p) { G.remotes.set(p.id, new Remote(p)); }
 
 socket.on('foodEaten', d => {
     const f = G.foods.find(x => x.id === d.foodId);
@@ -33,6 +45,7 @@ socket.on('foodEaten', d => {
 socket.on('foodUpdate', f => { G.foods = f; });
 
 socket.on('playerDied', d => {
+    if (d.id === G.myId) return; // mi muerte la manejo yo
     const r = G.remotes.get(d.id);
     const segs = d.segments || (r && r.segments) || [];
     if (segs[0]) burst(segs[0].x, segs[0].y, r ? `hsl(${r.hue},85%,60%)` : '#fff', 40);
@@ -41,6 +54,7 @@ socket.on('playerDied', d => {
 
 socket.on('respawned', d => {
     resetMe(d.x, d.y);
+    meTargets = null;
     G.state = 'playing';
     document.getElementById('death').style.display = 'none';
     toast('✨ ¡Renaciste!');

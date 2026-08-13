@@ -1,9 +1,20 @@
-// Lógica local, cámara y loop principal
+// Lógica local, cámara y loop (con modo AUTO idle)
+let meTargets = null;
+
+function setAuto(v) {
+    G.auto = !!v;
+    meTargets = null;
+    socket.emit('setAuto', G.auto);
+    toast(G.auto ? '🤖 Modo AUTO activado' : '🎮 Control manual');
+}
+
 function useAbility(k) {
-    if (G.state !== 'playing' || !me.alive) return;
+    if (G.state !== 'playing' || !me.alive || G.auto) return;
     const a = me.abilities[k];
+    const st = stats();
     if (a.cd === 0) {
-        a.active = AB_DEF[k].dur; a.cd = AB_DEF[k].cd;
+        a.active = AB_DEF[k].dur + (k === 'magnet' ? 30 * st.magnetLvl : 0);
+        a.cd = AB_DEF[k].cd * st.cdMult;
         socket.emit('useAbility', k);
         toast(`${AB_DEF[k].icon} ¡${AB_DEF[k].name}!`);
     }
@@ -15,7 +26,9 @@ function die(reason) {
     G.deathTime = performance.now();
     G.shake = 25;
     burst(me.segments[0].x, me.segments[0].y, `hsl(${me.hue},85%,60%)`, 50);
+    const g = bankRun(me.score);
     socket.emit('playerDied', {});
+    toast(`🪙 +${g} por tu partida`);
     document.getElementById('deathReason').textContent = reason;
     document.getElementById('deathScore').textContent = `Longitud final: ${me.score}`;
     document.getElementById('death').style.display = 'flex';
@@ -23,7 +36,7 @@ function die(reason) {
 }
 
 function updateMe() {
-    if (!me.alive) return;
+    if (!me.alive || G.auto) return;   // en AUTO manda el servidor
     if (G.frame % 2 === 0) {
         Object.keys(me.abilities).forEach(k => {
             const a = me.abilities[k];
@@ -32,7 +45,6 @@ function updateMe() {
         });
     }
 
-    // Dirección: joystick (móvil, tras primer toque) o mouse (PC)
     let ta = null;
     if (isMobile) { if (G.joyActive && G.joyUsed) ta = Math.atan2(G.joyVec.y, G.joyVec.x); }
     else ta = Math.atan2(mouseY - H/2, mouseX - W/2);
@@ -47,7 +59,7 @@ function updateMe() {
 
     const head = me.segments[0];
     if (canMove) {
-        const speed = me.abilities.dash.active > 0 ? 6 : 3;
+        const speed = (me.abilities.dash.active > 0 ? 2 : 1) * stats().spd;
         head.x = Math.max(0, Math.min(G.worldSize, head.x + Math.cos(me.angle)*speed));
         head.y = Math.max(0, Math.min(G.worldSize, head.y + Math.sin(me.angle)*speed));
     }
@@ -62,7 +74,6 @@ function updateMe() {
         me.segments.push({ x:l.x, y:l.y });
     }
 
-    // Comer
     G.foods = G.foods.filter(f => {
         const dx = f.x-head.x, dy = f.y-head.y, dist = Math.hypot(dx,dy);
         if (dist < 28) {
@@ -76,7 +87,6 @@ function updateMe() {
         return true;
     });
 
-    // Chocar con otros cuerpos
     G.remotes.forEach(r => {
         if (!r.alive) return;
         for (let i = 1; i < r.segments.length; i++) {
@@ -86,7 +96,6 @@ function updateMe() {
             }
         }
     });
-        // 🌀 Auto-colisión: morder tu propio cuerpo mata (el escudo NO salva)
     for (let i = 14; i < me.segments.length; i++) {
         const s = me.segments[i];
         if (Math.hypot(s.x - head.x, s.y - head.y) < 20) {
@@ -105,7 +114,6 @@ function updateMe() {
     });
 }
 
-// Cámara SIEMPRE centrada en tu cienpiés (con clamp al mundo)
 function camera() {
     const h = me.segments[0] || { x: G.worldSize/2, y: G.worldSize/2 };
     let cx = h.x - W/2, cy = h.y - H/2;
@@ -141,6 +149,23 @@ function loop() {
     }
 
     if (G.state === 'playing') updateMe();
+
+    // En AUTO: interpolar mi cuerpo desde el servidor
+    if (G.auto && meTargets) {
+        while (me.segments.length < meTargets.length) {
+            const l = me.segments[me.segments.length-1] || {x:meTargets[0].x,y:meTargets[0].y};
+            me.segments.push({ x:l.x, y:l.y });
+        }
+        if (me.segments.length > meTargets.length) me.segments.length = meTargets.length;
+        for (let i = 0; i < me.segments.length; i++) {
+            const tg = meTargets[i];
+            if (tg) {
+                me.segments[i].x += (tg.x - me.segments[i].x) * 0.3;
+                me.segments[i].y += (tg.y - me.segments[i].y) * 0.3;
+            }
+        }
+    }
+
     G.remotes.forEach(r => r.update());
 
     const cam = camera();
@@ -150,7 +175,12 @@ function loop() {
     if (me.alive) drawCentipede(me, cam.x, cam.y, t);
     drawParticles(cam.x, cam.y);
 
-    if (G.state === 'playing' && me.alive && !isMobile) drawCursorRing();
+    if (G.state === 'playing' && me.alive && !isMobile && !G.auto) drawCursorRing();
+
+    // 💰 goteo idle: +monedas cada 10s vivo
+    if (G.state === 'playing' && me.alive && G.frame % 600 === 0) {
+        addCoins(Math.max(1, Math.floor(1 * stats().coinMult)));
+    }
 
     if (G.state === 'dead') {
         const left = Math.max(0, 5 - (performance.now()-G.deathTime)/1000);
@@ -169,7 +199,7 @@ document.getElementById('playBtn').addEventListener('click', () => {
     document.getElementById('menu').style.display = 'none';
     if (!isMobile) document.body.classList.add('playing');
     resetMe(G.worldSize/2, G.worldSize/2);
-    socket.emit('joinGame', { name: me.name, color: me.hue });
+    socket.emit('joinGame', { name: me.name, color: me.hue, up: SAVE.up });
     G.state = 'playing';
     toast(`🎮 ¡Bienvenido, ${me.name}!`);
     if (isMobile && window.innerHeight > window.innerWidth) {
