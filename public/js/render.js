@@ -10,7 +10,6 @@ function fit() {
 window.addEventListener('resize', fit);
 const easeOutBack = p => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); };
 
-/* Dibuja un frame recortado, centrado y apoyado en el suelo (pies fijos) */
 function drawFrame(sp, f, targetH, flash) {
     const fr = sp.frames[f], sc = targetH / sp.maxH;
     const dw = fr.sw * sc, dh = fr.sh * sc;
@@ -47,58 +46,43 @@ function drawBG() {
     });
 }
 
+/* ===== HÉROE: rig procedural (animación real, no sprites) ===== */
 function drawHero(hx, gy, scale) {
-    // sombra que respira con el paso
-    const ph = time * (enemies.length ? 6 : 3);
+    const phW = time * (enemies.length ? 7 : 2.5);
     ctx.fillStyle = 'rgba(0,0,0,.35)';
-    ctx.beginPath(); ctx.ellipse(hx, gy + 6, (50 - Math.abs(Math.sin(ph)) * 4) * scale, 9 * scale, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(hx, gy + 6, (50 - Math.abs(Math.sin(phW)) * 4) * scale, 9 * scale, 0, 0, TAU); ctx.fill();
 
-    ctx.save();
-    ctx.translate(hx, gy);
+    const striking = hero.lunge > 0.4;
+    const windup = !striking && hero.dead <= 0 && hero.atkT <= 0.12;
+    const venom = hero.venFlash > 0;
+    const state = hero.dead > 0 ? 'dead' : striking ? 'strike' : windup ? 'windup' : venom ? 'venom' : (enemies.length ? 'walk' : 'idle');
 
-    if (hero.dead > 0) {
-        const p = Math.min(1, (4 - hero.dead) * 2.5);
-        const e = 1 - Math.pow(1 - p, 3);
-        ctx.rotate(-e * 1.5);
-        ctx.globalAlpha = 1 - p * .6;
-    } else {
-        ctx.translate(hero.lunge * 24 - hero.recoil * 7, 0);
+    const bt = (time + 1.3) % 3.4;
+    const blink = bt < 0.14 ? Math.sin(bt / 0.14 * Math.PI) : 0;
+
+    let lx = .6, ly = 0, best = null, bd = 1e9;
+    enemies.forEach(e => { if (e.dying === null) { const d = Math.abs(e.x - hx); if (d < bd) { bd = d; best = e; } } });
+    if (best) { const dx = best.x - hx, dy = -24; const dl = Math.hypot(dx, dy) || 1; lx = dx / dl; ly = dy / dl; }
+
+    drawHeroRig({
+        x: hx, y: gy, scale,
+        t: time,
+        ph: state === 'walk' ? phW : state === 'strike' ? time * 12 : time * 2.2,
+        amp: state === 'walk' ? 4 : state === 'idle' ? 1.3 : 2,
+        state,
+        flash: hero.flash,
+        deadP: hero.dead > 0 ? Math.min(1, (4 - hero.dead) * 2.5) : 0,
+        lunge: hero.lunge, recoil: hero.recoil,
+        hop: state === 'walk' ? -Math.abs(Math.sin(phW)) * 2.2 : 0,
+        blink, lookX: lx, lookY: ly
+    });
+
+    if (venom) {
+        ctx.fillStyle = '#a855f7';
+        ctx.beginPath(); ctx.ellipse(hx + 52 * scale, gy - 30 * scale, 10, 7, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,.7)';
+        ctx.beginPath(); ctx.arc(hx + 50 * scale, gy - 33 * scale, 2.5, 0, TAU); ctx.fill();
     }
-
-    // squash & stretch sutil anclado a los pies
-    const sy = 1 + Math.cos(ph * 2) * 0.02;
-    ctx.scale(scale * (2 - sy), scale * sy);
-
-    let tilt = 0, f = 0, hop = 0;
-    if (hero.dead <= 0) {
-        if (hero.lunge > 0.4)      { f = 3; tilt = 0.09; }              // golpe
-        else if (hero.atkT <= 0.12){ f = 1; tilt = -0.07; }             // windup
-        else {
-            f = Math.floor(ph) % 4;
-            hop = -Math.abs(Math.sin(ph)) * 2.2;
-            tilt = Math.sin(ph) * 0.02 + 0.03;
-        }
-    }
-    ctx.rotate(tilt);
-    ctx.translate(0, hop);
-
-    if (SPR.heroWalk.ready) {
-        drawFrame(SPR.heroWalk, f, 105, hero.flash);
-        if (hero.venFlash > 0) {
-            ctx.fillStyle = '#a855f7';
-            ctx.beginPath(); ctx.ellipse(66, -52, 12, 8, 0, 0, TAU); ctx.fill();
-            ctx.fillStyle = 'rgba(255,255,255,.7)';
-            ctx.beginPath(); ctx.arc(64, -55, 3, 0, TAU); ctx.fill();
-        }
-    } else if (SPR.heroIdle.ready) {
-        drawFrame(SPR.heroIdle, 0, 100, hero.flash);
-    } else {
-        for (let i = 0; i < 7; i++) {
-            ctx.fillStyle = i % 2 ? '#2ecc71' : '#27ae60';
-            ctx.beginPath(); ctx.arc(-i * 16 + 20, -30 + Math.sin(time*6 + i) * 3, 16 - i, 0, TAU); ctx.fill();
-        }
-    }
-    ctx.restore();
 }
 
 function drawEnemy(e, gy) {
@@ -115,21 +99,17 @@ function drawEnemy(e, gy) {
     ctx.translate(ex, gy);
     if (e.dying !== null) {
         const p = 1 - Math.max(0, e.dying) / 0.45;
-        ctx.rotate(p * 1.35);
-        ctx.globalAlpha = 1 - p;
-        ctx.translate(0, p * 12);
+        ctx.rotate(p * 1.35); ctx.globalAlpha = 1 - p; ctx.translate(0, p * 12);
     } else {
         let hop = 0, tilt = 0, sx = 1, sy = 1;
         if (e.state === 'walk') {
             const pw = time * (e.kind === 'spider' ? 10 : 8);
             hop = -Math.abs(Math.sin(pw)) * 2.5;
             tilt = Math.sin(pw) * 0.035;
-        } else if (e.state === 'windup') { tilt = -0.1;  sy = .93; sx = 1.05; }  // se agacha
-        else if (e.state === 'strike') { tilt = 0.12;  sx = 1.1; sy = .94; }     // embestida
-        else { sy = 1 + Math.sin(time * 3 + e.slot) * .015; sx = 2 - sy; }       // respira
-        ctx.rotate(tilt);
-        ctx.scale(sx, sy);
-        ctx.translate(0, hop);
+        } else if (e.state === 'windup') { tilt = -0.1; sy = .93; sx = 1.05; }
+        else if (e.state === 'strike') { tilt = 0.12; sx = 1.1; sy = .94; }
+        else { sy = 1 + Math.sin(time * 3 + e.slot) * .015; sx = 2 - sy; }
+        ctx.rotate(tilt); ctx.scale(sx, sy); ctx.translate(0, hop);
     }
     ctx.scale(s, s);
     if (sp.ready) drawFrame(sp, 0, e.boss ? 115 : 80, e.flash);
