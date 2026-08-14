@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>le100.io - Idle Cienpies</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Rubik:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+    <div id="topbar">
+        <div class="tb-left">
+            <div class="panel">⚔️ <b id="stageTxt">1</b> <span id="bossTag" class="hidden">👑</span>
+                <div id="stageProg"><div id="stageProgFill"></div><span id="stageProgTxt">0/8</span></div>
+            </div>
+            <div class="panel">🪙 <b id="goldTxt">0</b></div>
+            <div class="panel">🧬 <b id="adnTxt">0</b></div>
+        </div>
+        <div class="tb-right">
+            <button class="tbtn" id="speedBtn">⏩ x1</button>
+            <button class="tbtn" id="btnSettings">⚙️</button>
+            <button class="tbtn" id="btnAch">🏅<span class="dot" id="achDot"></span></button>
+            <button class="tbtn" id="btnLb">🏆</button>
+            <button class="tbtn" id="btnPrestige">🧬<span class="dot" id="prDot"></span></button>
+        </div>
+    </div>
+    <div id="battleWrap">
+        <div id="bossBar" class="hidden"><div id="bossFill"></div><span id="bossTime"></span></div>
+        <div id="heroHpWrap"><div id="heroHp"></div></div>
+    </div>
+    <div id="bottombar">
+        <div id="heroStats" class="panel">
+            <div>❤️ <span id="hpTxt">100</span></div>
+            <div>⚔️ <span id="dpsTxt">5</span>/s</div>
+        </div>
+        <div id="ups"></div>
+    </div>
+</div>
+
+<div id="mAuth" class="modal"><div class="mcard">
+    <h2>🐛 le100.io</h2>
+    <p style="color:#8fa3c8;margin-bottom:10px">IDLE ARENA · tu cuenta, tu partida</p>
+    <div class="tabs">
+        <button id="tabLogin" class="tab sel">ENTRAR</button>
+        <button id="tabReg" class="tab">CREAR CUENTA</button>
+    </div>
+    <input id="authName" class="minput" placeholder="Nombre" maxlength="14">
+    <input id="authPass" class="minput" type="password" placeholder="Contraseña" maxlength="30">
+    <div id="authErr" class="err"></div>
+    <button class="mbtn" id="authBtn">JUGAR</button>
+    <p class="hintTxt">Tu progreso se guarda en la cuenta y funciona en cualquier dispositivo.</p>
+</div></div>
+
+<div id="mOffline" class="modal"><div class="mcard">
+    <h2>🌙 ¡Bienvenido de nuevo!</h2>
+    <p style="color:#cfd8ea">Tu cienpiés siguió luchando mientras no estabas:</p>
+    <div id="offlineAmt" class="big">🪙 0</div>
+    <button class="mbtn" id="offlineBtn">RECLAMAR</button>
+</div></div>
+
+<div id="mPrestige" class="modal"><div class="mcard">
+    <h2>🧬 PRESTIGIO</h2>
+    <p style="color:#cfd8ea">Mudá de piel: reiniciás etapa, oro y mejoras, pero ganás <b style="color:#7efcff">ADN</b> permanente.<br>Cada 🧬 = <b>+10% daño y oro</b>.<br><small style="color:#8fa3c8">Solo ganás ADN por etapas que superen tu último prestigio.</small></p>
+    <div id="prGain" class="big">+0 🧬</div>
+    <button class="mbtn" id="prBtn">MUDAR DE PIEL</button>
+    <button class="mbtn gray" id="prClose">CERRAR</button>
+</div></div>
+
+<div id="mAch" class="modal"><div class="mcard">
+    <h2>🏅 LOGROS</h2>
+    <div id="achList"></div>
+    <button class="mbtn gray" id="achClose">CERRAR</button>
+</div></div>
+
+<div id="mLb" class="modal"><div class="mcard">
+    <h2>🏆 RANKING ONLINE</h2>
+    <div id="lbList"></div>
+    <button class="mbtn gray" id="lbClose">CERRAR</button>
+</div></div>
+
+<div id="mSettings" class="modal"><div class="mcard">
+    <h2>⚙️ AJUSTES</h2>
+    <label class="setRow"><span>🔊 Audio</span><input type="checkbox" id="setAudio"></label>
+    <label class="setRow"><span>🎵 Música <b id="setMusicV">50</b>%</span><input type="range" id="setMusic" min="0" max="1" step="0.05"></label>
+    <label class="setRow"><span>💥 Efectos <b id="setSfxV">70</b>%</span><input type="range" id="setSfx" min="0" max="1" step="0.05"></label>
+    <label class="setRow"><span>✨ Reducir efectos</span><input type="checkbox" id="setReduce"></label>
+    <button class="mbtn gray" id="setLogout" style="margin-top:10px">🚪 Cerrar sesión</button>
+    <br><button class="mbtn" id="setClose">CERRAR</button>
+</div></div>
+
+<div id="rotate">📱<br>Girá el celular<br><small>le100.io se juega en horizontal</small></div>
+<div id="toasts"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/store.js"></script>
+<script src="js/assets.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/net.js"></script>
+<script src="js/battle.js"></script>
+<script src="js/phaser-setup.js"></script>
+<script src="js/battle-scene.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
