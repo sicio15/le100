@@ -1,7 +1,6 @@
 'use strict';
-/* Chroma-key + detección de frames por componentes conexos.
-   Phaser usa esto en BootScene para convertir sheets irregulares
-   en spritesheets uniformes. */
+/* Chroma-key + detección de frames + pre-normalizado de sheets.
+   Todo ocurre ANTES de Phaser => compatible con cualquier versión del motor. */
 function chroma(g, c) {
     const w = c.width, h = c.height;
     const d = g.getImageData(0, 0, w, h), px = d.data;
@@ -61,4 +60,39 @@ function analyze(c) {
     rows.forEach(r => { r.items.sort((a, b) => a.cx - b.cx); frames.push(...r.items); });
     const maxH = frames.reduce((m, f) => Math.max(m, f.sh), 1);
     return { frames, maxH };
+}
+
+/* ===== Pre-normalizado: convierte sheets irregulares en strips uniformes ===== */
+const SHEETS = ['hero_walk','hero_idle','hero_attack','hero_cast','hero_hurt',
+                'enemy_beetle','enemy_spider','enemy_boss'];
+const PREP = {};
+function loadImg(src) {
+    return new Promise(res => {
+        const i = new Image();
+        i.onload = () => res(i);
+        i.onerror = () => res(null);
+        i.src = src;
+    });
+}
+async function prepareAll() {
+    for (const k of SHEETS) {
+        const img = await loadImg('img/' + k + '.png');
+        if (!img) continue;
+        const c = document.createElement('canvas');
+        c.width = img.width; c.height = img.height;
+        const g = c.getContext('2d');
+        g.drawImage(img, 0, 0);
+        try { chroma(g, c); } catch (e) {}
+        const a = analyze(c);
+        if (!a.frames.length) continue;
+        const fw = a.frames.reduce((m, f) => Math.max(m, f.sw), 1);
+        const fh = a.maxH;
+        const strip = document.createElement('canvas');
+        strip.width = fw * a.frames.length; strip.height = fh;
+        const sg = strip.getContext('2d');
+        a.frames.forEach((f, i) => {
+            sg.drawImage(c, f.sx, f.sy, f.sw, f.sh, i * fw + Math.floor((fw - f.sw) / 2), fh - f.sh, f.sw, f.sh);
+        });
+        PREP[k] = { strip, fw, fh, count: a.frames.length };
+    }
 }
