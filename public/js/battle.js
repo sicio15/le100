@@ -4,6 +4,9 @@ let enemies = [];
 let spawnT = 1, bossT = 0, shake = 0, time = 0, stageFlash = 0, dustT = 0, lastChapter = -1;
 let shieldT = 0, healT = 2, venT = 3;
 
+/* Toast a prueba de UI rota */
+const notify = t => { if (typeof toast !== 'undefined') toast(t); };
+
 const VFX = { float(){}, burst(){}, coin(){}, puff(){} };
 function float(x, y, txt, color, big) { VFX.float(x, y, txt, color, big); }
 function burst(x, y, color, n) { VFX.burst(x, y, color, n); }
@@ -31,7 +34,7 @@ function initSquad() {
         const r = m.maxHp > 0 ? Math.min(1, m.hp / m.maxHp) : 1;
         m.maxHp = sh; m.hp = sh * r;
     });
-    if (squad.length > prev && prev > 0) toast('🐛 ¡Nuevo compañero: ' + squad[squad.length - 1].def.name + '!');
+    if (squad.length > prev && prev > 0) notify('🐛 ¡Nuevo compañero: ' + squad[squad.length - 1].def.name + '!');
 }
 function resetSquad() {
     squad.forEach(m => { m.alive = true; m.hp = m.maxHp; m.energy = 0; m.flash = 0; m.lunge = 0; m.castT = 0; });
@@ -47,10 +50,11 @@ function aliveByPriority() {
     return null;
 }
 function showCutin(m) {
+    const box = $('cutin'); if (!box) return;
     const c = document.createElement('div');
     c.className = 'cutin'; c.style.borderColor = m.def.color;
     c.innerHTML = '<div class="ciName" style="color:' + m.def.color + '">' + m.def.name + '</div><div class="ciUlt">¡' + m.def.ult + '!</div>';
-    $('cutin').appendChild(c);
+    box.appendChild(c);
     setTimeout(() => c.remove(), 1100);
 }
 function gainEnergy(m, n) {
@@ -102,7 +106,7 @@ function spawnBoss() {
     bossT = 30; shake = 10;
     $('bossBar').classList.remove('hidden');
     Audio.SFX.boss();
-    toast('👑 ¡JEFE en la etapa ' + S.stage + '!');
+    notify('👑 ¡JEFE en la etapa ' + S.stage + '!');
 }
 function killEnemy(e) {
     if (e.dying !== null) return;
@@ -123,10 +127,10 @@ function nextStage() {
     enemies = []; spawnT = 0.6;
     stageFlash = 0.5;
     const ch = Math.floor((S.stage - 1) / 10);
-    if (ch !== lastChapter) { lastChapter = ch; Audio.setChapter(ch); Audio.SFX.levelup(); toast('🌄 ' + chapterOf(S.stage).name); }
+    if (ch !== lastChapter) { lastChapter = ch; Audio.setChapter(ch); Audio.SFX.levelup(); notify('🌄 ' + chapterOf(S.stage).name); }
     else Audio.SFX.levelup();
     persist(); netScore(S.name, S.best);
-    toast('⚔️ Etapa ' + S.stage + (isBossStage() ? ' 👑' : ''));
+    notify('⚔️ Etapa ' + S.stage + (isBossStage() ? ' 👑' : ''));
 }
 
 /* ===== Update ===== */
@@ -138,7 +142,6 @@ function update(rawDt) {
     if (!squad.length) initSquad();
     const hx = heroX(), gy = groundY();
 
-    // escuadrón: ataques básicos
     squad.forEach(m => {
         m.flash = Math.max(0, m.flash - dt);
         m.lunge = Math.max(0, m.lunge - dt * 4);
@@ -163,7 +166,6 @@ function update(rawDt) {
         }
     });
 
-    // support: cura periódica
     healT -= dt;
     if (healT <= 0) {
         healT = 2;
@@ -179,7 +181,6 @@ function update(rawDt) {
         }
     }
 
-    // veneno AoE del escuadrón
     venT -= dt;
     if (venT <= 0) {
         venT = venomCd();
@@ -197,21 +198,19 @@ function update(rawDt) {
         }
     }
 
-    // spawns
     if (!isBossStage()) {
         spawnT -= dt;
         if (spawnT <= 0 && enemies.filter(e => e.dying === null).length < 4) { spawnT = 1.6; spawnEnemy(); }
     } else if (!enemies.length && S.ks === 0) spawnBoss();
 
-    // enemigos: caminan, telegrafian y pegan al tanque (o siguiente vivo)
     enemies.forEach(e => {
         e.flash = Math.max(0, e.flash - dt);
         e.kb = Math.max(0, e.kb - dt * 40);
         e.pop = Math.min(1, e.pop + dt * 3);
         if (e.dying !== null) { e.dying -= dt; return; }
-        const slotX = hx + 150 + e.slot * 46;
+        const ex = hx + 150 + e.slot * 46;
         let lungeT = 0;
-        if (e.x > slotX) {
+        if (e.x > ex) {
             e.x -= e.spd * dt; e.state = 'walk';
             dustT -= dt;
             if (dustT <= 0) { dustT = 0.22; puff(e.x + 20, gy + 4); }
@@ -234,17 +233,16 @@ function update(rawDt) {
                     gainEnergy(m, 6);
                     if (m.hp <= 0) {
                         m.alive = false;
-                        toast('💀 ' + m.def.name + ' cayó');
+                        notify('💀 ' + m.def.name + ' cayó');
                         Audio.SFX.death();
                         if (!aliveByPriority()) {
-                            // wipe: regresión de etapa + revive escuadrón
                             if (S.stage > 1) S.stage--;
                             S.ks = 0;
                             enemies.forEach(x => { if (x.dying === null) { x.dying = 0.45; puff(x.x, gy + 2); } });
                             $('bossBar').classList.add('hidden');
                             spawnT = 0.8;
                             persist(); netScore(S.name, S.best);
-                            toast('💀 Caíste → Etapa ' + S.stage + '. ¡Farmeá y volvé!');
+                            notify('💀 Caíste → Etapa ' + S.stage + '. ¡Farmeá y volvé!');
                             resetSquad();
                         }
                     }
@@ -259,7 +257,7 @@ function update(rawDt) {
         bossT -= dt;
         $('bossFill').style.width = Math.max(0, bossT / 30) * 100 + '%';
         $('bossTime').textContent = Math.max(0, Math.ceil(bossT)) + 's';
-        if (bossT <= 0) { bossT = 30; toast('⏰ El jefe se recuperó... ¡otra vez!'); }
+        if (bossT <= 0) { bossT = 30; notify('⏰ El jefe se recuperó... ¡otra vez!'); }
     }
     if (shake > 0) shake -= dt * 20;
 }
