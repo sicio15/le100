@@ -7,6 +7,9 @@ function toColor(str) {
     if (m) { const c = Phaser.Display.Color.HSLToColor(+m[1] / 360, 0.8, 0.6); return (c.r << 16) | (c.g << 8) | c.b; }
     return 0xffffff;
 }
+/* Altura visual objetivo de cada sprite en px de mundo */
+const TARGET_H = { hero: 105, beetle: 80, spider: 80, boss: 115 };
+const baseScale = kind => (TARGET_H[kind] || 100) / STRIP_H;
 
 class BattleScene extends Phaser.Scene {
     constructor() { super('battle'); }
@@ -22,7 +25,6 @@ class BattleScene extends Phaser.Scene {
         this.ff = [];
         for (let i = 0; i < 12; i++) this.ff.push({ x: Math.random(), y: .5 + Math.random() * .5, p: Math.random() * TAU, s: .5 + Math.random() });
 
-        /* ===== VFX con tweens de Phaser ===== */
         VFX.float = (x, y, txt, color, big) => {
             const t = this.add.text(x, y, txt, {
                 fontFamily: '"Press Start 2P", monospace', fontSize: (big ? 20 : 13) + 'px',
@@ -54,8 +56,8 @@ class BattleScene extends Phaser.Scene {
     update(tMs, dtMs) {
         const dt = Math.min(0.1, dtMs / 1000);
         W = this.scale.width; H = this.scale.height;
-        update(dt);      // simulación (battle.js)
-        uiTick();        // HUD DOM (ui.js)
+        update(dt);
+        uiTick();
         this.sync();
     }
 
@@ -63,7 +65,7 @@ class BattleScene extends Phaser.Scene {
         const hx = heroX(), gy = groundY();
         const t = time;
 
-        // fondo por capítulo (fallback al bosque)
+        // fondo por capítulo
         const want = (chapterOf(S.stage).bg || 'img/bg.png').split('/').pop().replace('.png', '');
         if (want !== this.curBg && this.textures.exists(want)) { this.bg.setTexture(want); this.curBg = want; }
         const iw = this.bg.width || 1, ih = this.bg.height || 1;
@@ -79,7 +81,7 @@ class BattleScene extends Phaser.Scene {
             if (a > 0) { this.fliesG.fillStyle(0xffdc6e, a); this.fliesG.fillCircle(x, y, 2); }
         });
 
-        // ===== héroe =====
+        // ===== héroe (escala base + grow de mejoras) =====
         const desired = hero.dead > 0 ? 'hero_death'
             : hero.flash > 0 ? 'hero_hurt'
             : hero.lunge > 0.35 ? 'hero_attack'
@@ -91,6 +93,7 @@ class BattleScene extends Phaser.Scene {
         this.heroSpr.setPosition(hx + hero.lunge * 22 - hero.recoil * 7, gy + (walking ? -Math.abs(Math.sin(phW)) * 2.2 : 0));
         const sy = 1 + Math.cos(phW * 2) * (walking ? 0.02 : 0.008);
         const grow = 1 + Math.min(0.6, (S.ups.dmg + S.ups.vit) * 0.012);
+        const hb = baseScale('hero');
         if (hero.dead > 0) {
             const p = Math.min(1, (4 - hero.dead) * 2.5);
             this.heroSpr.setRotation(-(1 - Math.pow(1 - p, 3)) * 1.5);
@@ -99,22 +102,23 @@ class BattleScene extends Phaser.Scene {
             this.heroSpr.setRotation(walking ? 0.02 : (desired === 'hero_attack' ? 0.06 : 0));
             this.heroSpr.setAlpha(1);
         }
-        this.heroSpr.setScale(grow * (2 - sy), grow * sy);
+        this.heroSpr.setScale(hb * grow * (2 - sy), hb * grow * sy);
         if (hero.flash > 0) this.heroSpr.setTint(0xffffff); else this.heroSpr.clearTint();
 
         // ===== enemigos =====
         const alive = new Set();
         enemies.forEach(e => {
             alive.add(e);
-            if (!e.sprite && this.anims.exists(e.boss ? 'boss_walk' : (e.kind === 'spider' ? 'spider_walk' : 'beetle_walk'))) {
-                const key = e.boss ? 'boss_walk' : (e.kind === 'spider' ? 'spider_walk' : 'beetle_walk');
-                e.sprite = this.add.sprite(e.x, gy, key);
+            const kind = e.boss ? 'boss' : e.kind;
+            if (!e.sprite && this.anims.exists(kind + '_walk')) {
+                e.sprite = this.add.sprite(e.x, gy, kind + '_walk');
                 e.sprite.setOrigin(0.5, 1);
-                e.sprite.play(key);
+                e.sprite.play(kind + '_walk');
                 this.seen.set(e, true);
             }
             if (!e.sprite) return;
-            const s = e.size * (1 + Math.min(0.5, S.stage * 0.004)) * (e.pop < 1 ? Math.max(0.01, easeOutBack(e.pop)) : 1);
+            const su = e.size * (1 + Math.min(0.5, S.stage * 0.004)) * (e.pop < 1 ? Math.max(0.01, easeOutBack(e.pop)) : 1);
+            const bs = baseScale(kind);
             e.sprite.setPosition(e.x + e.lungeX + e.kb, gy);
             if (e.dying !== null) {
                 if (!e.fx) {
@@ -129,21 +133,22 @@ class BattleScene extends Phaser.Scene {
                 else if (e.state === 'strike') { tilt = 0.12; sx = 1.1; sy2 = .94; }
                 else { sy2 = 1 + Math.sin(t * 3 + e.slot) * .015; sx = 2 - sy2; }
                 e.sprite.setRotation(tilt);
-                e.sprite.setScale(s * sx, s * sy2);
+                e.sprite.setScale(bs * su * sx, bs * su * sy2);
                 e.sprite.y = gy + hop;
                 if (e.flash > 0) e.sprite.setTint(0xffffff); else e.sprite.clearTint();
             }
+            e.su = su;   // para la barra de vida
         });
         for (const e of this.seen.keys()) {
             if (!alive.has(e) && e.sprite && !e.fx) { e.sprite.destroy(); e.sprite = null; this.seen.delete(e); }
         }
 
-        // barras de vida
+        // barras de vida (tamaño lógico, no píxeles del sprite)
         this.bars.clear();
         enemies.forEach(e => {
             if (e.dying !== null || !e.sprite) return;
-            const s = e.size * (1 + Math.min(0.5, S.stage * 0.004));
-            const bw = 56 * s, bx = e.x + e.lungeX + e.kb, by = gy - 82 * s;
+            const su = e.su || 1;
+            const bw = 56 * su, bx = e.x + e.lungeX + e.kb, by = gy - 82 * su;
             this.bars.fillStyle(0x000000, 0.6); this.bars.fillRect(bx - bw / 2, by, bw, 6);
             this.bars.fillStyle(e.boss ? 0xff4757 : 0x7bed9f, 1);
             this.bars.fillRect(bx - bw / 2, by, bw * Math.max(0, e.hp / e.max), 6);
