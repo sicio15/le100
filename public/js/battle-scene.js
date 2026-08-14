@@ -7,8 +7,8 @@ function toColor(str) {
     if (m) { const c = Phaser.Display.Color.HSLToColor(+m[1] / 360, 0.8, 0.6); return (c.r << 16) | (c.g << 8) | c.b; }
     return 0xffffff;
 }
-/* Altura visual objetivo de cada sprite en px de mundo */
 const TARGET_H = { hero: 105, beetle: 80, spider: 80, boss: 115 };
+const ROLE_SCALE = { dps: 1, tank: 1.15, support: 0.9 };
 const baseScale = kind => (TARGET_H[kind] || 100) / STRIP_H;
 
 class BattleScene extends Phaser.Scene {
@@ -17,7 +17,6 @@ class BattleScene extends Phaser.Scene {
     create() {
         this.bg = this.add.image(0, 0, 'bg'); this.bg.setOrigin(0.5, 1);
         this.fliesG = this.add.graphics();
-        this.heroSpr = this.add.sprite(0, 0, 'hero_idle'); this.heroSpr.setOrigin(0.5, 1);
         this.bars = this.add.graphics();
         this.seen = new Map();
         this.curBg = 'bg';
@@ -62,7 +61,7 @@ class BattleScene extends Phaser.Scene {
     }
 
     sync() {
-        const hx = heroX(), gy = groundY();
+        const gy = groundY();
         const t = time;
 
         // fondo por capítulo
@@ -81,29 +80,42 @@ class BattleScene extends Phaser.Scene {
             if (a > 0) { this.fliesG.fillStyle(0xffdc6e, a); this.fliesG.fillCircle(x, y, 2); }
         });
 
-        // ===== héroe (escala base + grow de mejoras) =====
-        const desired = hero.dead > 0 ? 'hero_death'
-            : hero.flash > 0 ? 'hero_hurt'
-            : hero.lunge > 0.35 ? 'hero_attack'
-            : hero.venFlash > 0 ? 'hero_cast'
-            : enemies.length ? 'hero_walk' : 'hero_idle';
-        if (this.heroSpr.anims.currentAnim && this.heroSpr.anims.currentAnim.key !== desired) this.heroSpr.play(desired);
-        const phW = t * 7;
-        const walking = desired === 'hero_walk';
-        this.heroSpr.setPosition(hx + hero.lunge * 22 - hero.recoil * 7, gy + (walking ? -Math.abs(Math.sin(phW)) * 2.2 : 0));
-        const sy = 1 + Math.cos(phW * 2) * (walking ? 0.02 : 0.008);
-        const grow = 1 + Math.min(0.6, (S.ups.dmg + S.ups.vit) * 0.012);
+        // ===== ESCUADRÓN =====
         const hb = baseScale('hero');
-        if (hero.dead > 0) {
-            const p = Math.min(1, (4 - hero.dead) * 2.5);
-            this.heroSpr.setRotation(-(1 - Math.pow(1 - p, 3)) * 1.5);
-            this.heroSpr.setAlpha(1 - p * .6);
-        } else {
-            this.heroSpr.setRotation(walking ? 0.02 : (desired === 'hero_attack' ? 0.06 : 0));
-            this.heroSpr.setAlpha(1);
-        }
-        this.heroSpr.setScale(hb * grow * (2 - sy), hb * grow * sy);
-        if (hero.flash > 0) this.heroSpr.setTint(0xffffff); else this.heroSpr.clearTint();
+        squad.forEach(m => {
+            if (!m.sprite && this.anims.exists('hero_idle')) {
+                m.sprite = this.add.sprite(slotX(m), gy, 'hero_idle');
+                m.sprite.setOrigin(0.5, 1);
+                m.sprite.play('hero_idle');
+                if (m.def.tint) m.sprite.setTint(m.def.tint);
+            }
+            if (!m.sprite) return;
+            const desired = !m.alive ? 'hero_death'
+                : m.flash > 0 ? 'hero_hurt'
+                : m.castT > 0 ? 'hero_cast'
+                : m.lunge > 0.35 ? 'hero_attack'
+                : enemies.length ? 'hero_walk' : 'hero_idle';
+            if (m.sprite.anims.currentAnim && m.sprite.anims.currentAnim.key !== desired) m.sprite.play(desired);
+            const phW = t * 7 + (m.def.role === 'tank' ? 2 : m.def.role === 'support' ? 4 : 0);
+            const walking = desired === 'hero_walk';
+            m.sprite.setPosition(slotX(m) + m.lunge * 20, gy + (walking ? -Math.abs(Math.sin(phW)) * 2.2 : 0));
+            const sy = 1 + Math.cos(phW * 2) * (walking ? 0.02 : 0.008);
+            const rs = ROLE_SCALE[m.def.role] || 1;
+            if (!m.alive) {
+                m.sprite.setRotation(-1.2); m.sprite.setAlpha(0.5);
+            } else {
+                m.sprite.setRotation(walking ? 0.02 : (desired === 'hero_attack' ? 0.06 : 0));
+                m.sprite.setAlpha(1);
+            }
+            m.sprite.setScale(hb * rs * (2 - sy), hb * rs * sy);
+            if (m.flash > 0) m.sprite.setTint(0xffffff);
+            else if (m.def.tint) m.sprite.setTint(m.def.tint);
+            else m.sprite.clearTint();
+            // aura de escudo del tanque
+            if (m.def.role === 'tank' && m.alive) {
+                m.sprite.setDepth(1);
+            }
+        });
 
         // ===== enemigos =====
         const alive = new Set();
@@ -137,14 +149,18 @@ class BattleScene extends Phaser.Scene {
                 e.sprite.y = gy + hop;
                 if (e.flash > 0) e.sprite.setTint(0xffffff); else e.sprite.clearTint();
             }
-            e.su = su;   // para la barra de vida
+            e.su = su;
         });
         for (const e of this.seen.keys()) {
             if (!alive.has(e) && e.sprite && !e.fx) { e.sprite.destroy(); e.sprite = null; this.seen.delete(e); }
         }
 
-        // barras de vida (tamaño lógico, no píxeles del sprite)
+        // barras de vida enemigas
         this.bars.clear();
+        if (shieldT > 0) {
+            this.bars.lineStyle(2, 0xffb347, 0.7);
+            this.bars.strokeRect(heroX() - 110, gy - 130, 200, 120);
+        }
         enemies.forEach(e => {
             if (e.dying !== null || !e.sprite) return;
             const su = e.su || 1;

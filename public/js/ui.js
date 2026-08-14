@@ -1,5 +1,4 @@
 'use strict';
-/* NOTE: LB y socket viven en net.js — acá NO se re-declaran */
 function toast(t) {
     const d = document.createElement('div');
     d.className = 'toast'; d.textContent = t;
@@ -26,6 +25,7 @@ if (!authed) { const m = $('mAuth'); if (m) m.style.display = 'flex'; }
 function afterLogin() {
     Audio.init(); Audio.startMusic();
     Audio.setChapter(Math.floor((S.stage - 1) / 10));
+    initSquad();
     const sec = Math.min(Date.now() - (S.last || Date.now()), 8 * 3600 * 1000) / 1000;
     const pending = Math.floor(sec * goldKill(S.best) * 0.4);
     if (pending >= 10) {
@@ -46,11 +46,11 @@ function afterLogin() {
 
 /* ===== Tutorial ===== */
 const TUT_STEPS = [
-    { t:'Tu cienpiés pelea solo. ¡Miralo combatir! 🐛', s:'battleWrap' },
+    { t:'Tu escuadrón pelea solo. ¡Miralo combatir! 🐛', s:'battleWrap' },
     { t:'Ganá oro y comprá mejoras acá abajo ⬇️', s:'bottombar' },
+    { t:'Cada héroe carga su ⚡ energía: al 100% lanza su ULTIMATE con cut-in.', s:'heroHpWrap' },
     { t:'Cada 5 etapas aparece un JEFE 👑. Si caés, bajás una etapa a farmear.', s:'topbar' },
-    { t:'Usá ⏩ para acelerar la batalla (x1/x2/x3).', s:'speedBtn' },
-    { t:'Configurá audio y efectos en ⚙️. ¡A jugar!', s:'btnSettings' }
+    { t:'⏩ acelera la batalla y ⚙️ ajustes arriba. ¡A jugar!', s:'speedBtn' }
 ];
 function startTutorial() {
     let i = 0;
@@ -87,7 +87,7 @@ Object.keys(UPDEF).forEach(k => {
         const co = cost(k);
         if (S.gold >= co) {
             S.gold -= co; S.ups[k]++;
-            if (k === 'vit') hero.hp = Math.min(maxHP(), hero.hp + maxHP() * 0.3);
+            if (k === 'vit') initSquad();   // recalcula HP del escuadrón
             persist(); Audio.SFX.buy();
             toast(UPDEF[k].icon + ' ' + UPDEF[k].name + ' Nv ' + S.ups[k]);
         } else Audio.SFX.click();
@@ -155,15 +155,15 @@ wire('btnPrestige', 'click', () => {
     $('prBtn').disabled = !(S.best >= 10 && prGain() > 0);
     $('mPrestige').style.display = 'flex'; Audio.SFX.click();
 });
-wire('prClose', 'click', () => $('mPrestige').style.display = 'none');
+wire('prClose', 'click', () => $('mPrestige').style.display = 'none';
 wire('prBtn', 'click', () => {
     const g = prGain();
     if (g <= 0) return;
     S.adn += g; S.prestiges++;
-    S.prBase = S.best;   // ✅ el próximo ADN solo cuenta progreso NUEVO
+    S.prBase = S.best;
     S.gold = 0; S.stage = 1; S.ks = 0;
     S.ups = { dmg:0, vit:0, regen:0, venom:0, fortune:0 };
-    hero = { hp: maxHP(), atkT: 0, venT: 3, lunge: 0, recoil: 0, dead: 0, flash: 0, venFlash: 0 };
+    initSquad(); resetSquad();
     enemies = [];
     persist(); netScore(S.name, S.best);
     $('mPrestige').style.display = 'none';
@@ -173,7 +173,7 @@ wire('prBtn', 'click', () => {
 
 /* ===== Modales ===== */
 wire('btnAch', 'click', () => { renderAch(); $('mAch').style.display = 'flex'; Audio.SFX.click(); });
-wire('achClose', 'click', () => $('mAch').style.display = 'none');
+wire('achClose', 'click', () => { $('mAch').style.display = 'none'; });
 wire('btnLb', 'click', () => {
     $('lbList').innerHTML = LB.length
         ? LB.map((p, i) => '<div class="mrow"><span>' + (i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1)+'.') + ' <b style="color:' + (p.name===S.name?'#7CFC7C':'#fff') + '">' + p.name + '</b></span><span>Etapa ' + p.stage + '</span></div>').join('')
@@ -182,15 +182,44 @@ wire('btnLb', 'click', () => {
 });
 wire('lbClose', 'click', () => $('mLb').style.display = 'none');
 
-/* ===== HUD ===== */
+/* ===== HUD de escuadrón ===== */
+let sqBuiltKey = '';
+const sqRows = {};
+function buildSquadHud() {
+    const key = squad.map(m => m.def.id).join(',');
+    if (key === sqBuiltKey) return;
+    sqBuiltKey = key;
+    const w = $('heroHpWrap'); if (!w) return;
+    w.classList.add('squad');
+    w.innerHTML = '';
+    squad.forEach(m => {
+        const r = document.createElement('div');
+        r.className = 'sqRow';
+        r.innerHTML = '<span class="sqName" style="color:' + m.def.color + '">' + m.def.name[0] + '</span>' +
+            '<div class="sqHp"><i></i></div><div class="sqEn"><i></i></div>';
+        w.appendChild(r);
+        sqRows[m.def.id] = { row: r, hp: r.querySelector('.sqHp i'), en: r.querySelector('.sqEn i') };
+    });
+}
+
+/* ===== HUD tick ===== */
 function uiTick() {
     $('goldTxt').textContent = fmt(S.gold);
     $('stageTxt').textContent = S.stage;
     $('adnTxt').textContent = S.adn;
     $('bossTag').classList.toggle('hidden', !isBossStage());
-    $('hpTxt').textContent = fmt(Math.max(0, hero.hp)) + '/' + fmt(maxHP());
+    const totHp = squad.reduce((a, m) => a + Math.max(0, m.hp), 0);
+    const totMax = squad.reduce((a, m) => a + m.maxHp, 0);
+    $('hpTxt').textContent = fmt(totHp) + '/' + fmt(totMax);
     $('dpsTxt').textContent = fmt(dps());
-    $('heroHp').style.width = Math.max(0, hero.hp / maxHP() * 100) + '%';
+
+    buildSquadHud();
+    squad.forEach(m => {
+        const r = sqRows[m.def.id]; if (!r) return;
+        r.hp.style.width = Math.max(0, m.hp / m.maxHp * 100) + '%';
+        r.en.style.width = m.energy + '%';
+        r.row.classList.toggle('dead', !m.alive);
+    });
 
     const need = killsNeed();
     const pct = Math.min(100, (S.ks / need) * 100);

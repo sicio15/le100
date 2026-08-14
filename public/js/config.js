@@ -39,3 +39,9 @@ const CHAPTERS = [
     { name:'Pantano Tóxico',  bg:'img/bg_swamp.png' }
 ];
 const chapterOf = stage => CHAPTERS[Math.min(CHAPTERS.length - 1, Math.floor((stage - 1) / 10))];
+/* ===== Escuadrón (Fase 2) ===== */
+const HEROES = [
+    { id:'sting', name:'Aguijón',   role:'dps',     color:'#6ee87e', tint:null,      unlock:1,  ult:'Mordida Triple' },
+    { id:'shell', name:'Caparazón', role:'tank',    color:'#ffb347', tint:0xffb347,  unlock:5,  ult:'Grito de Guerra' },
+    { id:'leaf',  name:'Hojita',    role:'support', color:'#7efcff', tint:0x7efcff,  unlock:10, ult:'Lluvia Vital' }
+];

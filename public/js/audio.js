@@ -104,7 +104,8 @@ const Audio = (() => {
         death()  { [440, 330, 220, 110].forEach((f,i)=> beep(f, 0.18, 'sawtooth', sfxGain, 0.3, ctx && ctx.currentTime + i*0.12)); },
         venom()  { noise(0.18, 0.18); beep(300, 0.15, 'sawtooth', sfxGain, 0.15); },
         click()  { beep(700, 0.04, 'square', sfxGain, 0.15); },
-        buy()    { beep(600, 0.05, 'square', sfxGain, 0.2); beep(900, 0.08, 'square', sfxGain, 0.2, ctx && ctx.currentTime + 0.05); }
+        buy()    { beep(600, 0.05, 'square', sfxGain, 0.2); beep(900, 0.08, 'square', sfxGain, 0.2, ctx && ctx.currentTime + 0.05); },
+        ult()    { [392,523,659,784].forEach((f,i)=> beep(f, 0.1, 'square', sfxGain, 0.3, ctx && ctx.currentTime + i*0.06)); noise(0.2, 0.15); },
     };
 
     return {
