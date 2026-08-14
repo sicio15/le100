@@ -150,3 +150,8 @@ html, body { position:fixed; inset:0; overflow:hidden; background:#0d0a1a;
     border-radius:10px; padding:8px; margin:6px 0; font-size:12px; }
 .gRow small { color:#8fa3c8; }
 .gRow .claim { margin-left:4px; }
+/* ===== Modos (Fase 4) ===== */
+.buffRow { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin:12px 0; }
+.buff { min-width:150px; background:rgba(126,252,252,.1); border:2px solid rgba(126,252,252,.4); }
+.buff small { color:#8fa3c8; }
+#rogueBody h3 { font-family:'Press Start 2P',monospace; font-size:12px; }

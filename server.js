@@ -65,6 +65,10 @@ function sanitizeSave(s) {
     }
     o.tickets = Number.isFinite(+s.tickets) ? Math.max(0, Math.min(3, +s.tickets)) : 3;
     o.ticketDate = String(s.ticketDate || '').slice(0, 10);
+    o.tower = Math.max(1, num(s.tower, 9999));
+    o.towerBest = Math.max(1, num(s.towerBest, 9999));
+    o.rlTickets = Number.isFinite(+s.rlTickets) ? Math.max(0, Math.min(2, +s.rlTickets)) : 2;
+    o.rlDate = String(s.rlDate || '').slice(0, 10);
     return o;
 }
 const hash = (pass, salt) => crypto.scryptSync(pass, salt, 32).toString('hex');

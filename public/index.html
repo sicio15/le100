@@ -25,6 +25,8 @@
             <button class="tbtn" id="btnPrestige">🧬<span class="dot" id="prDot"></span></button>
             <button class="tbtn" id="btnGear">🎒</button>
             <button class="tbtn" id="btnDaily">🎯<span class="dot" id="dailyDot"></span></button>
+            <button class="tbtn" id="btnTower">🗼</button>
+            <button class="tbtn" id="btnRogue">🌀</button>
         </div>
     </div>
     <div id="battleWrap">
@@ -103,6 +105,20 @@
     <button class="mbtn" id="dailyBtn">🎟️ USAR TICKET</button>
     <button class="mbtn gray" id="dailyClose">CERRAR</button>
 </div></div>
+<div id="mTower" class="modal"><div class="mcard">
+    <h2>🗼 TORRE INFINITA</h2>
+    <div id="towerInfo" style="color:#cfd8ea;margin:10px 0"></div>
+    <div id="towerResult" style="color:#ffd700;min-height:20px"></div>
+    <button class="mbtn" id="towerFight">⚔️ PELEAR</button>
+    <button class="mbtn gray" id="towerClose">CERRAR</button>
+</div></div>
+
+<div id="mRogue" class="modal"><div class="mcard wide">
+    <h2>🌀 EL SOTOBOSQUE</h2>
+    <div id="rogueBody" style="color:#cfd8ea;margin:10px 0"></div>
+    <button class="mbtn" id="rogueStart">🌀 EMPEZAR</button>
+    <button class="mbtn gray" id="rogueClose">CERRAR</button>
+</div></div>
 <div id="rotate">📱<br>Girá el celular<br><small>le100.io se juega en horizontal</small></div>
 <div id="toasts"></div>
 <div id="cutin"></div>
@@ -118,6 +134,7 @@
 <script src="js/phaser-setup.js"></script>
 <script src="js/battle-scene.js"></script>
 <script src="js/ui.js"></script>
+<script src="js/modes.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

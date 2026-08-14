@@ -3,7 +3,7 @@ const KEY = 'le100_cache_v4';
 const DEF = { name:'', gold:0, adn:0, stage:1, best:1, kills:0, ks:0, prestiges:0, prBase:1,
     ups:{ dmg:0, vit:0, regen:0, venom:0, fortune:0 }, ach:{}, last:Date.now(),
     gear:{ equipped:{ fang:null, shell:null, antenna:null, charm:null }, inv:[] },
-    tickets:3, ticketDate:'' };
+    tickets:3, ticketDate:'', tower:1, towerBest:1, rlTickets:2, rlDate:'' };
 let S = loadCache();
 let authed = false;
 
