@@ -45,3 +45,15 @@ const HEROES = [
     { id:'shell', name:'Caparazón', role:'tank',    color:'#ffb347', tint:0xffb347,  unlock:5,  ult:'Grito de Guerra' },
     { id:'leaf',  name:'Hojita',    role:'support', color:'#7efcff', tint:0x7efcff,  unlock:10, ult:'Lluvia Vital' }
 ];
+
+/* ===== Equipo (Fase 3) ===== */
+const RAR_NAMES  = ['Común', 'Raro', 'Épico', 'Legendario', 'Mítico'];
+const RAR_COLORS = ['#cfcfcf', '#4fc3f7', '#c86bfa', '#ffa726', '#ff5252'];
+const SLOT_DEFS = {
+    fang:    { name: 'Colmillo',  stat: 'atk',   icon: '🗡️' },
+    shell:   { name: 'Caparazón', stat: 'hp',    icon: '🛡️' },
+    antenna: { name: 'Antena',    stat: 'crit',  icon: '📡' },
+    charm:   { name: 'Dije',      stat: 'regen', icon: '🍀' }
+};
+const STAT_NAMES = { atk: 'Daño%', hp: 'Vida%', crit: 'Crítico%', critd: 'DañoCrit%', regen: 'Regen%' };
+const SUB_POOL = ['atk', 'hp', 'crit', 'critd', 'regen'];

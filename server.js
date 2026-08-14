@@ -44,6 +44,27 @@ function sanitizeSave(s) {
     if (s.ups) Object.keys(o.ups).forEach(k => o.ups[k] = num(s.ups[k], 999));
     if (s.ach) o.ach = Object.fromEntries(Object.entries(s.ach).filter(([, v]) => v).map(([k]) => [k, 1]));
     o.last = Number(s.last) || Date.now();
+        // ===== Equipo (Fase 3) con validación =====
+    if (s.gear && typeof s.gear === 'object') {
+        const cleanItem = it => {
+            if (!it || typeof it !== 'object') return null;
+            return {
+                id: String(it.id || '').slice(0, 24),
+                slot: ['fang','shell','antenna','charm'].includes(it.slot) ? it.slot : 'fang',
+                rarity: Math.max(0, Math.min(4, +it.rarity || 0)),
+                lvl: Math.max(0, Math.min(99, +it.lvl || 0)),
+                stat: String(it.stat || 'atk').slice(0, 8),
+                val: Math.max(0, Math.min(999, +it.val || 0)),
+                subs: Array.isArray(it.subs) ? it.subs.slice(0, 2).map(x => ({ stat: String(x.stat || 'atk').slice(0, 8), val: Math.max(0, Math.min(999, +x.val || 0)) })) : []
+            };
+        };
+        const g = { equipped: { fang: null, shell: null, antenna: null, charm: null }, inv: [] };
+        Object.keys(g.equipped).forEach(k => { g.equipped[k] = cleanItem((s.gear.equipped || {})[k]); });
+        g.inv = Array.isArray(s.gear.inv) ? s.gear.inv.slice(0, 30).map(cleanItem).filter(Boolean) : [];
+        o.gear = g;
+    }
+    o.tickets = Number.isFinite(+s.tickets) ? Math.max(0, Math.min(3, +s.tickets)) : 3;
+    o.ticketDate = String(s.ticketDate || '').slice(0, 10);
     return o;
 }
 const hash = (pass, salt) => crypto.scryptSync(pass, salt, 32).toString('hex');

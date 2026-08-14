@@ -26,6 +26,7 @@ function afterLogin() {
     Audio.init(); Audio.startMusic();
     Audio.setChapter(Math.floor((S.stage - 1) / 10));
     initSquad();
+    checkTickets();
     const sec = Math.min(Date.now() - (S.last || Date.now()), 8 * 3600 * 1000) / 1000;
     const pending = Math.floor(sec * goldKill(S.best) * 0.4);
     if (pending >= 10) {
@@ -236,3 +237,94 @@ function uiTick() {
     $('prDot').style.display = (S.best >= 10 && prGain() > 0) ? 'block' : 'none';
     $('achDot').style.display = ACH.some(a => !S.ach[a.id] && a.c()) ? 'block' : 'none';
 }
+/* ================= EQUIPO (Fase 3) ================= */
+wire('btnGear', 'click', () => { renderGear(); $('mGear').style.display = 'flex'; Audio.SFX.click(); });
+wire('gearClose', 'click', () => { $('mGear').style.display = 'none'; });
+
+function itemLabel(it) { return SLOT_DEFS[it.slot].icon + ' ' + RAR_NAMES[it.rarity] + ' ' + SLOT_DEFS[it.slot].name + ' +' + it.lvl; }
+function itemStats(it) {
+    const mult = 1 + 0.1 * it.lvl;
+    let s = STAT_NAMES[it.stat] + ' +' + (Math.round(it.val * mult * 10) / 10);
+    (it.subs || []).forEach(x => { s += ' · ' + STAT_NAMES[x.stat] + ' +' + x.val; });
+    return s;
+}
+function renderGear() {
+    const box = $('gearBody'); if (!box) return;
+    box.innerHTML = '';
+    const eq = document.createElement('div'); eq.className = 'gearCol';
+    eq.innerHTML = '<h3>EQUIPADO</h3>';
+    Object.keys(SLOT_DEFS).forEach(sl => {
+        const it = S.gear.equipped[sl];
+        const row = document.createElement('div'); row.className = 'gRow';
+        if (it) {
+            row.style.borderColor = RAR_COLORS[it.rarity];
+            row.innerHTML = '<div><b style="color:' + RAR_COLORS[it.rarity] + '">' + itemLabel(it) + '</b><br><small>' + itemStats(it) + '</small></div>';
+            const b1 = document.createElement('button'); b1.className = 'claim';
+            b1.textContent = '⬆️ ' + fmt(enhanceCost(it));
+            b1.onclick = () => {
+                const c = enhanceCost(it);
+                if (S.gold >= c) { S.gold -= c; it.lvl++; Audio.SFX.buy(); persist(); renderGear(); }
+                else Audio.SFX.click();
+            };
+            const b2 = document.createElement('button'); b2.className = 'claim'; b2.textContent = '✖';
+            b2.onclick = () => { S.gear.inv.push(it); S.gear.equipped[sl] = null; Audio.SFX.click(); persist(); renderGear(); };
+            row.appendChild(b1); row.appendChild(b2);
+        } else {
+            row.innerHTML = '<div><b>' + SLOT_DEFS[sl].icon + ' ' + SLOT_DEFS[sl].name + '</b><br><small>vacío</small></div>';
+        }
+        eq.appendChild(row);
+    });
+    box.appendChild(eq);
+
+    const inv = document.createElement('div'); inv.className = 'gearCol';
+    inv.innerHTML = '<h3>MOCHILA (' + S.gear.inv.length + '/30)</h3>';
+    S.gear.inv.slice().sort((a, b) => b.rarity - a.rarity).forEach(it => {
+        const row = document.createElement('div'); row.className = 'gRow';
+        row.style.borderColor = RAR_COLORS[it.rarity];
+        row.innerHTML = '<div><b style="color:' + RAR_COLORS[it.rarity] + '">' + itemLabel(it) + '</b><br><small>' + itemStats(it) + '</small></div>';
+        const b = document.createElement('button'); b.className = 'claim'; b.textContent = 'EQUIPAR';
+        b.onclick = () => {
+            const prev = S.gear.equipped[it.slot];
+            S.gear.equipped[it.slot] = it;
+            S.gear.inv = S.gear.inv.filter(x => x !== it);
+            if (prev) S.gear.inv.push(prev);
+            Audio.SFX.buy(); persist(); renderGear();
+        };
+        row.appendChild(b);
+        inv.appendChild(row);
+    });
+    box.appendChild(inv);
+}
+
+/* ================= JEFE DIARIO ================= */
+wire('btnDaily', 'click', () => { checkTickets(); renderDaily(); $('mDaily').style.display = 'flex'; Audio.SFX.click(); });
+wire('dailyClose', 'click', () => { $('mDaily').style.display = 'none'; });
+function renderDaily() {
+    const st = S.best + 5;
+    $('dailyInfo').innerHTML = '👑 Jefe Diario (Etapa ' + st + ')<br><small>❤️ ' + fmt(eHP(st) * 12) + ' · ⚔️ ' + fmt(eDmg(st) * 2.5) + '/s</small><br><small style="color:#8fa3c8">Ganar = equipo garantizado de buena rareza + mucho oro</small>';
+    $('dailyBtn').textContent = '🎟️ USAR TICKET (' + S.tickets + '/3)';
+    $('dailyBtn').disabled = S.tickets <= 0;
+}
+wire('dailyBtn', 'click', () => {
+    if (S.tickets <= 0) return;
+    S.tickets--; persist();
+    const st = S.best + 5;
+    const bhp = eHP(st) * 12, bAtk = eDmg(st) * 2.5;
+    const our = dps() * 30 * 1.4;
+    const aguante = maxHP() / (bAtk * 0.5);
+    const ratio = our / bhp;
+    const win = Math.random() < Math.max(0.1, Math.min(0.95, ratio * (aguante >= 20 ? 1 : 0.5)));
+    const g = goldKill(st) * (win ? 40 : 8);
+    S.gold += g;
+    const msg = win ? '🏆 ¡VICTORIA! +' + fmt(g) + ' 🪙' : '💀 Derrota... +' + fmt(g) + ' 🪙 de consuelo';
+    if (win) dropItem(3); else if (Math.random() < 0.25) dropItem(1);
+    if (win) Audio.SFX.levelup(); else Audio.SFX.death();
+    toast(msg);
+    $('dailyResult').textContent = msg;
+    renderDaily();
+});
+setInterval(() => {
+    checkTickets();
+    const d = $('dailyDot');
+    if (d) d.style.display = S.tickets > 0 ? 'block' : 'none';
+}, 2000);

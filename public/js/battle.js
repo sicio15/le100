@@ -118,6 +118,7 @@ function killEnemy(e) {
     burst(e.x, groundY() - 30, 'hsl(' + e.hue + ',80%,60%)', e.boss ? 40 : 14);
     spawnCoins(e.x, groundY() - 40, e.boss ? 8 : 3);
     Audio.SFX.coin();
+    if (Math.random() < (e.boss ? 1 : 0.08)) dropItem(e.boss ? 2 : 0);
     if (e.boss) { shake = 14; $('bossBar').classList.add('hidden'); nextStage(); }
     else if (S.ks >= killsNeed()) nextStage();
 }
@@ -154,8 +155,8 @@ function update(rawDt) {
             if (t) {
                 m.lunge = 1;
                 const mult = m.def.role === 'dps' ? 1 : m.def.role === 'tank' ? 0.45 : 0.35;
-                const isCrit = Math.random() < 0.2;
-                const d = dps() * 0.5 * mult * (isCrit ? 2.2 : 1);
+                const isCrit = Math.random() < critChance();
+                const d = dps() * 0.5 * mult * (isCrit ? critMult() : 1);
                 t.hp -= d; t.flash = 0.15; t.kb = isCrit ? 11 : 7;
                 float(t.x, gy - 70 * t.size, fmt(d), isCrit ? '#ffeb3b' : '#fff', isCrit);
                 burst(t.x, gy - 45 * t.size, isCrit ? '#ffeb3b' : '#ffffff', isCrit ? 10 : 6);
