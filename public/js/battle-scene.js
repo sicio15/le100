@@ -52,11 +52,11 @@ class BattleScene extends Phaser.Scene {
         };
     }
 
-    update(tMs, dtMs) {
+        update(tMs, dtMs) {
         const dt = Math.min(0.1, dtMs / 1000);
         W = this.scale.width; H = this.scale.height;
-        update(dt);
-        uiTick();
+        try { update(dt); } catch (e) { console.error('⚔️ battle update:', e); }
+        if (typeof uiTick === 'function') { try { uiTick(); } catch (e) { console.error('🖥️ uiTick:', e); } }
         this.sync();
     }
 

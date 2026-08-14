@@ -22,7 +22,7 @@ function makeHero(def) {
              flash: 0, lunge: 0, castT: 0, atkT: Math.random() * 0.4, sprite: null, fx: false, su: 1 };
 }
 function initSquad() {
-    const defs = HEROES.filter(h => S.best >= h.unlock);
+    const defs = (typeof HEROES !== 'undefined' ? HEROES : []).filter(h => S.best >= h.unlock);
     const old = {}; squad.forEach(m => old[m.def.id] = m);
     const prev = squad.length;
     squad = defs.map(d => old[d.id] || makeHero(d));
