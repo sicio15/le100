@@ -3,7 +3,8 @@ const KEY = 'le100_cache_v4';
 const DEF = { name:'', gold:0, adn:0, stage:1, best:1, kills:0, ks:0, prestiges:0, prBase:1,
     ups:{ dmg:0, vit:0, regen:0, venom:0, fortune:0 }, ach:{}, last:Date.now(),
     gear:{ equipped:{ fang:null, shell:null, antenna:null, charm:null }, inv:[] },
-    tickets:3, ticketDate:'', tower:1, towerBest:1, rlTickets:2, rlDate:'' };
+    tickets:3, ticketDate:'', tower:1, towerBest:1, rlTickets:2, rlDate:'',
+    arenaPts:0, arenaTickets:5, arenaDate:'', colony:'', colonyLevel:1, bossTicketDate:'' };
 let S = loadCache();
 let authed = false;
 
@@ -81,7 +82,7 @@ function checkTickets() {
 
 /* ===== Fórmulas de balance (con gear) ===== */
 const adnMult   = () => 1 + 0.1 * S.adn;
-const dps       = () => 5 * Math.pow(1.3, S.ups.dmg) * adnMult() * (1 + gearBonuses().atk / 100);
+const dps       = () => 5 * Math.pow(1.3, S.ups.dmg) * adnMult() * (1 + gearBonuses().atk / 100) * (1 + 0.02 * ((S.colonyLevel || 1) - 1));
 const maxHP     = () => 100 * Math.pow(1.22, S.ups.vit) * (1 + gearBonuses().hp / 100);
 const regenPs   = () => maxHP() * (0.02 + 0.01 * S.ups.regen) * (1 + gearBonuses().regen / 100);
 const critChance= () => Math.min(0.6, 0.2 + gearBonuses().crit / 100);

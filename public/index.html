@@ -27,6 +27,8 @@
             <button class="tbtn" id="btnDaily">🎯<span class="dot" id="dailyDot"></span></button>
             <button class="tbtn" id="btnTower">🗼</button>
             <button class="tbtn" id="btnRogue">🌀</button>
+            <button class="tbtn" id="btnArena">⚔️</button>
+            <button class="tbtn" id="btnColony">🐜</button>
         </div>
     </div>
     <div id="battleWrap">
@@ -119,6 +121,21 @@
     <button class="mbtn" id="rogueStart">🌀 EMPEZAR</button>
     <button class="mbtn gray" id="rogueClose">CERRAR</button>
 </div></div>
+<div id="mArena" class="modal"><div class="mcard wide">
+    <h2>⚔️ ARENA PvP</h2>
+    <div id="arenaMe" style="color:#cfd8ea;margin:8px 0"></div>
+    <h3 style="color:#ffd700">RIVALES CERCANOS</h3>
+    <div id="arenaOps"></div>
+    <h3 style="color:#ffd700;margin-top:12px">TOP 10</h3>
+    <div id="arenaTop"></div>
+    <button class="mbtn gray" id="arenaCloseBtn" onclick="document.getElementById('mArena').style.display='none'">CERRAR</button>
+</div></div>
+
+<div id="mColony" class="modal"><div class="mcard wide">
+    <h2>🐜 COLONIA</h2>
+    <div id="colonyBody"></div>
+    <button class="mbtn gray" id="colonyCloseBtn" onclick="document.getElementById('mColony').style.display='none'">CERRAR</button>
+</div></div>
 <div id="rotate">📱<br>Girá el celular<br><small>le100.io se juega en horizontal</small></div>
 <div id="toasts"></div>
 <div id="cutin"></div>
@@ -135,6 +152,7 @@
 <script src="js/battle-scene.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/modes.js"></script>
+<script src="js/social.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>
