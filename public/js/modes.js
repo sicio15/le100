@@ -5,15 +5,18 @@
 
 /* ===== QoL: auto-equipar lo mejor ===== */
 const gearScore = it => it.rarity * 20 + it.lvl * 2 + it.val;
+/* ===== QoL: auto-equipar lo mejor (FIX: conserva la mochila) ===== */
+const gearScore = it => it.rarity * 20 + it.lvl * 2 + it.val + (it.subs || []).reduce((a, s) => a + s.val, 0);
 function autoEquip() {
     Object.keys(SLOT_DEFS).forEach(sl => {
-        const pool = S.gear.inv.filter(i => i.slot === sl);
-        if (S.gear.equipped[sl]) pool.push(S.gear.equipped[sl]);
-        if (!pool.length) return;
-        const best = pool.sort((a, b) => gearScore(b) - gearScore(a))[0];
-        if (S.gear.equipped[sl] !== best) {
+        const candidates = S.gear.inv.filter(i => i.slot === sl);
+        if (S.gear.equipped[sl]) candidates.push(S.gear.equipped[sl]);
+        if (!candidates.length) return;
+        const best = candidates.slice().sort((a, b) => gearScore(b) - gearScore(a))[0];
+        if (best !== S.gear.equipped[sl]) {
+            S.gear.inv = S.gear.inv.filter(i => i !== best);              // saca SOLO el mejor
+            if (S.gear.equipped[sl]) S.gear.inv.push(S.gear.equipped[sl]); // devuelve el anterior
             S.gear.equipped[sl] = best;
-            S.gear.inv = pool.filter(i => i !== best);
         }
     });
     persist(); renderGear(); Audio.SFX.buy();
