@@ -155,3 +155,5 @@ html, body { position:fixed; inset:0; overflow:hidden; background:#0d0a1a;
 .buff { min-width:150px; background:rgba(126,252,252,.1); border:2px solid rgba(126,252,252,.4); }
 .buff small { color:#8fa3c8; }
 #rogueBody h3 { font-family:'Press Start 2P',monospace; font-size:12px; }
+#mTower .mcard { background: linear-gradient(rgba(23,18,48,.9), rgba(23,18,48,.95)), url('../img/bg_tower.png') center/cover; }
+#mRogue .mcard { background: linear-gradient(rgba(23,18,48,.9), rgba(23,18,48,.95)), url('../img/bg_rogue.png') center/cover; }
