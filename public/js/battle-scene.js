@@ -7,7 +7,7 @@ function toColor(str) {
     if (m) { const c = Phaser.Display.Color.HSLToColor(+m[1] / 360, 0.8, 0.6); return (c.r << 16) | (c.g << 8) | c.b; }
     return 0xffffff;
 }
-const TARGET_H = { hero: 105, beetle: 80, spider: 80, wasp: 70, scorpion: 85, boss: 115 };
+const TARGET_H = { hero: 52, beetle: 80, spider: 80, wasp: 70, scorpion: 85, boss: 115 };
 const ROLE_SCALE = { dps: 1, tank: 1.15, support: 0.9 };
 const baseScale = kind => (TARGET_H[kind] || 100) / (typeof STRIP_H !== 'undefined' ? STRIP_H : 160);
 
@@ -160,6 +160,7 @@ class BattleScene extends Phaser.Scene {
                 m.sprite.setRotation(walking ? 0.02 : (desired === 'hero_attack' ? 0.06 : 0));
                 m.sprite.setAlpha(1);
             }
+            // FIX: escala reducida para que el hero no se vea gigante
             m.sprite.setScale(hb * rs * (2 - sy), hb * rs * sy);
             if (m.flash > 0) m.sprite.setTint(0xffffff);
             else if (m.def.tint) m.sprite.setTint(m.def.tint);
