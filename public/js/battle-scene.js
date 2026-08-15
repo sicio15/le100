@@ -7,7 +7,7 @@ function toColor(str) {
     if (m) { const c = Phaser.Display.Color.HSLToColor(+m[1] / 360, 0.8, 0.6); return (c.r << 16) | (c.g << 8) | c.b; }
     return 0xffffff;
 }
-const TARGET_H = { hero: 105, beetle: 80, spider: 80, boss: 115 };
+const TARGET_H = { hero: 105, beetle: 80, spider: 80, wasp: 70, scorpion: 85, boss: 115 };
 const ROLE_SCALE = { dps: 1, tank: 1.15, support: 0.9 };
 const baseScale = kind => (TARGET_H[kind] || 100) / (typeof STRIP_H !== 'undefined' ? STRIP_H : 160);
 
@@ -58,7 +58,6 @@ class BattleScene extends Phaser.Scene {
             this.tweens.add({ targets: c, y: y - 16, alpha: 0, duration: 500, onComplete: () => c.destroy() });
         };
 
-        /* Juice hooks (con guard: si battle.js es viejo, no rompe) */
         if (typeof HOOKS !== 'undefined') {
             HOOKS.crit = (x, y) => { this.ring(x, y, 0xffeb3b); this.hitStop(0.25, 60); };
             HOOKS.ult = () => { this.cameras.main.flash(220, 126, 252, 252); this.hitStop(0.2, 80); this.zoomPulse(); };
@@ -103,14 +102,12 @@ class BattleScene extends Phaser.Scene {
         const sq = typeof squad !== 'undefined' ? squad : [];
         const sxOf = (typeof slotX === 'function') ? slotX : (m => heroX());
 
-        // fondo por capítulo
         const want = (chapterOf(S.stage).bg || 'img/bg.png').split('/').pop().replace('.png', '');
         if (want !== this.curBg && this.textures.exists(want)) { this.bg.setTexture(want); this.curBg = want; }
         const iw = this.bg.width || 1, ih = this.bg.height || 1;
         this.bg.setScale(Math.max(W / iw, H / ih));
         this.bg.setPosition(W / 2, H);
 
-        // luciérnagas
         this.fliesG.clear();
         if (!SETTINGS.reduceFx) this.ff.forEach(f => {
             const x = (f.x + Math.sin(t * .12 * f.s + f.p) * .06) * W;
@@ -119,10 +116,8 @@ class BattleScene extends Phaser.Scene {
             if (a > 0) { this.fliesG.fillStyle(0xffdc6e, a); this.fliesG.fillCircle(x, y, 2); }
         });
 
-        // banner de etapa
         if (S.stage !== this.lastStage) { this.lastStage = S.stage; showBanner('⚔️ ETAPA ' + S.stage); }
 
-        // ===== ESCUADRÓN =====
         const hb = baseScale('hero');
         this.bars.clear();
         sq.forEach(m => {
@@ -163,7 +158,6 @@ class BattleScene extends Phaser.Scene {
             else m.sprite.clearTint();
         });
 
-        // ===== ENEMIGOS =====
         const alive = new Set();
         enemies.forEach(e => {
             alive.add(e);
@@ -197,7 +191,7 @@ class BattleScene extends Phaser.Scene {
                 }
             } else {
                 let tilt = 0, sx = 1, sy2 = 1, hop = 0;
-                if (e.state === 'walk') { const pw = t * (e.kind === 'spider' ? 10 : 8); hop = -Math.abs(Math.sin(pw)) * 2.5; tilt = Math.sin(pw) * 0.035; }
+                if (e.state === 'walk') { const pw = t * (e.kind === 'spider' || e.kind === 'wasp' ? 10 : 8); hop = -Math.abs(Math.sin(pw)) * 2.5; tilt = Math.sin(pw) * 0.035; }
                 else if (e.state === 'windup') { tilt = -0.1; sy2 = .93; sx = 1.05; }
                 else if (e.state === 'strike') { tilt = 0.12; sx = 1.1; sy2 = .94; }
                 else { sy2 = 1 + Math.sin(t * 3 + e.slot) * .015; sx = 2 - sy2; }
@@ -215,7 +209,6 @@ class BattleScene extends Phaser.Scene {
             }
         }
 
-        // ===== overlays =====
         if (shieldT > 0) {
             this.bars.lineStyle(2, 0xffb347, 0.7);
             this.bars.strokeRect(heroX() - 110, gy - 130, 200, 120);
@@ -229,7 +222,6 @@ class BattleScene extends Phaser.Scene {
             this.bars.fillRect(bx - bw / 2, by, bw * Math.max(0, e.hp / e.max), 6);
         });
 
-        // cámara
         if (shake > this.prevShake + 1) this.cameras.main.shake(120, Math.min(0.03, 0.004 * shake));
         this.prevShake = shake;
         if (stageFlash > this.prevFlash + 0.2) this.cameras.main.flash(300, 255, 215, 0);

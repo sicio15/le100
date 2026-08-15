@@ -60,10 +60,10 @@ function analyze(c) {
     return { frames, maxH };
 }
 
-/* ===== Normalizado: TODOS los strips salen con la misma altura de frame ===== */
+/* ===== Normalizado: todos los strips con la misma altura de frame ===== */
 const STRIP_H = 160;
 const SHEETS = ['hero_walk','hero_idle','hero_attack','hero_cast','hero_hurt',
-                'enemy_beetle','enemy_spider','enemy_boss'];
+                'enemy_beetle','enemy_spider','enemy_boss','enemy_wasp','enemy_scorpion'];
 const PREP = {};
 function loadImg(src) {
     return new Promise(res => {
@@ -84,7 +84,7 @@ async function prepareAll() {
         try { chroma(g, c); } catch (e) {}
         const a = analyze(c);
         if (!a.frames.length) continue;
-        const sc = STRIP_H / a.maxH;                       // ✅ escala de normalizado
+        const sc = STRIP_H / a.maxH;
         const fw = Math.max(1, Math.ceil(a.frames.reduce((m, f) => Math.max(m, f.sw), 1) * sc));
         const strip = document.createElement('canvas');
         strip.width = fw * a.frames.length; strip.height = STRIP_H;

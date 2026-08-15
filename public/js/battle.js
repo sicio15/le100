@@ -4,7 +4,6 @@ let enemies = [];
 let spawnT = 1, bossT = 0, shake = 0, time = 0, stageFlash = 0, dustT = 0, lastChapter = -1;
 let shieldT = 0, healT = 2, venT = 3;
 
-/* Toast a prueba de UI rota */
 const notify = t => { if (typeof toast !== 'undefined') toast(t); };
 
 const VFX = { float(){}, burst(){}, coin(){}, puff(){} };
@@ -13,12 +12,32 @@ function burst(x, y, color, n) { VFX.burst(x, y, color, n); }
 function spawnCoins(x, y, n) { for (let i = 0; i < n; i++) VFX.coin(x, y); }
 function puff(x, y) { VFX.puff(x, y); }
 
-/* Hooks de juice (la escena Phaser los implementa si existe) */
 const HOOKS = { ult: null, crit: null, kill: null };
 
 const heroX = () => Math.min(230, W * 0.22);
 const groundY = () => H - 78;
 const slotX = m => heroX() + (m.def.role === 'tank' ? 52 : m.def.role === 'dps' ? -6 : -70);
+
+/* ===== Enemigos por capítulo (con fallback si falta la imagen) ===== */
+const KIND_STATS = {
+    beetle:   { hp: 1.25, spd: 70  },
+    spider:   { hp: 1.0,  spd: 95  },
+    wasp:     { hp: 0.7,  spd: 130 },
+    scorpion: { hp: 1.6,  spd: 55  }
+};
+function chapterKinds() {
+    const all = ['beetle', 'spider', 'wasp', 'scorpion'];
+    const ok = typeof ANIM_KINDS !== 'undefined' ? ANIM_KINDS : all;
+    const ch = Math.floor((S.stage - 1) / 10);
+    let pool = ch <= 0 ? ['beetle', 'spider']
+             : ch === 1 ? ['wasp', 'spider']
+             : ch === 2 ? ['scorpion', 'wasp']
+             : all;
+    pool = pool.filter(k => ok.includes(k));
+    if (!pool.length) pool = ok.filter(k => k !== 'boss' && k !== 'hero');
+    if (!pool.length) pool = ['beetle'];
+    return pool;
+}
 
 /* ===== Escuadrón ===== */
 function makeHero(def) {
@@ -97,10 +116,12 @@ function spawnEnemy() {
     enemies.forEach(e => { if (e.dying === null) { const i = slots.indexOf(e.slot); if (i >= 0) slots.splice(i, 1); } });
     if (!slots.length) return;
     const slot = slots[Math.random() * slots.length | 0];
-    const kind = Math.random() < 0.5 ? 'beetle' : 'spider';
-    const hp = eHP(S.stage) * (kind === 'beetle' ? 1.25 : 1);
+    const pool = chapterKinds();
+    const kind = pool[Math.random() * pool.length | 0];
+    const st = KIND_STATS[kind] || { hp: 1, spd: 80 };
+    const hp = eHP(S.stage) * st.hp;
     enemies.push({ hp, max: hp, slot, x: W + 60, atkT: 1, boss: false, kind, dying: null,
-        spd: kind === 'spider' ? 95 : 70, hue: (S.stage * 25) % 360, size: 1,
+        spd: st.spd, hue: (S.stage * 25) % 360, size: 1,
         state: 'walk', flash: 0, lungeX: 0, kb: 0, pop: 0, sprite: null, fx: false });
 }
 function spawnBoss() {
