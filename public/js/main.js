@@ -1,8 +1,17 @@
 'use strict';
 /* FIX: guarda contra doble montaje del juego (causa del "Texture key already in use") */
-if (!window.__LE100_GAME__) {
-    prepareAll().then(() => {
-        window.__LE100_GAME__ = new Phaser.Game({
+if (!window.LE100_GAME) {
+    /* Carga icons.js sin tocar index.html; si falla, el juego sigue con emojis */
+    const loadScript = src => new Promise(res => {
+        const s = document.createElement('script');
+        s.src = src; s.onload = res; s.onerror = res;
+        document.head.appendChild(s);
+    });
+    loadScript('icons.js').then(() => Promise.all([
+        prepareAll(),
+        typeof prepareIcons === 'function' ? prepareIcons() : null
+    ])).then(() => {
+        window.LE100_GAME = new Phaser.Game({
             type: Phaser.AUTO,
             parent: 'battleWrap',
             pixelArt: true,

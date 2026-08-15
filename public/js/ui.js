@@ -6,7 +6,6 @@ function toast(t) {
     setTimeout(() => d.remove(), 2400);
 }
 const wire = (id, ev, fn) => { const e = $(id); if (e) e.addEventListener(ev, fn); };
-
 /* ===== Logo con chroma (fondo blanco recortado) ===== */
 (function loadLogo() {
     const img = new Image();
@@ -21,7 +20,6 @@ const wire = (id, ev, fn) => { const e = $(id); if (e) e.addEventListener(ev, fn
     };
     img.src = 'img/logo.png';
 })();
-
 /* ===== Cuentas ===== */
 let authMode = 'login';
 wire('tabLogin', 'click', () => { authMode = 'login'; $('tabLogin').classList.add('sel'); $('tabReg').classList.remove('sel'); Audio.SFX.click(); });
@@ -36,7 +34,6 @@ wire('authBtn', 'click', () => {
     });
 });
 if (!authed) { const m = $('mAuth'); if (m) m.style.display = 'flex'; }
-
 function afterLogin() {
     Audio.init(); Audio.startMusic();
     Audio.setChapter(Math.floor((S.stage - 1) / 10));
@@ -47,22 +44,18 @@ function afterLogin() {
     if (pending >= 10) {
         $('offlineAmt').textContent = '🪙 ' + fmt(pending);
         $('mOffline').style.display = 'flex';
-        const btn = $('offlineBtn');
-        if (btn) {
-            btn.onclick = () => {
-                S.gold += pending; persist();
-                $('mOffline').style.display = 'none';
-                Audio.SFX.coin();
-                toast('🪙 +' + fmt(pending) + ' de tu AFK');
-            };
-        }
+        wire('offlineBtn', 'click', () => {
+            S.gold += pending; persist();
+            $('mOffline').style.display = 'none';
+            Audio.SFX.coin();
+            toast('🪙 +' + fmt(pending) + ' de tu AFK');
+        });
     }
     netScore(S.name, S.best);
     persist();
     toast('¡Hola, ' + S.name + '!');
     if (!SETTINGS.tutorialDone) startTutorial();
 }
-
 /* ===== Tutorial ===== */
 const TUT_STEPS = [
     { t: 'Tu escuadrón pelea solo. ¡Miralo combatir! 🐛', s: 'battleWrap' },
@@ -92,14 +85,14 @@ function startTutorial() {
     }
     show();
 }
-
 /* ===== Mejoras ===== */
 const upBtns = {};
 Object.keys(UPDEF).forEach(k => {
     const ups = $('ups'); if (!ups) return;
     const c = document.createElement('div');
     c.className = 'ucard';
-    c.innerHTML = '<div class="un">' + UPDEF[k].icon + ' ' + UPDEF[k].name + ' <span class="ul" id="lv_' + k + '">Nv 0</span></div><button class="ubuy" id="buy_' + k + '"></button>';
+    const ico = (typeof picOr === 'function') ? picOr(UPDEF[k].pic, UPDEF[k].icon, 14) : UPDEF[k].icon;
+    c.innerHTML = '<div class="un">' + ico + ' ' + UPDEF[k].name + ' <span class="ul" id="lv_' + k + '">Nv 0</span></div><button class="ubuy" id="buy_' + k + '"></button>';
     ups.appendChild(c);
     upBtns[k] = c.querySelector('button');
     upBtns[k].onclick = () => {
@@ -112,7 +105,6 @@ Object.keys(UPDEF).forEach(k => {
         } else { Audio.SFX.click(); }
     };
 });
-
 /* ===== Velocidad ===== */
 const SPEEDS = [1, 2, 3];
 function cycleSpeed() {
@@ -123,7 +115,6 @@ function cycleSpeed() {
 }
 wire('speedBtn', 'click', cycleSpeed);
 if ($('speedBtn')) $('speedBtn').textContent = '⏩ x' + SETTINGS.speed;
-
 /* ===== Settings ===== */
 function openSettings() {
     Audio.SFX.click();
@@ -143,7 +134,6 @@ wire('setLogout', 'click', () => {
     if (!confirm('¿Cerrar sesión? (tu partida queda guardada en la cuenta)')) return;
     persist(); location.reload();
 });
-
 /* ===== Logros ===== */
 function renderAch() {
     $('achList').innerHTML = '';
@@ -167,7 +157,6 @@ function renderAch() {
         $('achList').appendChild(row);
     });
 }
-
 /* ===== Prestigio ===== */
 wire('btnPrestige', 'click', () => {
     $('prGain').textContent = '+' + prGain() + ' 🧬';
@@ -189,19 +178,17 @@ wire('prBtn', 'click', () => {
     Audio.SFX.levelup();
     toast('🧬 ¡Prestigio! +' + g + ' ADN');
 });
-
 /* ===== Modales ===== */
 wire('btnAch', 'click', () => { renderAch(); $('mAch').style.display = 'flex'; Audio.SFX.click(); });
 wire('achClose', 'click', () => { $('mAch').style.display = 'none'; });
 wire('btnLb', 'click', () => {
     $('lbList').innerHTML = LB.length
         ? LB.map((p, i) => '<div class="mrow"><span>' + (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1) + '.') +
-          ' <b style="color:' + (p.name === S.name ? '#7CFC7C' : '#fff') + '">' + p.name + '</b></span><span>Etapa ' + p.stage + '</span></div>').join('')
+            ' <b style="color:' + (p.name === S.name ? '#7CFC7C' : '#fff') + '">' + p.name + '</b></span><span>Etapa ' + p.stage + '</span></div>').join('')
         : '<p style="color:#8fa3c8">Todavía no hay nadie en línea...</p>';
     $('mLb').style.display = 'flex'; Audio.SFX.click();
 });
 wire('lbClose', 'click', () => { $('mLb').style.display = 'none'; });
-
 /* ===== HUD de escuadrón ===== */
 let sqBuiltKey = '';
 const sqRows = {};
@@ -221,7 +208,6 @@ function buildSquadHud() {
         sqRows[m.def.id] = { row: r, hp: r.querySelector('.sqHp i'), en: r.querySelector('.sqEn i') };
     });
 }
-
 /* ===== HUD tick ===== */
 function uiTick() {
     $('goldTxt').textContent = fmt(S.gold);
@@ -232,7 +218,6 @@ function uiTick() {
     const totMax = squad.reduce((a, m) => a + m.maxHp, 0);
     $('hpTxt').textContent = fmt(totHp) + '/' + fmt(totMax);
     $('dpsTxt').textContent = fmt(dps());
-
     buildSquadHud();
     squad.forEach(m => {
         const r = sqRows[m.def.id]; if (!r) return;
@@ -240,13 +225,11 @@ function uiTick() {
         r.en.style.width = m.energy + '%';
         r.row.classList.toggle('dead', !m.alive);
     });
-
     const need = killsNeed();
     const pct = Math.min(100, (S.ks / need) * 100);
     if ($('stageProgFill')) $('stageProgFill').style.width = pct + '%';
     const toBoss = need - S.ks;
     if ($('stageProgTxt')) $('stageProgTxt').textContent = isBossStage() ? '👑 JEFE' : (toBoss <= 2 ? '⚠️ JEFE EN ' + toBoss : S.ks + '/' + need);
-
     Object.keys(UPDEF).forEach(k => {
         const lv = $('lv_' + k); if (lv) lv.textContent = 'Nv ' + S.ups[k];
         const b = upBtns[k]; if (!b) return;
@@ -258,12 +241,13 @@ function uiTick() {
     const gd = $('gearDot');
     if (gd) gd.style.display = hasBetterGear() ? 'block' : 'none';
 }
-
 /* ================= EQUIPO ================= */
 wire('btnGear', 'click', () => { renderGear(); $('mGear').style.display = 'flex'; Audio.SFX.click(); });
 wire('gearClose', 'click', () => { $('mGear').style.display = 'none'; });
-
-function itemLabel(it) { return SLOT_DEFS[it.slot].icon + ' ' + RAR_NAMES[it.rarity] + ' ' + SLOT_DEFS[it.slot].name + ' +' + it.lvl; }
+function slotIcon(sl) {
+    return (typeof picOr === 'function') ? picOr(SLOT_DEFS[sl].pic, SLOT_DEFS[sl].icon, 14) : SLOT_DEFS[sl].icon;
+}
+function itemLabel(it) { return slotIcon(it.slot) + ' ' + RAR_NAMES[it.rarity] + ' ' + SLOT_DEFS[it.slot].name + ' +' + it.lvl; }
 function itemStats(it) {
     const mult = 1 + 0.1 * it.lvl;
     let s = STAT_NAMES[it.stat] + ' +' + (Math.round(it.val * mult * 10) / 10);
@@ -292,12 +276,11 @@ function renderGear() {
             b2.onclick = () => { S.gear.inv.push(it); S.gear.equipped[sl] = null; Audio.SFX.click(); persist(); renderGear(); };
             row.appendChild(b1); row.appendChild(b2);
         } else {
-            row.innerHTML = '<div><b>' + SLOT_DEFS[sl].icon + ' ' + SLOT_DEFS[sl].name + '</b><br><small>vacío</small></div>';
+            row.innerHTML = '<div><b>' + slotIcon(sl) + ' ' + SLOT_DEFS[sl].name + '</b><br><small>vacío</small></div>';
         }
         eq.appendChild(row);
     });
     box.appendChild(eq);
-
     const inv = document.createElement('div'); inv.className = 'gearCol';
     inv.innerHTML = '<h3>MOCHILA (' + S.gear.inv.length + '/30)</h3>';
     S.gear.inv.slice().sort((a, b) => b.rarity - a.rarity).forEach(it => {
@@ -320,7 +303,6 @@ function renderGear() {
     });
     box.appendChild(inv);
 }
-
 /* ================= JEFE DIARIO ================= */
 wire('btnDaily', 'click', () => { checkTickets(); renderDaily(); $('mDaily').style.display = 'flex'; Audio.SFX.click(); });
 wire('dailyClose', 'click', () => { $('mDaily').style.display = 'none'; });

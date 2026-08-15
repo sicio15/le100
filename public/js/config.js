@@ -2,58 +2,56 @@
 const $ = id => document.getElementById(id);
 const TAU = Math.PI * 2;
 let W = 0, H = 0;   // tamaño del viewport de batalla (lo actualiza Phaser)
-const fmt = n => { n = Math.floor(n); if (n < 1e3) return '' + n; if (n < 1e6) return (n/1e3).toFixed(1)+'K'; if (n < 1e9) return (n/1e6).toFixed(1)+'M'; return (n/1e9).toFixed(1)+'B'; };
-
-const COSTS = { dmg:[15,1.5], vit:[12,1.5], regen:[20,1.6], venom:[30,1.6], fortune:[25,1.6] };
+const fmt = n => { n = Math.floor(n); if (n < 1e3) return '' + n; if (n < 1e6) return (n / 1e3).toFixed(1) + 'K'; if (n < 1e9) return (n / 1e6).toFixed(1) + 'M'; return (n / 1e9).toFixed(1) + 'B'; };
+const COSTS = { dmg: [15, 1.5], vit: [12, 1.5], regen: [20, 1.6], venom: [30, 1.6], fortune: [25, 1.6] };
+/* pic = ícono pixel (icons.js) · icon = emoji fallback / toasts */
 const UPDEF = {
-    dmg:     { icon:'⚔️', name:'Daño' },
-    vit:     { icon:'❤️', name:'Vitalidad' },
-    regen:   { icon:'💚', name:'Regeneración' },
-    venom:   { icon:'☠️', name:'Veneno' },
-    fortune: { icon:'🪙', name:'Fortuna' }
+    dmg:     { icon: '⚔️', pic: 'sword',  name: 'Daño' },
+    vit:     { icon: '❤️', pic: 'heart',  name: 'Vitalidad' },
+    regen:   { icon: '💚', pic: 'potion', name: 'Regeneración' },
+    venom:   { icon: '☠️', pic: 'venom',  name: 'Veneno' },
+    fortune: { icon: '🪙', pic: 'coin',   name: 'Fortuna' }
 };
 const ACH = [
-    { id:'k100',  d:'Eliminá 100 enemigos',     r:{g:300},  c:()=>S.kills>=100 },
-    { id:'k1000', d:'Eliminá 1.000 enemigos',   r:{g:3000}, c:()=>S.kills>=1000 },
-    { id:'s10',   d:'Llegá a etapa 10',         r:{a:1},    c:()=>S.best>=10 },
-    { id:'s25',   d:'Llegá a etapa 25',         r:{a:2},    c:()=>S.best>=25 },
-    { id:'s50',   d:'Llegá a etapa 50',         r:{a:3},    c:()=>S.best>=50 },
-    { id:'p1',    d:'Hacé tu primer prestigio', r:{a:3},    c:()=>S.prestiges>=1 },
-    { id:'d10',   d:'Daño nivel 10',            r:{g:2000}, c:()=>S.ups.dmg>=10 },
-    { id:'v5',    d:'Veneno nivel 5',           r:{g:2500}, c:()=>S.ups.venom>=5 }
+    { id: 'k100',  d: 'Eliminá 100 enemigos',     r: { g: 300 },  c: () => S.kills >= 100 },
+    { id: 'k1000', d: 'Eliminá 1.000 enemigos',   r: { g: 3000 }, c: () => S.kills >= 1000 },
+    { id: 's10',   d: 'Llegá a etapa 10',         r: { a: 1 },    c: () => S.best >= 10 },
+    { id: 's25',   d: 'Llegá a etapa 25',         r: { a: 2 },    c: () => S.best >= 25 },
+    { id: 's50',   d: 'Llegá a etapa 50',         r: { a: 3 },    c: () => S.best >= 50 },
+    { id: 'p1',    d: 'Hacé tu primer prestigio', r: { a: 3 },    c: () => S.prestiges >= 1 },
+    { id: 'd10',   d: 'Daño nivel 10',            r: { g: 2000 }, c: () => S.ups.dmg >= 10 },
+    { id: 'v5',    d: 'Veneno nivel 5',           r: { g: 2500 }, c: () => S.ups.venom >= 5 }
 ];
 /* ===== Settings persistentes ===== */
 const SETTINGS_KEY = 'le100_settings_v1';
-const DEFAULT_SETTINGS = { audio:true, musicVol:0.5, sfxVol:0.7, speed:1, reduceFx:false, tutorialDone:false };
+const DEFAULT_SETTINGS = { audio: true, musicVol: 0.5, sfxVol: 0.7, speed: 1, reduceFx: false, tutorialDone: false };
 let SETTINGS = loadSettings();
 function loadSettings() {
     try { const s = JSON.parse(localStorage.getItem(SETTINGS_KEY)); if (s) return Object.assign({}, DEFAULT_SETTINGS, s); } catch (e) {}
     return Object.assign({}, DEFAULT_SETTINGS);
 }
 function saveSettings() { localStorage.setItem(SETTINGS_KEY, JSON.stringify(SETTINGS)); }
-
-/* Capítulos temáticos (cambian fondo/paleta cada 10 etapas) */
+/* ===== Capítulos temáticos (cambian fondo/paleta cada 10 etapas) ===== */
 const CHAPTERS = [
-    { name:'Bosque Nocturno', bg:'img/bg.png' },
-    { name:'Cueva Cristal',   bg:'img/bg_cave.png' },
-    { name:'Pantano Tóxico',  bg:'img/bg_swamp.png' }
+    { name: 'Bosque Nocturno', bg: 'img/bg.png' },
+    { name: 'Cueva Cristal',   bg: 'img/bg_cave.png' },
+    { name: 'Pantano Tóxico',  bg: 'img/bg_swamp.png' }
 ];
 const chapterOf = stage => CHAPTERS[Math.min(CHAPTERS.length - 1, Math.floor((stage - 1) / 10))];
 /* ===== Escuadrón (Fase 2) ===== */
 const HEROES = [
-    { id:'sting', name:'Aguijón',   role:'dps',     color:'#6ee87e', tint:null,      unlock:1,  ult:'Mordida Triple' },
-    { id:'shell', name:'Caparazón', role:'tank',    color:'#ffb347', tint:0xffb347,  unlock:5,  ult:'Grito de Guerra' },
-    { id:'leaf',  name:'Hojita',    role:'support', color:'#7efcff', tint:0x7efcff,  unlock:10, ult:'Lluvia Vital' }
+    { id: 'sting', name: 'Aguijón',   role: 'dps',     color: '#6ee87e', tint: null,     unlock: 1,  ult: 'Mordida Triple' },
+    { id: 'shell', name: 'Caparazón', role: 'tank',    color: '#ffb347', tint: 0xffb347, unlock: 5,  ult: 'Grito de Guerra' },
+    { id: 'leaf',  name: 'Hojita',    role: 'support', color: '#7efcff', tint: 0x7efcff, unlock: 10, ult: 'Lluvia Vital' }
 ];
-
 /* ===== Equipo (Fase 3) ===== */
 const RAR_NAMES  = ['Común', 'Raro', 'Épico', 'Legendario', 'Mítico'];
 const RAR_COLORS = ['#cfcfcf', '#4fc3f7', '#c86bfa', '#ffa726', '#ff5252'];
 const SLOT_DEFS = {
-    fang:    { name: 'Colmillo',  stat: 'atk',   icon: '🗡️' },
-    shell:   { name: 'Caparazón', stat: 'hp',    icon: '🛡️' },
-    antenna: { name: 'Antena',    stat: 'crit',  icon: '📡' },
-    charm:   { name: 'Dije',      stat: 'regen', icon: '🍀' }
+    fang:    { name: 'Colmillo',  stat: 'atk',   icon: '🗡️', pic: 'sword' },
+    shell:   { name: 'Caparazón', stat: 'hp',    icon: '🛡️', pic: 'shell' },
+    antenna: { name: 'Antena',    stat: 'crit',  icon: '📡', pic: 'bolt'  },
+    charm:   { name: 'Dije',      stat: 'regen', icon: '🍀', pic: 'leaf'  }
 };
 const STAT_NAMES = { atk: 'Daño%', hp: 'Vida%', crit: 'Crítico%', critd: 'DañoCrit%', regen: 'Regen%' };
 const SUB_POOL = ['atk', 'hp', 'crit', 'critd', 'regen'];
