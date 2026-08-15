@@ -13,6 +13,9 @@ function burst(x, y, color, n) { VFX.burst(x, y, color, n); }
 function spawnCoins(x, y, n) { for (let i = 0; i < n; i++) VFX.coin(x, y); }
 function puff(x, y) { VFX.puff(x, y); }
 
+/* Hooks de juice (la escena Phaser los implementa si existe) */
+const HOOKS = { ult: null, crit: null, kill: null };
+
 const heroX = () => Math.min(230, W * 0.22);
 const groundY = () => H - 78;
 const slotX = m => heroX() + (m.def.role === 'tank' ? 52 : m.def.role === 'dps' ? -6 : -70);
@@ -63,6 +66,7 @@ function gainEnergy(m, n) {
 }
 function castUlt(m) {
     m.castT = 0.9; Audio.SFX.ult(); showCutin(m);
+    if (HOOKS.ult) HOOKS.ult(m);
     const gy = groundY();
     if (m.def.role === 'dps') {
         for (let i = 0; i < 3; i++) {
@@ -116,9 +120,10 @@ function killEnemy(e) {
     S.gold += g; S.kills++; S.ks++;
     float(e.x, groundY() - 60, '+' + fmt(g), '#ffd700');
     burst(e.x, groundY() - 30, 'hsl(' + e.hue + ',80%,60%)', e.boss ? 40 : 14);
+    if (HOOKS.kill) HOOKS.kill(e);
+    if (Math.random() < (e.boss ? 1 : 0.08)) dropItem(e.boss ? 2 : 0);
     spawnCoins(e.x, groundY() - 40, e.boss ? 8 : 3);
     Audio.SFX.coin();
-    if (Math.random() < (e.boss ? 1 : 0.08)) dropItem(e.boss ? 2 : 0);
     if (e.boss) { shake = 14; $('bossBar').classList.add('hidden'); nextStage(); }
     else if (S.ks >= killsNeed()) nextStage();
 }
@@ -161,6 +166,7 @@ function update(rawDt) {
                 float(t.x, gy - 70 * t.size, fmt(d), isCrit ? '#ffeb3b' : '#fff', isCrit);
                 burst(t.x, gy - 45 * t.size, isCrit ? '#ffeb3b' : '#ffffff', isCrit ? 10 : 6);
                 if (isCrit) { shake = Math.max(shake, 3); Audio.SFX.crit(); } else Audio.SFX.hit();
+                if (isCrit && HOOKS.crit) HOOKS.crit(t.x, gy - 45 * t.size);
                 gainEnergy(m, 8);
                 if (t.hp <= 0) killEnemy(t);
             }
