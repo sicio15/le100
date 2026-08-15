@@ -18,17 +18,21 @@ function chroma(g, c) {
     }
     g.putImageData(d, 0, 0);
 }
+
+/* FIX CLAVE: detecta frames por ALPHA (funciona con fondo transparente O blanco) */
 function analyze(c) {
     const w = c.width, h = c.height;
     const d = c.getContext('2d').getImageData(0, 0, w, h).data;
     const vis = new Uint8Array(w * h);
     const stack = [];
     const blobs = [];
-    function tryPush(j) { if (!vis[j] && d[j*4+3] >= 25) { vis[j] = 1; stack.push(j); } }
+    // un píxel "existe" si es OPACO (alpha alto) -> ignora fondo transparente y blanco-recortado
+    const exists = i => d[i*4+3] > 40;
+    function tryPush(j) { if (!vis[j] && exists(j)) { vis[j] = 1; stack.push(j); } }
     for (let y = 0; y < h; y += 2) {
         for (let x = 0; x < w; x += 2) {
             const i = y * w + x;
-            if (vis[i] || d[i*4+3] < 25) continue;
+            if (vis[i] || !exists(i)) continue;
             let minX = x, maxX = x, minY = y, maxY = y;
             stack.length = 0; stack.push(i); vis[i] = 1;
             while (stack.length) {
@@ -41,7 +45,7 @@ function analyze(c) {
                 if (jy > 0) tryPush(j - w);
                 if (jy < h - 1) tryPush(j + w);
             }
-            if (maxX - minX > 40 && maxY - minY > 40) {
+            if (maxX - minX > 20 && maxY - minY > 20) {
                 blobs.push({ sx: minX, sy: minY, sw: maxX - minX + 1, sh: maxY - minY + 1,
                              cx: (minX + maxX) / 2, cy: (minY + maxY) / 2 });
             }
@@ -60,7 +64,6 @@ function analyze(c) {
     return { frames, maxH };
 }
 
-/* ===== Normalizado: todos los strips con la misma altura de frame ===== */
 const STRIP_H = 160;
 const SHEETS = ['hero_walk','hero_idle','hero_attack','hero_cast','hero_hurt',
                 'enemy_beetle','enemy_spider','enemy_boss','enemy_wasp','enemy_scorpion'];
@@ -76,14 +79,14 @@ function loadImg(src) {
 async function prepareAll() {
     for (const k of SHEETS) {
         const img = await loadImg('img/' + k + '.png');
-        if (!img) continue;
+        if (!img) { console.warn('⚠️ falta img/' + k + '.png'); continue; }
         const c = document.createElement('canvas');
         c.width = img.width; c.height = img.height;
         const g = c.getContext('2d');
         g.drawImage(img, 0, 0);
-        try { chroma(g, c); } catch (e) {}
+        try { chroma(g, c); } catch (e) {}   // quita blanco si lo hay; si es transparente, da igual
         const a = analyze(c);
-        if (!a.frames.length) continue;
+        if (!a.frames.length) { console.warn('⚠️ ' + k + ': 0 frames detectados'); continue; }
         const sc = STRIP_H / a.maxH;
         const fw = Math.max(1, Math.ceil(a.frames.reduce((m, f) => Math.max(m, f.sw), 1) * sc));
         const strip = document.createElement('canvas');
@@ -94,5 +97,6 @@ async function prepareAll() {
             sg.drawImage(c, f.sx, f.sy, f.sw, f.sh, i * fw + Math.floor((fw - dw) / 2), STRIP_H - dh, dw, dh);
         });
         PREP[k] = { strip, fw, fh: STRIP_H, count: a.frames.length };
+        console.log('✅ ' + k + ': ' + a.frames.length + ' frames');
     }
 }

@@ -65,6 +65,14 @@ class BattleScene extends Phaser.Scene {
         }
     }
 
+    /* FIX: play seguro — nunca explota si la animación/textura no existe */
+    safePlay(sprite, key) {
+        if (!sprite || !this.anims.exists(key)) return;
+        const texKey = key.replace('_walk', '').replace('hero_', 'hero_');
+        if (sprite.anims.currentAnim && sprite.anims.currentAnim.key === key) return;
+        try { sprite.play(key); } catch (e) { /* textura sin frames: ignora silenciosamente */ }
+    }
+
     hitStop(sc, ms) {
         this.time.timeScale = sc;
         this.time.delayedCall(ms, () => { this.time.timeScale = 1; });
@@ -127,7 +135,7 @@ class BattleScene extends Phaser.Scene {
             if (!m.sprite && this.anims.exists('hero_idle')) {
                 m.sprite = this.add.sprite(sxOf(m), gy, 'hero_idle');
                 m.sprite.setOrigin(0.5, 1);
-                m.sprite.play('hero_idle');
+                this.safePlay(m.sprite, 'hero_idle');
                 if (m.def.tint) m.sprite.setTint(m.def.tint);
                 this.ring(sxOf(m), gy - 30, 0x7bed9f);
             }
@@ -141,7 +149,7 @@ class BattleScene extends Phaser.Scene {
                 : m.castT > 0 ? 'hero_cast'
                 : m.lunge > 0.35 ? 'hero_attack'
                 : enemies.length ? 'hero_walk' : 'hero_idle';
-            if (m.sprite.anims.currentAnim && m.sprite.anims.currentAnim.key !== desired) m.sprite.play(desired);
+            this.safePlay(m.sprite, desired);
             const phW = t * 7 + (m.def.role === 'tank' ? 2 : m.def.role === 'support' ? 4 : 0);
             const walking = desired === 'hero_walk';
             m.sprite.setPosition(sxOf(m) + m.lunge * 20, gy + (walking ? -Math.abs(Math.sin(phW)) * 2.2 : 0));
@@ -165,7 +173,7 @@ class BattleScene extends Phaser.Scene {
             if (!e.sprite && this.anims.exists(kind + '_walk')) {
                 e.sprite = this.add.sprite(e.x, gy, kind + '_walk');
                 e.sprite.setOrigin(0.5, 1);
-                e.sprite.play(kind + '_walk');
+                this.safePlay(e.sprite, kind + '_walk');
                 this.seen.set(e, true);
                 if (e.boss) { showBanner('👑 JEFE · ETAPA ' + S.stage); this.cameras.main.shake(400, 0.02); }
                 else this.ring(e.x, gy - 20, 0x7bed9f);
