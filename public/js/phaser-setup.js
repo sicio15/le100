@@ -28,20 +28,9 @@ class BootScene extends Phaser.Scene {
             const p = PREP[d.tex];
             if (!p) return;
 
-            // FIX CLAVE: el strip (canvas crudo) -> CanvasTexture de Phaser (fuente WebGL válida)
-            const texKey = '__strip_' + d.key;
-            if (!this.textures.exists(texKey)) {
-                this.textures.addCanvas(texKey, p.strip);
-            }
-            const srcTex = this.textures.get(texKey);
-            if (!srcTex || !srcTex.getSourceImage()) { console.warn('⚠️ strip sin fuente: ' + d.key); return; }
-
-            // Spritesheet desde la CanvasTexture (ya no desde canvas crudo)
+            // Crear spritesheet directamente desde el canvas del strip
             if (!this.textures.exists(d.key)) {
-                this.textures.addSpriteSheetFromAtlas
-                    ? null : null;
-                // addSpriteSheet acepta una textura existente como fuente en 3.60+
-                this.textures.addSpriteSheet(d.key, srcTex.getSourceImage(), {
+                this.textures.addSpriteSheet(d.key, p.strip, {
                     frameWidth: p.fw, frameHeight: p.fh
                 });
             }
