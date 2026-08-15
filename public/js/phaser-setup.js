@@ -19,15 +19,22 @@ class BootScene extends Phaser.Scene {
         this.load.on('loaderror', () => {});
         ['bg', 'bg_cave', 'bg_swamp', 'bg_tower', 'bg_rogue',
          'hero_walk', 'hero_idle', 'hero_attack', 'hero_cast', 'hero_hurt',
-         'enemy_beetle', 'enemy_spider', 'enemy_boss', 'enemy_wasp', 'enemy_scorpion'].forEach(k =>
-            this.load.image(k, 'img/' + k + '.png'));
+         'enemy_beetle', 'enemy_spider', 'enemy_boss', 'enemy_wasp', 'enemy_scorpion'].forEach(k => {
+            // FIX: no recargar si ya existe (evita doble registro)
+            if (!this.textures.exists(k)) this.load.image(k, 'img/' + k + '.png');
+        });
     }
     create() {
         ANIM_DEFS.forEach(d => {
             const p = PREP[d.tex];
             if (!p) return;
-            this.textures.addSpriteSheet(d.key, p.strip, { frameWidth: p.fw, frameHeight: p.fh });
-            const total = p.count;
+            // FIX: si la textura ya fue registrada, NO la sobreescribimos
+            if (!this.textures.exists(d.key)) {
+                this.textures.addSpriteSheet(d.key, p.strip, { frameWidth: p.fw, frameHeight: p.fh });
+            }
+            // FIX: si la animación ya existe, la removemos antes de recrearla (sin error)
+            if (this.anims.exists(d.key)) this.anims.remove(d.key);
+            const total = this.textures.get(d.key).frameTotal;
             const start = Math.min(d.start || 0, total - 1);
             const end = Math.min(d.end !== undefined ? d.end : total - 1, total - 1);
             this.anims.create({
@@ -38,7 +45,6 @@ class BootScene extends Phaser.Scene {
                 yoyo: !!d.yoyo
             });
         });
-        /* FIX: lista de kinds con animación real (evita enemigos invisibles) */
         window.ANIM_KINDS = ANIM_DEFS
             .filter(d => PREP[d.tex])
             .map(d => d.tex === 'hero_walk' ? 'hero' : d.tex.replace('enemy_', ''));
