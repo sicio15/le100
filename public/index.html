@@ -23,7 +23,7 @@
             <button class="tbtn" id="btnAch">🏅<span class="dot" id="achDot"></span></button>
             <button class="tbtn" id="btnLb">🏆</button>
             <button class="tbtn" id="btnPrestige">🧬<span class="dot" id="prDot"></span></button>
-            <button class="tbtn" id="btnGear">🎒</button>
+            <button class="tbtn" id="btnGear">🎒<span class="dot" id="gearDot"></span></button>
             <button class="tbtn" id="btnDaily">🎯<span class="dot" id="dailyDot"></span></button>
             <button class="tbtn" id="btnTower">🗼</button>
             <button class="tbtn" id="btnRogue">🌀</button>
@@ -45,6 +45,7 @@
 </div>
 
 <div id="mAuth" class="modal"><div class="mcard">
+    <img id="logoImg" alt="" style="width:150px;image-rendering:pixelated;margin-bottom:6px">
     <h2>🐛 le100.io</h2>
     <p style="color:#8fa3c8;margin-bottom:10px">IDLE ARENA · tu cuenta, tu partida</p>
     <div class="tabs">
@@ -94,6 +95,7 @@
     <button class="mbtn gray" id="setLogout" style="margin-top:10px">🚪 Cerrar sesión</button>
     <br><button class="mbtn" id="setClose">CERRAR</button>
 </div></div>
+
 <div id="mGear" class="modal"><div class="mcard wide">
     <h2>🎒 EQUIPO</h2>
     <div id="gearBody" class="gearWrap"></div>
@@ -107,6 +109,7 @@
     <button class="mbtn" id="dailyBtn">🎟️ USAR TICKET</button>
     <button class="mbtn gray" id="dailyClose">CERRAR</button>
 </div></div>
+
 <div id="mTower" class="modal"><div class="mcard">
     <h2>🗼 TORRE INFINITA</h2>
     <div id="towerInfo" style="color:#cfd8ea;margin:10px 0"></div>
@@ -121,6 +124,7 @@
     <button class="mbtn" id="rogueStart">🌀 EMPEZAR</button>
     <button class="mbtn gray" id="rogueClose">CERRAR</button>
 </div></div>
+
 <div id="mArena" class="modal"><div class="mcard wide">
     <h2>⚔️ ARENA PvP</h2>
     <div id="arenaMe" style="color:#cfd8ea;margin:8px 0"></div>
@@ -136,9 +140,11 @@
     <div id="colonyBody"></div>
     <button class="mbtn gray" id="colonyCloseBtn" onclick="document.getElementById('mColony').style.display='none'">CERRAR</button>
 </div></div>
+
+<div id="cutin"></div>
+<div id="scanlines"></div>
 <div id="rotate">📱<br>Girá el celular<br><small>le100.io se juega en horizontal</small></div>
 <div id="toasts"></div>
-<div id="cutin"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>

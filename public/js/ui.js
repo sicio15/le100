@@ -7,6 +7,21 @@ function toast(t) {
 }
 const wire = (id, ev, fn) => { const e = $(id); if (e) e.addEventListener(ev, fn); };
 
+/* ===== Logo con chroma (fondo blanco recortado) ===== */
+(function loadLogo() {
+    const img = new Image();
+    img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = img.width; c.height = img.height;
+        const g = c.getContext('2d');
+        g.drawImage(img, 0, 0);
+        try { chroma(g, c); } catch (e) {}
+        const el = $('logoImg');
+        if (el) el.src = c.toDataURL();
+    };
+    img.src = 'img/logo.png';
+})();
+
 /* ===== Cuentas ===== */
 let authMode = 'login';
 wire('tabLogin', 'click', () => { authMode = 'login'; $('tabLogin').classList.add('sel'); $('tabReg').classList.remove('sel'); Audio.SFX.click(); });
@@ -177,7 +192,8 @@ wire('btnAch', 'click', () => { renderAch(); $('mAch').style.display = 'flex'; A
 wire('achClose', 'click', () => { $('mAch').style.display = 'none'; });
 wire('btnLb', 'click', () => {
     $('lbList').innerHTML = LB.length
-        ? LB.map((p, i) => '<div class="mrow"><span>' + (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1) + '.') + ' <b style="color:' + (p.name === S.name ? '#7CFC7C' : '#fff') + '">' + p.name + '</b></span><span>Etapa ' + p.stage + '</span></div>').join('')
+        ? LB.map((p, i) => '<div class="mrow"><span>' + (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1) + '.') +
+          ' <b style="color:' + (p.name === S.name ? '#7CFC7C' : '#fff') + '">' + p.name + '</b></span><span>Etapa ' + p.stage + '</span></div>').join('')
         : '<p style="color:#8fa3c8">Todavía no hay nadie en línea...</p>';
     $('mLb').style.display = 'flex'; Audio.SFX.click();
 });
@@ -236,8 +252,11 @@ function uiTick() {
     });
     $('prDot').style.display = (S.best >= 10 && prGain() > 0) ? 'block' : 'none';
     $('achDot').style.display = ACH.some(a => !S.ach[a.id] && a.c()) ? 'block' : 'none';
+    const gd = $('gearDot');
+    if (gd) gd.style.display = hasBetterGear() ? 'block' : 'none';
 }
-/* ================= EQUIPO (Fase 3) ================= */
+
+/* ================= EQUIPO ================= */
 wire('btnGear', 'click', () => { renderGear(); $('mGear').style.display = 'flex'; Audio.SFX.click(); });
 wire('gearClose', 'click', () => { $('mGear').style.display = 'none'; });
 
@@ -252,7 +271,7 @@ function renderGear() {
     const box = $('gearBody'); if (!box) return;
     box.innerHTML = '';
     const eq = document.createElement('div'); eq.className = 'gearCol';
-    eq.innerHTML = '<h3>EQUIPADO</h3>';
+    eq.innerHTML = '<h3>EQUIPADO · ⚙️ ' + gearPower() + '</h3>';
     Object.keys(SLOT_DEFS).forEach(sl => {
         const it = S.gear.equipped[sl];
         const row = document.createElement('div'); row.className = 'gRow';
@@ -281,7 +300,10 @@ function renderGear() {
     S.gear.inv.slice().sort((a, b) => b.rarity - a.rarity).forEach(it => {
         const row = document.createElement('div'); row.className = 'gRow';
         row.style.borderColor = RAR_COLORS[it.rarity];
-        row.innerHTML = '<div><b style="color:' + RAR_COLORS[it.rarity] + '">' + itemLabel(it) + '</b><br><small>' + itemStats(it) + '</small></div>';
+        const better = itemPower(it) > itemPower(S.gear.equipped[it.slot]);
+        row.innerHTML = '<div><b style="color:' + RAR_COLORS[it.rarity] + '">' + itemLabel(it) + '</b> ' +
+            (better ? '<b style="color:#7bed9f">▲</b>' : '<b style="color:#ff6b81">▼</b>') +
+            '<br><small>' + itemStats(it) + '</small></div>';
         const b = document.createElement('button'); b.className = 'claim'; b.textContent = 'EQUIPAR';
         b.onclick = () => {
             const prev = S.gear.equipped[it.slot];
