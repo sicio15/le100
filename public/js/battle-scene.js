@@ -9,7 +9,7 @@ function toColor(str) {
 }
 const TARGET_H = { hero: 105, beetle: 80, spider: 80, boss: 115 };
 const ROLE_SCALE = { dps: 1, tank: 1.15, support: 0.9 };
-const baseScale = kind => (TARGET_H[kind] || 100) / STRIP_H;
+const baseScale = kind => (TARGET_H[kind] || 100) / (typeof STRIP_H !== 'undefined' ? STRIP_H : 160);
 
 function showBanner(txt) {
     const d = document.createElement('div');
@@ -58,13 +58,14 @@ class BattleScene extends Phaser.Scene {
             this.tweens.add({ targets: c, y: y - 16, alpha: 0, duration: 500, onComplete: () => c.destroy() });
         };
 
-        /* ===== Juice hooks ===== */
-        HOOKS.crit = (x, y) => { this.ring(x, y, 0xffeb3b); this.hitStop(0.25, 60); };
-        HOOKS.ult = () => { this.cameras.main.flash(220, 126, 252, 252); this.hitStop(0.2, 80); this.zoomPulse(); };
-        HOOKS.kill = (e) => { this.ring(e.x, groundY() - 30, 0xffffff); };
+        /* Juice hooks (con guard: si battle.js es viejo, no rompe) */
+        if (typeof HOOKS !== 'undefined') {
+            HOOKS.crit = (x, y) => { this.ring(x, y, 0xffeb3b); this.hitStop(0.25, 60); };
+            HOOKS.ult = () => { this.cameras.main.flash(220, 126, 252, 252); this.hitStop(0.2, 80); this.zoomPulse(); };
+            HOOKS.kill = (e) => { this.ring(e.x, groundY() - 30, 0xffffff); };
+        }
     }
 
-    /* ===== helpers de juice ===== */
     hitStop(sc, ms) {
         this.time.timeScale = sc;
         this.time.delayedCall(ms, () => { this.time.timeScale = 1; });
@@ -99,6 +100,8 @@ class BattleScene extends Phaser.Scene {
     sync() {
         const gy = groundY();
         const t = time;
+        const sq = typeof squad !== 'undefined' ? squad : [];
+        const sxOf = (typeof slotX === 'function') ? slotX : (m => heroX());
 
         // fondo por capítulo
         const want = (chapterOf(S.stage).bg || 'img/bg.png').split('/').pop().replace('.png', '');
@@ -122,22 +125,20 @@ class BattleScene extends Phaser.Scene {
         // ===== ESCUADRÓN =====
         const hb = baseScale('hero');
         this.bars.clear();
-        squad.forEach(m => {
-            // sombra
+        sq.forEach(m => {
             this.bars.fillStyle(0x000000, 0.35);
-            this.bars.fillEllipse(slotX(m), gy + 6, 60 * ROLE_SCALE[m.def.role], 12);
+            this.bars.fillEllipse(sxOf(m), gy + 6, 60 * (ROLE_SCALE[m.def.role] || 1), 12);
 
             if (!m.sprite && this.anims.exists('hero_idle')) {
-                m.sprite = this.add.sprite(slotX(m), gy, 'hero_idle');
+                m.sprite = this.add.sprite(sxOf(m), gy, 'hero_idle');
                 m.sprite.setOrigin(0.5, 1);
                 m.sprite.play('hero_idle');
                 if (m.def.tint) m.sprite.setTint(m.def.tint);
-                this.ring(slotX(m), gy - 30, 0x7bed9f);   // poof de aparición
+                this.ring(sxOf(m), gy - 30, 0x7bed9f);
             }
             if (!m.sprite) return;
 
-            // slash al atacar
-            if (m.lunge > 0.8 && !m.slashDone) { m.slashDone = true; this.slash(slotX(m) + 62, gy - 50); }
+            if (m.lunge > 0.8 && !m.slashDone) { m.slashDone = true; this.slash(sxOf(m) + 62, gy - 50); }
             if (m.lunge < 0.3) m.slashDone = false;
 
             const desired = !m.alive ? 'hero_death'
@@ -148,7 +149,7 @@ class BattleScene extends Phaser.Scene {
             if (m.sprite.anims.currentAnim && m.sprite.anims.currentAnim.key !== desired) m.sprite.play(desired);
             const phW = t * 7 + (m.def.role === 'tank' ? 2 : m.def.role === 'support' ? 4 : 0);
             const walking = desired === 'hero_walk';
-            m.sprite.setPosition(slotX(m) + m.lunge * 20, gy + (walking ? -Math.abs(Math.sin(phW)) * 2.2 : 0));
+            m.sprite.setPosition(sxOf(m) + m.lunge * 20, gy + (walking ? -Math.abs(Math.sin(phW)) * 2.2 : 0));
             const sy = 1 + Math.cos(phW * 2) * (walking ? 0.02 : 0.008);
             const rs = ROLE_SCALE[m.def.role] || 1;
             if (!m.alive) { m.sprite.setRotation(-1.2); m.sprite.setAlpha(0.5); }
@@ -180,7 +181,6 @@ class BattleScene extends Phaser.Scene {
             const bs = baseScale(kind);
             e.sprite.setPosition(e.x + e.lungeX + e.kb, gy);
 
-            // telegraph "!" en windup
             if (e.state === 'windup' && e.dying === null) {
                 if (!e.warn) e.warn = this.add.text(e.x, gy - 95 * e.size, '!', {
                     fontFamily: '"Press Start 2P", monospace', fontSize: '18px', color: '#ff5252',
@@ -215,7 +215,7 @@ class BattleScene extends Phaser.Scene {
             }
         }
 
-        // ===== overlays: escudo + barras enemigas =====
+        // ===== overlays =====
         if (shieldT > 0) {
             this.bars.lineStyle(2, 0xffb347, 0.7);
             this.bars.strokeRect(heroX() - 110, gy - 130, 200, 120);
