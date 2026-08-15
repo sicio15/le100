@@ -8,6 +8,28 @@ const DEF = { name:'', gold:0, adn:0, stage:1, best:1, kills:0, ks:0, prestiges:
 let S = loadCache();
 let authed = false;
 
+/* ===== Saneado de equipo (fix saves viejos/incompletos) ===== */
+function normGear(g) {
+    const def = JSON.parse(JSON.stringify(DEF.gear));
+    if (!g || typeof g !== 'object') return def;
+    const cleanItem = it => {
+        if (!it || typeof it !== 'object') return null;
+        return {
+            id: String(it.id || ''),
+            slot: Object.prototype.hasOwnProperty.call(def.equipped, it.slot) ? it.slot : 'fang',
+            rarity: Math.max(0, Math.min(4, +it.rarity || 0)),
+            lvl: Math.max(0, Math.min(99, +it.lvl || 0)),
+            stat: String(it.stat || 'atk'),
+            val: Math.max(0, Math.min(999, +it.val || 0)),
+            subs: Array.isArray(it.subs) ? it.subs.slice(0, 2).map(x => ({ stat: String(x.stat || 'atk'), val: Math.max(0, Math.min(999, +x.val || 0)) })) : []
+        };
+    };
+    const out = { equipped: {}, inv: [] };
+    Object.keys(def.equipped).forEach(k => { out.equipped[k] = cleanItem((g.equipped || {})[k]); });
+    out.inv = Array.isArray(g.inv) ? g.inv.slice(0, 30).map(cleanItem).filter(Boolean) : [];
+    return out;
+}
+
 function loadCache() {
     try {
         const s = JSON.parse(localStorage.getItem(KEY));
@@ -15,7 +37,7 @@ function loadCache() {
             const out = Object.assign({}, JSON.parse(JSON.stringify(DEF)), s, { ups: Object.assign({}, DEF.ups, s.ups) });
             out.adn = Math.min(out.adn || 0, 5000);
             out.prBase = Math.max(1, out.prBase || 1);
-            if (!out.gear || !out.gear.equipped) out.gear = JSON.parse(JSON.stringify(DEF.gear));
+            out.gear = normGear(s.gear);
             return out;
         }
     } catch (e) {}
@@ -33,11 +55,11 @@ function applyServerSave(save) {
     const name = S.name;
     S = Object.assign({}, JSON.parse(JSON.stringify(DEF)), save || {});
     S.ups = Object.assign({}, DEF.ups, (save || {}).ups);
-    if (!S.gear || !S.gear.equipped) S.gear = JSON.parse(JSON.stringify(DEF.gear));
+    S.gear = normGear((save || {}).gear);
     S.name = name; S.ks = 0;
 }
 
-/* ===== Equipo: bonuses, drops, enhance ===== */
+/* ===== Equipo: bonuses, drops, enhance, poder ===== */
 function gearBonuses() {
     const b = { atk: 0, hp: 0, crit: 0, critd: 0, regen: 0 };
     Object.values(S.gear.equipped).forEach(it => {
@@ -48,6 +70,10 @@ function gearBonuses() {
     });
     return b;
 }
+const itemPower = it => it ? (it.rarity || 0) * 20 + (it.lvl || 0) * 2 + (it.val || 0) + (it.subs || []).reduce((a, s) => a + (s.val || 0), 0) : 0;
+const gearPower = () => Object.values(S.gear.equipped).reduce((a, it) => a + itemPower(it), 0);
+const hasBetterGear = () => S.gear.inv.some(it => itemPower(it) > itemPower(S.gear.equipped[it.slot]));
+
 function rollItem(luck) {
     const slotKeys = Object.keys(SLOT_DEFS);
     const slot = slotKeys[Math.random() * slotKeys.length | 0];
@@ -80,7 +106,7 @@ function checkTickets() {
     if (S.ticketDate !== d) { S.ticketDate = d; S.tickets = 3; }
 }
 
-/* ===== Fórmulas de balance (con gear) ===== */
+/* ===== Fórmulas de balance (con gear + colonia) ===== */
 const adnMult   = () => 1 + 0.1 * S.adn;
 const dps       = () => 5 * Math.pow(1.3, S.ups.dmg) * adnMult() * (1 + gearBonuses().atk / 100) * (1 + 0.02 * ((S.colonyLevel || 1) - 1));
 const maxHP     = () => 100 * Math.pow(1.22, S.ups.vit) * (1 + gearBonuses().hp / 100);
