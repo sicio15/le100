@@ -28,11 +28,15 @@ class BootScene extends Phaser.Scene {
             const p = PREP[d.tex];
             if (!p) return;
 
-            // Crear spritesheet directamente desde el canvas del strip
+            // Crear textura desde el canvas del strip y luego generar frames manualmente
             if (!this.textures.exists(d.key)) {
-                this.textures.addSpriteSheet(d.key, p.strip, {
-                    frameWidth: p.fw, frameHeight: p.fh
-                });
+                const tex = this.textures.addCanvas(d.key, p.strip);
+                // Generar frames manualmente para la spritesheet
+                for (let i = 0; i < p.count; i++) {
+                    const x = i * p.fw;
+                    tex.add(i, 0, x, 0, p.fw, p.fh);
+                }
+                tex.refresh();
             }
 
             if (!this.textures.exists(d.key) || this.textures.get(d.key).frameTotal <= 0) {
@@ -51,7 +55,7 @@ class BootScene extends Phaser.Scene {
                 repeat: d.loop ? -1 : 0,
                 yoyo: !!d.yoyo
             });
-            console.log('🎞️ anim ' + d.key + ': ' + total + ' frames en textura');
+            console.log('🎞️ anim ' + d.key + ': ' + (end - start + 1) + ' frames (total en textura: ' + total + ')');
         });
 
         window.ANIM_KINDS = ANIM_DEFS

@@ -47,12 +47,15 @@ function afterLogin() {
     if (pending >= 10) {
         $('offlineAmt').textContent = '🪙 ' + fmt(pending);
         $('mOffline').style.display = 'flex';
-        wire('offlineBtn', 'click', () => {
-            S.gold += pending; persist();
-            $('mOffline').style.display = 'none';
-            Audio.SFX.coin();
-            toast('🪙 +' + fmt(pending) + ' de tu AFK');
-        });
+        const btn = $('offlineBtn');
+        if (btn) {
+            btn.onclick = () => {
+                S.gold += pending; persist();
+                $('mOffline').style.display = 'none';
+                Audio.SFX.coin();
+                toast('🪙 +' + fmt(pending) + ' de tu AFK');
+            };
+        }
     }
     netScore(S.name, S.best);
     persist();
