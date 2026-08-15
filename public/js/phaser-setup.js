@@ -28,15 +28,12 @@ class BootScene extends Phaser.Scene {
             const p = PREP[d.tex];
             if (!p) return;
 
-            // Crear textura desde el canvas del strip y luego generar frames manualmente
+            // Crear spritesheet directamente desde el canvas del strip
             if (!this.textures.exists(d.key)) {
-                const tex = this.textures.addCanvas(d.key, p.strip);
-                // Generar frames manualmente para la spritesheet
-                for (let i = 0; i < p.count; i++) {
-                    const x = i * p.fw;
-                    tex.add(i, 0, x, 0, p.fw, p.fh);
-                }
-                tex.refresh();
+                this.textures.addSpriteSheet(d.key, p.strip, {
+                    frameWidth: p.fw,
+                    frameHeight: p.fh
+                });
             }
 
             if (!this.textures.exists(d.key) || this.textures.get(d.key).frameTotal <= 0) {
