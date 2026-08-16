@@ -1,4 +1,7 @@
 'use strict';
+// ===== ASSETS: chroma-key + blob-detect + strips normalizadas =====
+// OPTIMIZACIÓN (deuda #1): prepareAll() procesa los 20 sheets EN PARALELO
+// (antes: for..of secuencial → boot ~3-4× más lento).
 function chroma(g, c) {
   const w = c.width, h = c.height;
   const d = g.getImageData(0, 0, w, h), px = d.data;
@@ -66,7 +69,7 @@ function analyze(c) {
   return { frames, maxH };
 }
 const STRIP_H = 160;
-// + hurt/death humanos (6f: 0-2 dolor, 3-5 caída) igual que hero_hurt
+// + hurt/death humanos (ventanas según ANIM_DEFS en phaser-setup.js)
 const SHEETS = ['hero_walk', 'hero_idle', 'hero_attack', 'hero_cast', 'hero_hurt',
   'enemy_beetle', 'enemy_spider', 'enemy_boss', 'enemy_wasp', 'enemy_scorpion',
   'hero_human_a', 'hero_human_b', 'hero_human_c', 'acc_crown',
@@ -81,28 +84,31 @@ function loadImg(src) {
     i.src = src;
   });
 }
+// 1 sheet = 1 promesa independiente (sin estado compartido hasta el write en PREP[k])
+async function prepareSheet(k) {
+  const img = await loadImg('img/' + k + '.png');
+  if (!img) { console.warn('⚠️ falta img/' + k + '.png'); return; }
+  const c = document.createElement('canvas');
+  c.width = img.width; c.height = img.height;
+  const g = c.getContext('2d');
+  g.drawImage(img, 0, 0);
+  try { chroma(g, c); } catch (e) {}
+  let a;
+  try { a = analyze(c); } catch (e) { console.warn('⚠️ ' + k + ': analyze falló', e); return; }
+  if (!a.frames.length) { console.warn('⚠️ ' + k + ': 0 frames detectados'); return; }
+  const sc = STRIP_H / a.maxH;
+  const fw = Math.max(1, Math.ceil(a.frames.reduce((m, f) => Math.max(m, f.sw), 1) * sc));
+  const strip = document.createElement('canvas');
+  strip.width = fw * a.frames.length; strip.height = STRIP_H;
+  const sg = strip.getContext('2d');
+  a.frames.forEach((f, i) => {
+    const dw = f.sw * sc, dh = f.sh * sc;
+    sg.drawImage(c, f.sx, f.sy, f.sw, f.sh, i * fw + Math.floor((fw - dw) / 2), STRIP_H - dh, dw, dh);
+  });
+  PREP[k] = { strip, fw, fh: STRIP_H, count: a.frames.length };
+  console.log('✅ ' + k + ': ' + a.frames.length + ' frames');
+}
+// OPTIMIZACIÓN: paralelo (Promise.all) — el orden de PREP no importa (keys independientes)
 async function prepareAll() {
-  for (const k of SHEETS) {
-    const img = await loadImg('img/' + k + '.png');
-    if (!img) { console.warn('⚠️ falta img/' + k + '.png'); continue; }
-    const c = document.createElement('canvas');
-    c.width = img.width; c.height = img.height;
-    const g = c.getContext('2d');
-    g.drawImage(img, 0, 0);
-    try { chroma(g, c); } catch (e) {}
-    let a;
-    try { a = analyze(c); } catch (e) { console.warn('⚠️ ' + k + ': analyze falló', e); continue; }
-    if (!a.frames.length) { console.warn('⚠️ ' + k + ': 0 frames detectados'); continue; }
-    const sc = STRIP_H / a.maxH;
-    const fw = Math.max(1, Math.ceil(a.frames.reduce((m, f) => Math.max(m, f.sw), 1) * sc));
-    const strip = document.createElement('canvas');
-    strip.width = fw * a.frames.length; strip.height = STRIP_H;
-    const sg = strip.getContext('2d');
-    a.frames.forEach((f, i) => {
-      const dw = f.sw * sc, dh = f.sh * sc;
-      sg.drawImage(c, f.sx, f.sy, f.sw, f.sh, i * fw + Math.floor((fw - dw) / 2), STRIP_H - dh, dw, dh);
-    });
-    PREP[k] = { strip, fw, fh: STRIP_H, count: a.frames.length };
-    console.log('✅ ' + k + ': ' + a.frames.length + ' frames');
-  }
+  await Promise.all(SHEETS.map(prepareSheet));
 }

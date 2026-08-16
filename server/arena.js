@@ -1,22 +1,28 @@
 'use strict';
 // ===== ARENA PvP: handlers socket =====
+// OPTIMIZACIÓN (deuda #2): arenaInfo hacía 2× U.all() por llamada → ahora 1 sola lectura.
 const { U } = require('./storage');
 const { powerOf } = require('./power');
-
 function registerArena(s) {
   s.on('arenaInfo', async cb => {
-    const me = await U.get(s.user); if (!me) return cb({ ops: [], top: [] });
-    const all = (await U.all()).filter(u => u._id !== s.user && u.save);
+    const me = await U.get(s.user);
+    if (!me || !me.save) return cb({ ops: [], top: [] });
+    const docs = (await U.all()).filter(u => u.save); // única lectura de usuarios
     const myPts = me.save.arenaPts || 0;
-    all.sort((a, b) => Math.abs((a.save.arenaPts || 0) - myPts) - Math.abs((b.save.arenaPts || 0) - myPts));
-    const ops = all.slice(0, 3).map(u => ({ name: u.name, best: u.save.best || 1, pts: u.save.arenaPts || 0 }));
-    const topA = (await U.all()).filter(u => u.save).map(u => ({ name: u.name, pts: u.save.arenaPts || 0 }))
-      .sort((a, b) => b.pts - a.pts).slice(0, 10);
-    cb({ ops, top: topA });
+    const ops = docs
+      .filter(u => u._id !== s.user)
+      .sort((a, b) => Math.abs((a.save.arenaPts || 0) - myPts) - Math.abs((b.save.arenaPts || 0) - myPts))
+      .slice(0, 3)
+      .map(u => ({ name: u.name, best: u.save.best || 1, pts: u.save.arenaPts || 0 }));
+    const top = docs
+      .map(u => ({ name: u.name, pts: u.save.arenaPts || 0 }))
+      .sort((a, b) => b.pts - a.pts)
+      .slice(0, 10);
+    cb({ ops, top });
   });
-
   s.on('arenaFight', async (opName, cb) => {
-    const me = await U.get(s.user); if (!me) return cb({ win: false, msg: '?' });
+    const me = await U.get(s.user);
+    if (!me || !me.save) return cb({ win: false, msg: '?' });
     const d = new Date().toISOString().slice(0, 10);
     if (me.save.arenaDate !== d) { me.save.arenaDate = d; me.save.arenaTickets = 5; }
     if ((me.save.arenaTickets || 0) <= 0) return cb({ win: false, msg: '🎟️ Sin tickets hoy' });
@@ -34,5 +40,4 @@ function registerArena(s) {
     cb({ win, msg: (win ? '🏆 ¡Victoria! +' : '💀 Derrota... +') + g + ' 🪙 · ' + (win ? '+30' : '-10') + ' pts' });
   });
 }
-
 module.exports = { registerArena };

@@ -10,6 +10,7 @@ const DEF = { name: '', gold: 0, adn: 0, stage: 1, best: 1, kills: 0, ks: 0, pre
   shop: { lv: {}, skins: [], skin: '' } };
 let S = loadCache();
 let authed = false;
+const todayStr = () => new Date().toISOString().slice(0, 10);
 function normGear(g) {
   const def = JSON.parse(JSON.stringify(DEF.gear));
   if (!g || typeof g !== 'object') return def;
@@ -75,6 +76,20 @@ function applyServerSave(save) {
   S.shop = normShop((save || {}).shop);
   S.name = name; S.ks = 0;
 }
+// ===== RESET DIARIO CENTRAL (deuda #4): tickets + misiones en UN solo lugar =====
+// Idempotente y barato: lo llaman modales, intervalos y afterLogin sin riesgo.
+function checkDailyResets() {
+  const d = todayStr();
+  if (S.ticketDate !== d) { S.ticketDate = d; S.tickets = 3; }
+  if (S.rlDate !== d) { S.rlDate = d; S.rlTickets = 2; }
+  if (S.arenaDate !== d) { S.arenaDate = d; S.arenaTickets = 5; }
+  if (S.mDate !== d) {
+    S.mDate = d;
+    S.mBase = { kills: S.kills, tower: S.tower, prestiges: S.prestiges };
+    S.mClaimed = {};
+  }
+}
+const checkTickets = checkDailyResets; // retro-compat (daily.js/ui-auth.js migran en lote 2)
 function gearBonuses() {
   const b = { atk: 0, hp: 0, crit: 0, critd: 0, regen: 0 };
   Object.values(S.gear.equipped).forEach(it => {
@@ -115,18 +130,14 @@ function dropItem(luck) {
   if (typeof toast !== 'undefined') toast(SLOT_DEFS[it.slot].icon + ' ¡' + RAR_NAMES[it.rarity] + ' ' + SLOT_DEFS[it.slot].name + '!');
 }
 const enhanceCost = it => Math.floor(20 * Math.pow(1.35, it.lvl) * (it.rarity + 1));
-function checkTickets() {
-  const d = new Date().toISOString().slice(0, 10);
-  if (S.ticketDate !== d) { S.ticketDate = d; S.tickets = 3; }
-}
 // ===== EVENTOS SEMANALES: rotación determinística por semana (cero campos en save) =====
 const EVENTS = [
-  { id: 'fiebre',    n: '🪙 Fiebre del Oro',      d: 'Todo el oro x2' },
-  { id: 'precision', n: '🎯 Precisión Total',     d: '+25% crítico' },
-  { id: 'furia',     n: '🗡️ Furia Ancestral',     d: '+30% daño' },
+  { id: 'fiebre',    n: '🪙 Fiebre del Oro',       d: 'Todo el oro x2' },
+  { id: 'precision', n: '🎯 Precisión Total',      d: '+25% crítico' },
+  { id: 'furia',     n: '🗡️ Furia Ancestral',      d: '+30% daño' },
   { id: 'vital',     n: '❤️ Vitalidad Floreciente', d: '+30% vida y regeneración' },
-  { id: 'toxico',    n: '☠️ Marea Tóxica',        d: 'Veneno +50% y cooldown -2s' },
-  { id: 'racha',     n: '🛒 Semana de Ofertas',   d: 'Mejoras 20% más baratas' }
+  { id: 'toxico',    n: '☠️ Marea Tóxica',         d: 'Veneno +50% y cooldown -2s' },
+  { id: 'racha',     n: '🛒 Semana de Ofertas',    d: 'Mejoras 20% más baratas' }
 ];
 let _evW = -1, _ev = EVENTS[0];
 function weekEvent() {

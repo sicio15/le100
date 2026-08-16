@@ -167,7 +167,7 @@ dps   = 5·1.3^dmg · (1+.1·adn) · (1+atk%/100) · (1+.02·(colonyLv−1)) · 
 maxHP = 100·1.22^vit · (1+hp%/100) · (1+.05·shopVita) · evVital
 crit  = min(.75, .2 + crit%/100 + .02·shopCrit + evPrecisión) · critMult = 2.2 + critd%/100
 veneno: cd = max(2, max(3, 7−.3·venom) − evTóxico) · dmg = dps·(2+.5·venom)·ev
-goldKill(st) = ⌈3·1.18^st⌋ · (1+.25·fortune) · adnMult · (1+.05·shopFort) · evFiebre
+goldKill(st) = ⌈3·1.18^st⌉ · (1+.25·fortune) · adnMult · (1+.05·shopFort) · evFiebre
 eHP(st)=10·1.27^st · eDmg(st)=4·1.22^st · cost(k)=⌊base·mult^lv⌋ (evRacha ×0.8)
 ```
 
@@ -177,14 +177,14 @@ Reset: oro, etapa, mejoras. Cada 🧬 = +10% daño y oro permanente.
 
 ### Equipo
 - 4 slots · rarezas `[Común..Mítico]` pesos `[50,30,14,5,1]` (+luck) · 0–2 subs · lvl ≤99.
-- Mejorar: `⌊20·1.35^lvl·(rar+1)⌋` 🪙 · Mochila 30 (llena → convierte a oro).
+- Mejorar: `⌊20·1.35^lvl·(rar+1)⌋`  · Mochila 30 (llena → convierte a oro).
 
 ### Modos secundarios (tickets diarios)
 
 | Modo | Tickets | Simulación | Premios |
 |---|---|---|---|
 | 🎯 Jefe Diario | 3 | `dps·30·1.4` vs `eHP(best+5)·12`, aguante `maxHP/(atk·.5)` | oro ×40/×8 + drop garantizado |
-| 🗼 Torre | ∞ (oro) | idem vs `eHP(best+f)·(6+f·.5)` | cada 3 pisos 🎒 · cada 10 +1🧬 |
+| 🗼 Torre |  (oro) | idem vs `eHP(best+f)·(6+f·.5)` | cada 3 pisos 🎒 · cada 10 +1🧬 |
 | 🌀 Sotobosque | 2 | 8 salas, buffs 1-de-3 (`RL_BUFFS`) | salas/3 → drop · 8/8 → +1🧬 |
 | ⚔️ Arena | 5 | server `powerOf` + ruido ±10% | ±pts + oro |
 | 🐲 Jefe Colonia | 1/día/miembro | `dps·30` al boss `1e6·lvl·miembros` | claim de oro al matar |
@@ -214,7 +214,7 @@ Humano usa sheets `hero_human_{a,b,c}` (+`_attack`/`_hurt`); corona = overlay `a
 
 ---
 
-## 🎨 Arte: pipeline + inventario COMPLETO (27/27)
+## 🎨 Arte: pipeline + inventario COMPLETO (27/27) + BIBLIA VISUAL
 
 **Pipeline (`assets.js`):** PNG con fondo claro → `chroma()` (flood-fill blanco/casi-blanco → alpha,
 umbral >205/>205/>200; también elimina el borde-sticker del logo) → `analyze()` (blobs ordenados
@@ -222,6 +222,83 @@ por fila+columna, descarta piezas <35% del alto máx) → normaliza a **alto 160
 horizontal** → `BootScene` registra spritesheet + anims (`ANIM_DEFS`).
 **Robustez:** si falta un sheet → `prepareAll` avisa y sigue; `ANIM_KINDS`/`safePlay` usan solo lo
 existente (el juego nunca crashea por arte faltante).
+
+###  Biblia visual (guía de estilo para generaciones consistentes)
+
+**Estilo global (TODO sheet de personaje/enemigo):**
+- Chibi/kawaii pixel-art 16-bit, **2–2.5 cabezas** de alto (cabeza ≈ 45–50% del cuerpo).
+- **Contorno negro grueso** (2–3px), cel-shading suave, **rubor rosado** en mejillas,
+  ojos grandes brillantes con brillos blancos.
+- Fondo **lavanda muy claro uniforme (≈ #EAE8F2)** — todos los canales >205 → compatible con `chroma()`.
+- Sombra elíptica suave gris-lavanda bajo el personaje (queda como parte del blob, es correcto).
+- Frames en **fila(s) horizontal(es) bien separados** (margen amplio entre blobs para `analyze()`).
+- **Sin texto, sin watermark, sin borde sticker** (el borde blanco solo existe en `logo.png`).
+- Altura del personaje de pie ≈ 60–75% del alto de la imagen (consistente entre sheets del mismo char).
+
+**Paleta base (no variar entre generaciones):**
+
+| Elemento | Colores |
+|---|---|
+| Cienpies cuerpo/cabeza | verde #7EC87E |
+| Cienpies panza | crema #F5F0D0 (segmentada) |
+| Cienpies patas | naranja #F5A040 |
+| Cienpies capa | roja #C03030 (nudo al cuello) |
+| Antenas | verdes con esfera blanca |
+| Túnica humana | verde #3E8E5A |
+| Correa/belt/brazaletes | cuero marrón #8B5A2B, hebilla gris |
+| Botas | marrón #8B5A3B |
+| Espada a la espalda | empuñadura marrón + guarda gris + hoja gris |
+| Corona | oro #E8C050 con gemas rojas |
+
+**Descripciones BASE de personajes (copiar VERBATIM en cada prompt):**
+- 🐛 **Cienpies:** "cute green caterpillar hero with big round head, huge black shiny eyes with
+  white highlights, cream segmented belly, tiny orange feet, red cape tied at the neck,
+  two green antennae with white ball tips, pink blush cheeks"
+- 🧍 **human_a (🟤 PICADO):** "chibi boy with messy spiky brown hair, green tunic, brown leather
+  cross strap with sword sheathed on back, belt with gray buckle, brown wristbands and boots, pink blush"
+- 🧍 **human_b (👱 ELFO):** "chibi elf girl with long blonde hair and pointy elf ears, green tunic,
+  brown leather cross strap with sword on back, belt with gray buckle, brown boots, pink blush"
+- 🧍 **human_c (🔵 MOHAWK):** "chibi boy with spiky bright blue mohawk and shaved gray sides,
+  blue eyebrows, green tunic, brown leather cross strap with sword on back, belt with gray buckle,
+  brown boots, pink blush"
+
+**Enemigos (base):**
+- `beetle`: cabeza roja con colmillos blancos y ojos amarillos, caparazón púrpura brillante, patas marrón.
+- `spider`: araña peluda azul oscuro, ojos cian brillantes, colmillos blancos.
+- `wasp`: avispa marrón con abdomen rayado amarillo/negro, ojos rojos, alas celestes translúcidas.
+- `scorpion`: escorpión púrpura con pinzas rojas, aguijón verde brillante, ojos amarillos.
+- `boss`: bestia rojo-músculosa con armadura dorada con picos, corona con gemas, garras blancas (2 frames yoyo).
+
+**Fondos (sin chroma, escena completa pixel-art nocturna):**
+`bg` bosque con luna+hongos azules+luciérnagas · `bg_cave` cueva azul con cristales rosa/cian ·
+`bg_swamp` árboles muertos+niebla verde+charcos tóxicos · `bg_tower` salón de piedra con estandartes
+rojos y antorchas (modal Torre) · `bg_rogue` sendero de bosque con musgo, hongos y luciérnagas (modal Sotobosque).
+
+**Íconos (`icons.png`):** pixel-art 16-bit con contorno negro sobre fondo claro, en 3 filas;
+orden fila+columna = `ICON_NAMES` (coin·leaf·potion·venom / sword·shell / crown·heart·bolt·gem).
+
+**🎯 Plantilla de prompt (Qwen-Image 3.0) para sheets nuevos:**
+
+```
+chibi pixel art sprite sheet, [DESCRIPCIÓN BASE DEL PERSONAJE], [N] frames in one horizontal row:
+[POSES EN ORDEN DE ANIM], uniform very light lavender background (#EAE8F2), thick black outlines,
+soft cel shading, pink blush cheeks, huge shiny eyes, soft ground shadow under each frame,
+consistent character size and palette across frames, wide spacing between frames,
+no text, no watermark, 16-bit style
+```
+
+**Reglas de consistencia (obligatorias):**
+1. Pegar la descripción base **completa** del personaje (nunca resumida).
+2. No cambiar ropa/paleta/accesorios entre sheets; solo cambian poses y expresiones.
+3. Mismo fondo y misma escala que los sheets existentes del personaje.
+4. Orden de frames = ventanas de `ANIM_DEFS` (dolor 0-2 primero, caída/muerte al final).
+5. Antes de generar, usar como referencia visual los sheets existentes del mismo personaje
+   (walk/attack) y replicar trazo, paleta y proporciones.
+
+**Ejemplo aplicado (hurts generados, reproducibles):**
+- `hero_human_a_hurt`: base human_a + "5 frames: clenching teeth in pain, clutching chest hurt,
+  dazed stagger, falling back with X eyes, lying down with X eyes".
+- `hero_human_c_hurt`: base human_c + mismas 5 poses. Ambos verificados contra `chroma`/`analyze`/`ANIM_DEFS`.
 
 ### Sheets (20)
 
@@ -258,13 +335,11 @@ existente (el juego nunca crashea por arte faltante).
 | `bg_tower.png` | Fondo modal Torre (`#mTower .mcard`, CSS) |
 | `bg_rogue.png` | Fondo modal Sotobosque (`#mRogue .mcard`, CSS) |
 | `logo.png` | Logo chroma (pantalla de login) |
-| `icons.png` | 10 íconos 3 filas: coin·leaf·potion·venom / sword·shell / crown·heart·bolt·gem → orden = `ICON_NAMES` ✔ |
+| `icons.png` | 10 íconos 3 filas → orden = `ICON_NAMES` ✔ |
 
 ### Arte generado (Qwen-Image 3.0)
-`hero_human_a_hurt.png` y `hero_human_c_hurt.png` se generaron con estilo consistente
-(chibi, túnica verde, correa+espada, fondo claro compatible con `chroma`). Verificados:
-fondo >205 → transparentiza ✔ · blob caído >35% del alto máx → no descartado ✔ ·
-ventanas = `ANIM_DEFS` ✔. Guardar en `img/` con esos nombres exactos.
+`hero_human_a_hurt.png` y `hero_human_c_hurt.png`, generados con la Biblia Visual de esta sección
+(prompt reproducible arriba). Guardar en `img/` con esos nombres exactos.
 
 ---
 
@@ -300,9 +375,9 @@ ventanas = `ANIM_DEFS` ✔. Guardar en `img/` con esos nombres exactos.
 
 ## 🗺️ Roadmap
 
-1. **Consolidación:** items Alta de deuda + reconstrucción de `index.html`. *(Arte: cerrado ✅)*
+1. **Consolidación:** items Alta de deuda + reconstrucción de `index.html`. *(Arte: cerrado ✅ + Biblia Visual ✅)*
 2. **Profundización:** eventos temporales v2, recompensas semanales de Arena/Colonias, cloud-save con indicador de sync en UI.
-3. **Expansión:** más capas de paperdoll (armaduras como overlays), árbol de habilidades ramificado, calendario editorial de eventos.
+3. **Expansión:** más capas de paperdoll (armaduras como overlays — generar con la Biblia Visual), árbol de habilidades ramificado, calendario editorial de eventos.
 
 ---
 
@@ -312,7 +387,8 @@ ventanas = `ANIM_DEFS` ✔. Guardar en `img/` con esos nombres exactos.
 |---|---|
 | 2026-08-17 | 📄 README creado: inventario completo del estado v3.1.0, protocolo, fórmulas y deuda técnica. |
 | 2026-08-17 | 🎨 §Arte verificado (25/27): sheets/fondos/UI contra `ANIM_DEFS` e `ICON_NAMES` (icons.png = mapeo 1:1 ✔). |
-| 2026-08-17 | 🎨 Generados `hero_human_a_hurt` y `hero_human_c_hurt` (Qwen-Image 3.0) → **inventario 27/27 cerrado**. |
+| 2026-08-17 | 🎨 Generados `hero_human_a_hurt` y `hero_human_c_hurt` (Qwen-Image 3.0) → inventario 27/27 cerrado. |
+| 2026-08-17 | 📖 §Biblia Visual agregada: estilo global, paletas, descripciones base por personaje, reglas de layout para el pipeline y plantilla de prompt para generaciones futuras consistentes. |
 
 ---
 

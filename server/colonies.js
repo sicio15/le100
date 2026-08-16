@@ -1,31 +1,39 @@
 'use strict';
 // ===== COLONIAS: handlers socket =====
+// OPTIMIZACIONES (deuda #3):
+//  · colonyInfo/colonyBoss: doble C.get → single-get + mutación local + 1 update.
+//  · colonyDonate: N lecturas+escrituras de miembros → U.setColonyLevel (bulk).
 const { U, C } = require('./storage');
 const { powerOf, bossMax } = require('./power');
-
+const today = () => new Date().toISOString().slice(0, 10);
+// si cambió el día, resetea el jefe SOBRE el objeto local y persiste 1 sola vez
+async function ensureBossDay(c) {
+  const d = today();
+  if (c.bossDay !== d) {
+    c.bossDay = d; c.bossHp = bossMax(c); c.claimed = [];
+    await C.update(c._id, { bossDay: d, bossHp: c.bossHp, claimed: [] });
+  }
+}
 function registerColonies(s) {
   s.on('colonyInfo', async cb => {
-    const me = await U.get(s.user); if (!me) return cb({ in: null, list: [] });
+    const me = await U.get(s.user); if (!me || !me.save) return cb({ in: null, list: [] });
     if (me.save.colony) {
       const c = await C.get(me.save.colony);
       if (c) {
+        await ensureBossDay(c);
         const members = [];
         for (const mk of (c.members || [])) {
           const mu = await U.get(mk);
           if (mu) members.push({ name: mu.name, best: mu.save.best || 1, pts: mu.save.arenaPts || 0 });
         }
-        const d = new Date().toISOString().slice(0, 10);
-        if (c.bossDay !== d) await C.update(c._id, { bossDay: d, bossHp: bossMax(c), claimed: [] });
-        const c2 = await C.get(me.save.colony);
-        return cb({ in: c2, members, me: me.save });
+        return cb({ in: c, members, me: me.save });
       }
     }
     const list = (await C.all()).map(c => ({ key: c._id, name: c.name, members: (c.members || []).length, level: c.level || 1 })).slice(0, 10);
     cb({ in: null, list });
   });
-
   s.on('colonyCreate', async (name, cb) => {
-    const me = await U.get(s.user); if (!me) return cb({ ok: false, err: '?' });
+    const me = await U.get(s.user); if (!me || !me.save) return cb({ ok: false, err: '?' });
     const nm = String(name || '').trim();
     if (nm.length < 3 || nm.length > 14) return cb({ ok: false, err: 'Nombre de 3-14 caracteres' });
     const key = nm.toLowerCase();
@@ -37,9 +45,8 @@ function registerColonies(s) {
     await C.create(key, { name: nm, leader: s.user, members: [s.user], level: 1, xp: 0, bossDay: '', bossHp: 0, claimed: [] });
     cb({ ok: true });
   });
-
   s.on('colonyJoin', async (key, cb) => {
-    const me = await U.get(s.user); if (!me) return cb({ ok: false });
+    const me = await U.get(s.user); if (!me || !me.save) return cb({ ok: false });
     if (me.save.colony) return cb({ ok: false });
     const c = await C.get(key); if (!c) return cb({ ok: false });
     c.members = c.members || [];
@@ -49,7 +56,6 @@ function registerColonies(s) {
     await U.save(s.user, me.save); await C.update(key, { members: c.members });
     cb({ ok: true });
   });
-
   s.on('colonyLeave', async cb => {
     const me = await U.get(s.user); if (!me || !me.save.colony) return cb({ ok: false });
     const key = me.save.colony; const c = await C.get(key);
@@ -62,33 +68,31 @@ function registerColonies(s) {
     await U.save(s.user, me.save);
     cb({ ok: true });
   });
-
   s.on('colonyDonate', async cb => {
     const me = await U.get(s.user); if (!me || !me.save.colony) return cb({ ok: false });
     const c = await C.get(me.save.colony); if (!c) return cb({ ok: false });
     const cost = 1000 * (c.level || 1);
     if ((me.save.gold || 0) < cost) return cb({ ok: false });
     me.save.gold -= cost; c.xp = (c.xp || 0) + 10; c.level = 1 + Math.floor(c.xp / 100);
-    await U.save(s.user, me.save); await C.update(c._id, { xp: c.xp, level: c.level });
-    for (const mk of (c.members || [])) { const mu = await U.get(mk); if (mu) { mu.save.colonyLevel = c.level; await U.save(mk, mu.save); } }
+    me.save.colonyLevel = c.level; // el donante se guarda directo con U.save
+    await U.save(s.user, me.save);
+    await C.update(c._id, { xp: c.xp, level: c.level });
+    // resto de miembros: 1 escritura bulk (antes N get+save)
+    await U.setColonyLevel((c.members || []).filter(k => k !== s.user), c.level);
     cb({ ok: true, level: c.level });
   });
-
   s.on('colonyBoss', async cb => {
     const me = await U.get(s.user); if (!me || !me.save.colony) return cb({ ok: false });
     const c = await C.get(me.save.colony); if (!c) return cb({ ok: false });
-    const d = new Date().toISOString().slice(0, 10);
-    if (c.bossDay !== d) await C.update(c._id, { bossDay: d, bossHp: bossMax(c), claimed: [] });
-    const c2 = await C.get(me.save.colony);
-    if (me.save.bossTicketDate === d) return cb({ ok: false, err: 'Ya luchaste hoy contra el jefe' });
-    me.save.bossTicketDate = d;
+    await ensureBossDay(c);
+    if (me.save.bossTicketDate === today()) return cb({ ok: false, err: 'Ya luchaste hoy contra el jefe' });
+    me.save.bossTicketDate = today();
     const dmg = Math.round(powerOf(me.save).dps * 30);
-    c2.bossHp = Math.max(0, (c2.bossHp || bossMax(c2)) - dmg);
-    const killed = c2.bossHp <= 0;
-    await U.save(s.user, me.save); await C.update(c2._id, { bossHp: c2.bossHp });
-    cb({ ok: true, dmg, killed, hp: c2.bossHp, max: bossMax(c2) });
+    c.bossHp = Math.max(0, (c.bossHp || bossMax(c)) - dmg);
+    const killed = c.bossHp <= 0;
+    await U.save(s.user, me.save); await C.update(c._id, { bossHp: c.bossHp });
+    cb({ ok: true, dmg, killed, hp: c.bossHp, max: bossMax(c) });
   });
-
   s.on('colonyClaim', async cb => {
     const me = await U.get(s.user); if (!me || !me.save.colony) return cb({ ok: false });
     const c = await C.get(me.save.colony); if (!c) return cb({ ok: false });
@@ -100,5 +104,4 @@ function registerColonies(s) {
     cb({ ok: true, g });
   });
 }
-
 module.exports = { registerColonies };
