@@ -11,16 +11,22 @@ const ANIM_DEFS = [
   { key: 'wasp_walk',     tex: 'enemy_wasp',     fps: 12, loop: true  },
   { key: 'scorpion_walk', tex: 'enemy_scorpion', fps: 8,  loop: true  },
   { key: 'boss_walk',     tex: 'enemy_boss',     fps: 3,  loop: true, yoyo: true },
-  // humanos: walk/idle con espada envainada en la espalda (horneado en el arte)
+  // humanos: walk/idle/attack + hurt/death (ventanas según el sheet real)
   { key: 'human_a_walk',  tex: 'hero_human_a',   fps: 10, loop: true  },
   { key: 'human_a_idle',  tex: 'hero_human_a',   fps: 3,  loop: true, start: 0, end: 0 },
   { key: 'human_a_attack',tex: 'hero_human_a_attack', fps: 9, loop: false },
+  { key: 'human_a_hurt',  tex: 'hero_human_a_hurt', fps: 10, loop: false, start: 0, end: 2 },
+  { key: 'human_a_death', tex: 'hero_human_a_hurt', fps: 8,  loop: false, start: 3, end: 4 },
   { key: 'human_b_walk',  tex: 'hero_human_b',   fps: 10, loop: true  },
   { key: 'human_b_idle',  tex: 'hero_human_b',   fps: 3,  loop: true, start: 0, end: 0 },
   { key: 'human_b_attack',tex: 'hero_human_b_attack', fps: 9, loop: false },
+  { key: 'human_b_hurt',  tex: 'hero_human_b_hurt', fps: 10, loop: false, start: 0, end: 2 },
+  { key: 'human_b_death', tex: 'hero_human_b_hurt', fps: 8,  loop: false, start: 5, end: 6 },
   { key: 'human_c_walk',  tex: 'hero_human_c',   fps: 10, loop: true  },
   { key: 'human_c_idle',  tex: 'hero_human_c',   fps: 3,  loop: true, start: 0, end: 0 },
   { key: 'human_c_attack',tex: 'hero_human_c_attack', fps: 9, loop: false },
+  { key: 'human_c_hurt',  tex: 'hero_human_c_hurt', fps: 10, loop: false, start: 0, end: 2 },
+  { key: 'human_c_death', tex: 'hero_human_c_hurt', fps: 8,  loop: false, start: 3, end: 4 },
   { key: 'acc_crown',     tex: 'acc_crown',      fps: 1,  loop: false }
 ];
 class BootScene extends Phaser.Scene {

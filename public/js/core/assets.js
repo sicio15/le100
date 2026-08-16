@@ -66,11 +66,12 @@ function analyze(c) {
   return { frames, maxH };
 }
 const STRIP_H = 160;
-// + sheets de ataque humanos (desenvaine + tajo horneados en el arte)
+// + hurt/death humanos (6f: 0-2 dolor, 3-5 caída) igual que hero_hurt
 const SHEETS = ['hero_walk', 'hero_idle', 'hero_attack', 'hero_cast', 'hero_hurt',
   'enemy_beetle', 'enemy_spider', 'enemy_boss', 'enemy_wasp', 'enemy_scorpion',
   'hero_human_a', 'hero_human_b', 'hero_human_c', 'acc_crown',
-  'hero_human_a_attack', 'hero_human_b_attack', 'hero_human_c_attack'];
+  'hero_human_a_attack', 'hero_human_b_attack', 'hero_human_c_attack',
+  'hero_human_a_hurt', 'hero_human_b_hurt', 'hero_human_c_hurt'];
 const PREP = {};
 function loadImg(src) {
   return new Promise(res => {

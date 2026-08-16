@@ -1,5 +1,5 @@
 'use strict';
-// ===== BattleScene: render del combate + paperdoll (sin overlay de espada) =====
+// ===== BattleScene: render del combate + paperdoll + parallax =====
 const easeOutBack = p => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); };
 function toColor(str) {
   if (!str) return 0xffffff;
@@ -110,8 +110,12 @@ class BattleScene extends Phaser.Scene {
     const want = (chapterOf(S.stage).bg || 'img/bg.png').split('/').pop().replace('.png', '');
     if (want !== this.curBg && this.textures.exists(want)) { this.bg.setTexture(want); this.curBg = want; }
     const iw = this.bg.width || 1, ih = this.bg.height || 1;
-    this.bg.setScale(Math.max(W / iw, H / ih));
-    this.bg.setPosition(W / 2, H);
+    // PARALLAX: margen extra de escala + desplazamiento acotado al avanzar
+    const ps = Math.max(W / iw, H / ih) * 1.12;
+    this.bg.setScale(ps);
+    const maxShift = Math.max(0, (iw * ps - W) / 2);
+    const off = Math.min(maxShift, (typeof advance !== 'undefined' ? advance : 0) * 0.35);
+    this.bg.setPosition(W / 2 - off, H);
     this.fliesG.clear();
     if (!SETTINGS.reduceFx) this.ff.forEach(f => {
       const x = (f.x + Math.sin(t * .12 * f.s + f.p) * .06) * W;
@@ -122,7 +126,6 @@ class BattleScene extends Phaser.Scene {
     if (S.stage !== this.lastStage) { this.lastStage = S.stage; showBanner('⚔️ ETAPA ' + S.stage); }
     const hb = baseScale('hero');
     const lb = lookBase();
-    const isHuman = lb !== 'hero';
     const wantCrown = !!(S.look && S.look.crown);
     this.bars.clear();
     sq.forEach(m => {
@@ -143,13 +146,12 @@ class BattleScene extends Phaser.Scene {
         this.ring(px, gy - 30, 0x7bed9f);
       }
       if (!m.sprite) return;
-      // tajo blanco de refuerzo al atacar (acompaña al sprite, no reemplaza)
       if (m.lunge > 0.8 && !m.slashDone) { m.slashDone = true; this.slash(px + 62, gy - 50); }
       if (m.lunge < 0.3) m.slashDone = false;
-      // humanos: sin hurt/cast/death → caen a idle/attack (muerte = rotación)
-      const desired = !m.alive ? lb + (isHuman ? '_idle' : '_death')
+      // ahora AMBAS formas tienen hurt/death reales (sheets completos)
+      const desired = !m.alive ? lb + '_death'
         : m.entering ? lb + '_walk'
-        : m.flash > 0 ? lb + (isHuman ? '_idle' : '_hurt')
+        : m.flash > 0 ? lb + '_hurt'
         : m.castT > 0 ? lb + '_attack'
         : m.lunge > 0.35 ? lb + '_attack'
         : enemies.length ? lb + '_walk' : lb + '_idle';
@@ -157,12 +159,13 @@ class BattleScene extends Phaser.Scene {
       const phW = t * 7 + (m.def.role === 'tank' ? 2 : m.def.role === 'support' ? 4 : 0);
       const walking = desired === lb + '_walk';
       m.sprite.setPosition(px + m.lunge * 20, gy + (walking ? -Math.abs(Math.sin(phW)) * 2.2 : 0));
+      // POLVO al caminar (héroes), respeta reduceFx
+      if (walking && m.alive && !SETTINGS.reduceFx && Math.random() < 0.09) VFX.puff(px - 14, gy + 2);
       const sy = 1 + Math.cos(phW * 2) * (walking ? 0.02 : 0.008);
       const rs = ROLE_SCALE[m.def.role] || 1;
       if (!m.alive) { m.sprite.setRotation(-1.2); m.sprite.setAlpha(0.5); }
       else {
-        // el humano se inclina más en el tajo para vender el swing del sprite
-        m.sprite.setRotation(walking ? 0.02 : (desired === lb + '_attack' ? (isHuman ? 0.12 : 0.06) : 0));
+        m.sprite.setRotation(walking ? 0.02 : (desired === lb + '_attack' ? 0.1 : 0));
         m.sprite.setAlpha(1);
       }
       m.sprite.setScale(hb * rs * (2 - sy), hb * rs * sy);
@@ -233,7 +236,7 @@ class BattleScene extends Phaser.Scene {
     }
     if (shieldT > 0) {
       this.bars.lineStyle(2, 0xffb347, 0.7);
-      this.bars.strokeRect(heroX() + advance - 110, gy - 130, 200, 120);
+      this.bars.strokeRect(heroX() + (typeof advance !== 'undefined' ? advance : 0) - 110, gy - 130, 200, 120);
     }
     enemies.forEach(e => {
       if (e.dying !== null || !e.sprite) return;
