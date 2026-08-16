@@ -1,5 +1,7 @@
 'use strict';
 // QoL: auto-equipar lo mejor (botón inyectado en el modal de equipo)
+// LOTE 2A (deuda #9): inyección vía hook onGearOpen() — sin setTimeout(0),
+// sin depender del orden de listeners del click de btnGear.
 function autoEquip() {
   Object.keys(SLOT_DEFS).forEach(sl => {
     const candidates = S.gear.inv.filter(i => i.slot === sl);
@@ -15,14 +17,12 @@ function autoEquip() {
   persist(); renderGear(); Audio.SFX.buy();
   toast('⚡ Equipo optimizado');
 }
-if ($('btnGear')) $('btnGear').addEventListener('click', () => {
-  setTimeout(() => {
-    const h = $('mGear') && $('mGear').querySelector('h2');
-    if (h && !$('autoEqBtn')) {
-      const b = document.createElement('button');
-      b.id = 'autoEqBtn'; b.className = 'mbtn'; b.textContent = '⚡ AUTO-EQUIPAR';
-      b.onclick = autoEquip;
-      h.after(b);
-    }
-  }, 0);
+onGearOpen(() => {
+  const h = $('mGear') && $('mGear').querySelector('h2');
+  if (h && !$('autoEqBtn')) {
+    const b = document.createElement('button');
+    b.id = 'autoEqBtn'; b.className = 'mbtn'; b.textContent = '⚡ AUTO-EQUIPAR';
+    b.onclick = autoEquip;
+    h.after(b);
+  }
 });

@@ -1,5 +1,7 @@
 'use strict';
 // ===== MISIONES DIARIAS: progreso derivado de stats existentes (cero hooks en otros archivos) =====
+// LOTE 2A (deuda #4): el reset diario vive en store.checkDailyResets();
+// checkMissions queda como alias (idempotente) para no tocar los call-sites.
 const MISSIONS = [
   { id: 'mKills', n: '🗡️ Cazador',    d: 'Eliminá 250 enemigos',         g: 250, goal: 250, p: () => S.kills - (S.mBase.kills || 0) },
   { id: 'mTower', n: '🗼 Escalador',  d: 'Subí 3 pisos de la Torre',     g: 3,   goal: 3,   p: () => S.tower - (S.mBase.tower || 1) },
@@ -8,18 +10,7 @@ const MISSIONS = [
   { id: 'mDaily', n: '🎯 Retador',    d: 'Usá 1 ticket del Jefe Diario', g: 1,   goal: 1,   p: () => 3 - S.tickets },
   { id: 'mPrest', n: '🧬 Renacido',   d: 'Hacé 1 prestigio',             g: 1,   goal: 1,   p: () => S.prestiges - (S.mBase.prestiges || 0) }
 ];
-// FIX: reset diario de TODOS los tickets acá también (arena/rogue antes solo reseteaban al abrir su modal)
-function checkMissions() {
-  const d = new Date().toISOString().slice(0, 10);
-  if (S.ticketDate !== d) { S.ticketDate = d; S.tickets = 3; }
-  if (S.arenaDate !== d) { S.arenaDate = d; S.arenaTickets = 5; }
-  if (S.rlDate !== d) { S.rlDate = d; S.rlTickets = 2; }
-  if (S.mDate !== d) {
-    S.mDate = d;
-    S.mBase = { kills: S.kills, tower: S.tower, prestiges: S.prestiges };
-    S.mClaimed = {};
-  }
-}
+const checkMissions = checkDailyResets;
 const mDone = m => m.p() >= m.goal;
 const mReward = m => goldKill(S.best) * m.g;
 const mAllDone = () => MISSIONS.every(mDone);

@@ -1,6 +1,5 @@
 'use strict';
 // ===== HUD: mejoras, velocidad, settings, logros, prestigio, ranking, escuadrón, uiTick =====
-
 // ----- Mejoras -----
 const upBtns = {}, upLvs = {};
 (function buildUps() {
@@ -24,7 +23,6 @@ const upBtns = {}, upLvs = {};
     };
   });
 })();
-
 // ----- Velocidad -----
 const SPEEDS = [1, 2, 3];
 function cycleSpeed() {
@@ -35,7 +33,6 @@ function cycleSpeed() {
 }
 wire('speedBtn', 'click', cycleSpeed);
 if ($('speedBtn')) $('speedBtn').textContent = '⏩ x' + SETTINGS.speed;
-
 // ----- Settings -----
 function openSettings() {
   Audio.SFX.click();
@@ -51,11 +48,13 @@ wire('setAudio', 'change', e => { SETTINGS.audio = e.target.checked; Audio.setEn
 wire('setMusic', 'input', e => { SETTINGS.musicVol = +e.target.value; $('setMusicV').textContent = Math.round(SETTINGS.musicVol * 100); Audio.setMusicVol(SETTINGS.musicVol); });
 wire('setSfx', 'input', e => { SETTINGS.sfxVol = +e.target.value; $('setSfxV').textContent = Math.round(SETTINGS.sfxVol * 100); Audio.setSfxVol(SETTINGS.sfxVol); });
 wire('setReduce', 'change', e => { SETTINGS.reduceFx = e.target.checked; saveSettings(); });
+// LOTE 2C (deuda #8): logout limpia el token persistente antes del reload
 wire('setLogout', 'click', () => {
   if (!confirm('¿Cerrar sesión? (tu partida queda guardada en la cuenta)')) return;
-  persist(); location.reload();
+  persist();
+  if (typeof netClearToken === 'function') netClearToken();
+  location.reload();
 });
-
 // ----- Logros -----
 function renderAch() {
   $('achList').innerHTML = '';
@@ -79,7 +78,6 @@ function renderAch() {
     $('achList').appendChild(row);
   });
 }
-
 // ----- Prestigio -----
 wire('btnPrestige', 'click', () => {
   $('prGain').textContent = '+' + prGain() + ' 🧬';
@@ -101,7 +99,6 @@ wire('prBtn', 'click', () => {
   Audio.SFX.levelup();
   toast('🧬 ¡Prestigio! +' + g + ' ADN');
 });
-
 // ----- Modales: logros + ranking -----
 wire('btnAch', 'click', () => { renderAch(); $('mAch').style.display = 'flex'; Audio.SFX.click(); });
 wire('achClose', 'click', () => { $('mAch').style.display = 'none'; });
@@ -113,7 +110,6 @@ wire('btnLb', 'click', () => {
   $('mLb').style.display = 'flex'; Audio.SFX.click();
 });
 wire('lbClose', 'click', () => { $('mLb').style.display = 'none'; });
-
 // ----- HUD de escuadrón -----
 let sqBuiltKey = '';
 const sqRows = {};
@@ -133,7 +129,6 @@ function buildSquadHud() {
     sqRows[m.def.id] = { row: r, hp: r.querySelector('.sqHp i'), en: r.querySelector('.sqEn i') };
   });
 }
-
 // ----- HUD tick (llamado a 10Hz desde BattleScene) -----
 let dotAcc = 0;
 function uiTick() {

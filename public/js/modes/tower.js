@@ -1,5 +1,6 @@
 'use strict';
 // ===== TORRE INFINITA =====
+// LOTE 3: simulación vía modes/sim.js (deuda #5). towerPower queda solo para el display.
 wire('btnTower', 'click', () => { renderTower(); $('mTower').style.display = 'flex'; Audio.SFX.click(); });
 wire('towerClose', 'click', () => { $('mTower').style.display = 'none'; });
 wire('towerFight', 'click', towerFight);
@@ -12,9 +13,8 @@ function renderTower() {
   $('towerFight').disabled = false;
 }
 function towerFight() {
-  const f = S.tower, p = towerPower(f);
-  const our = dps() * 30 * 1.4, aguante = maxHP() / (p.atk * 0.5), ratio = our / p.hp;
-  const win = Math.random() < Math.max(0.05, Math.min(0.95, ratio * (aguante >= 20 ? 1 : 0.5)));
+  const f = S.tower;
+  const win = rollFight(fightChance(S.best + f, 6 + f * 0.5, 1.5 + f * 0.08));
   const g = goldKill(S.best + f) * (win ? 12 : 3);
   S.gold += g;
   let msg;

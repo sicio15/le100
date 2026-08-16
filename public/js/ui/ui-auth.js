@@ -1,5 +1,6 @@
 'use strict';
 // ===== Cuentas + invitado + offline + tutorial =====
+// LOTE 2C (deuda #8): auto-login silencioso con token persistente.
 let authMode = 'login';
 wire('tabLogin', 'click', () => { authMode = 'login'; $('tabLogin').classList.add('sel'); $('tabReg').classList.remove('sel'); Audio.SFX.click(); });
 wire('tabReg', 'click', () => { authMode = 'register'; $('tabReg').classList.add('sel'); $('tabLogin').classList.remove('sel'); Audio.SFX.click(); });
@@ -8,12 +9,32 @@ wire('authBtn', 'click', () => {
   netAuth(authMode, $('authName').value, $('authPass').value, res => {
     if (!res.ok) { $('authErr').textContent = res.err || 'Error'; return; }
     authed = true; S.name = res.name; applyServerSave(res.save);
+    if (res.token) netSetToken(res.token);
     $('mAuth').style.display = 'none';
     afterLogin();
   });
 });
 if (!authed) { const m = $('mAuth'); if (m) m.style.display = 'flex'; }
-
+// ===== SESIÓN PERSISTENTE: si hay token, entrar sin tocar el login =====
+let autoTried = false;
+function tryAutoLogin() {
+  if (autoTried || authed) return;
+  const t = netGetToken();
+  if (!t) return;
+  autoTried = true;
+  netLoginToken(t, res => {
+    if (res && res.ok) {
+      authed = true; S.name = res.name; applyServerSave(res.save);
+      const m = $('mAuth'); if (m) m.style.display = 'none';
+      afterLogin();
+      toast('🔓 Sesión restaurada');
+    } else netClearToken(); // token inválido/viejo → login normal
+  });
+}
+if (typeof socket !== 'undefined' && socket) {
+  if (socket.connected) tryAutoLogin();
+  socket.on('connect', tryAutoLogin);
+}
 // MODO LOCAL: invitado sin servidor/cuenta
 (function addGuestBtn() {
   const m = $('mAuth'); if (!m) return;
@@ -29,13 +50,12 @@ if (!authed) { const m = $('mAuth'); if (m) m.style.display = 'flex'; }
   if (hint) hint.before(b);
   else (m.querySelector('.mcard') || m).appendChild(b);
 })();
-
 let offlinePending = 0, offlineWired = false;
 function afterLogin() {
   Audio.init(); Audio.startMusic();
   Audio.setChapter(Math.floor((S.stage - 1) / 10));
   initSquad();
-  checkTickets();
+  checkDailyResets();
   const sec = Math.min(Date.now() - (S.last || Date.now()), 8 * 3600 * 1000) / 1000;
   const pending = Math.floor(sec * goldKill(S.best) * 0.4);
   offlinePending = pending;
@@ -60,7 +80,6 @@ function afterLogin() {
   toast('¡Hola, ' + S.name + '!');
   if (!SETTINGS.tutorialDone) startTutorial();
 }
-
 // ===== Tutorial =====
 const TUT_STEPS = [
   { t: 'Tu escuadrón pelea solo. ¡Miralo combatir! 🐛', s: 'battleWrap' },

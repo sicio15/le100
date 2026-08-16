@@ -1,5 +1,7 @@
 'use strict';
 // ===== ROGUELIKE: EL SOTOBOSQUE =====
+// LOTE 2A: reset vía store.checkDailyResets() (deuda #4).
+// LOTE 3: probabilidad de sala vía modes/sim.js (deuda #5, aguante desactivado).
 const RL_BUFFS = [
   { id: 'dmg',  n: '🗡️ Furia',      d: '+25% daño',       f: b => { b.dmg *= 1.25; } },
   { id: 'hp',   n: '❤️ Coraza',      d: '+25% vida máx',   f: (b, r) => { b.hp *= 1.25; r.maxHp *= 1.25; r.hp *= 1.25; } },
@@ -9,8 +11,7 @@ const RL_BUFFS = [
   { id: 'ven',  n: '☠️ Toxina',      d: '+40% veneno',     f: b => { b.ven *= 1.4; } }
 ];
 let RL = null;
-function checkRlTickets() { const d = new Date().toISOString().slice(0, 10); if (S.rlDate !== d) { S.rlDate = d; S.rlTickets = 2; } }
-wire('btnRogue', 'click', () => { checkRlTickets(); renderRogue(); $('mRogue').style.display = 'flex'; Audio.SFX.click(); });
+wire('btnRogue', 'click', () => { checkDailyResets(); renderRogue(); $('mRogue').style.display = 'flex'; Audio.SFX.click(); });
 wire('rogueClose', 'click', () => { $('mRogue').style.display = 'none'; });
 wire('rogueStart', 'click', () => {
   if (S.rlTickets <= 0) return;
@@ -26,7 +27,7 @@ function rollChoices() {
 function renderRogue() {
   const box = $('rogueBody'); if (!box) return;
   if (!RL) {
-    box.innerHTML = '<p>8 salas · elegí 1 de 3 buffs por sala · recompensas según avance. <br><small style="color:#8fa3c8">Run perfecta (8/8) = +1🧬</small></p>';
+    box.innerHTML = '<p>8 salas · elegí 1 de 3 buffs por sala · recompensas según avance.<br><small style="color:#8fa3c8">Run perfecta (8/8) = +1🧬</small></p>';
     $('rogueStart').style.display = 'inline-block';
     $('rogueStart').textContent = '🌀 EMPEZAR (🎟️ ' + S.rlTickets + '/2)';
     $('rogueStart').disabled = S.rlTickets <= 0;
@@ -43,9 +44,9 @@ function pickBuff(i) {
   if (!RL || RL.over) return;
   const c = RL.choices[i]; if (!c) return;
   c.f(RL.b, RL);
-  const st = S.best + RL.room * 3, ehp = eHP(st) * 8, eatk = eDmg(st) * 1.5;
+  const st = S.best + RL.room * 3, eatk = eDmg(st) * 1.5;
   const our = dps() * RL.b.dmg * 10 * (1 + RL.b.crit) * (1 + RL.b.ven * 0.2);
-  const win = Math.random() < Math.max(0.05, Math.min(0.95, our / ehp));
+  const win = rollFight(fightChance(st, 8, 1.5, { aguante: false, our }));
   let taken = eatk * 8 * (win ? 0.5 : 1);
   taken *= Math.max(0.4, 1 - (RL.b.hp - 1) * 0.4);
   RL.hp -= taken;
@@ -66,5 +67,5 @@ function endRun(cleared) {
   if (cleared) { S.adn++; msg += ' · ¡PERFECTO! +1🧬'; }
   persist(); toast(msg);
   if (cleared) Audio.SFX.levelup(); else Audio.SFX.death();
-  RL = null; checkRlTickets(); renderRogue();
+  RL = null; checkDailyResets(); renderRogue();
 }

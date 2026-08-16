@@ -61,6 +61,22 @@ class BattleScene extends Phaser.Scene {
       HOOKS.crit = (x, y) => { this.ring(x, y, 0xffeb3b); this.hitStop(0.25, 60); };
       HOOKS.ult = () => { this.cameras.main.flash(220, 126, 252, 252); this.hitStop(0.2, 80); this.zoomPulse(); };
       HOOKS.kill = (e) => { this.ring(e.x, groundY() - 30, 0xffffff); };
+      // LOTE 2B (deuda #7): cut-in de ultimates (antes DOM dentro de battle.js)
+      HOOKS.cutin = m => {
+        const box = $('cutin'); if (!box) return;
+        const c = document.createElement('div');
+        c.className = 'cutin'; c.style.borderColor = m.def.color;
+        c.innerHTML = '<div class="ciName" style="color:' + m.def.color + '">' + m.def.name + '</div><div class="ciUlt">¡' + m.def.ult + '!</div>';
+        box.appendChild(c);
+        setTimeout(() => c.remove(), 1100);
+      };
+      // LOTE 2B (deuda #7): barra de jefe con refs DOM cacheadas 1 sola vez
+      const bb = $('bossBar'), bf = $('bossFill'), bt = $('bossTime');
+      if (bb && bf && bt) {
+        HOOKS.bossShow = () => bb.classList.remove('hidden');
+        HOOKS.bossHide = () => bb.classList.add('hidden');
+        HOOKS.bossTick = (pct, txt) => { bf.style.width = pct + '%'; bt.textContent = txt; };
+      }
     }
     if (typeof uiTick === 'function') { try { uiTick(); } catch (e) {} }
   }
@@ -148,7 +164,7 @@ class BattleScene extends Phaser.Scene {
       if (!m.sprite) return;
       if (m.lunge > 0.8 && !m.slashDone) { m.slashDone = true; this.slash(px + 62, gy - 50); }
       if (m.lunge < 0.3) m.slashDone = false;
-      // ahora AMBAS formas tienen hurt/death reales (sheets completos)
+      // ambas formas tienen hurt/death reales (sheets completos)
       const desired = !m.alive ? lb + '_death'
         : m.entering ? lb + '_walk'
         : m.flash > 0 ? lb + '_hurt'

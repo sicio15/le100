@@ -1,4 +1,6 @@
 'use strict';
+// ===== LÓGICA PURA del combate (sin DOM: deuda #7 cerrada) =====
+// Todo efecto visual/DOM sale por VFX (Phaser) o HOOKS (implementa BattleScene).
 let squad = [];
 let enemies = [];
 let spawnT = 1, bossT = 0, shake = 0, time = 0, stageFlash = 0, dustT = 0, lastChapter = -1;
@@ -11,16 +13,17 @@ function float(x, y, txt, color, big) { VFX.float(x, y, txt, color, big); }
 function burst(x, y, color, n) { VFX.burst(x, y, color, n); }
 function spawnCoins(x, y, n) { for (let i = 0; i < n; i++) VFX.coin(x, y); }
 function puff(x, y) { VFX.puff(x, y); }
-const HOOKS = { ult: null, crit: null, kill: null };
+// HOOKS: bossShow/bossHide/bossTick = barra de jefe (DOM en battle-scene) · cutin = ultimate
+const HOOKS = { ult: null, crit: null, kill: null, cutin: null, bossShow: null, bossHide: null, bossTick: null };
 const heroX = () => Math.min(230, W * 0.22);
 const groundY = () => H - 78;
 const slotX = m => heroX() + (m.def.role === 'tank' ? 52 : m.def.role === 'dps' ? -6 : -70);
 // ===== Enemigos por capítulo (con fallback si falta la imagen) =====
 const KIND_STATS = {
-  beetle:   { hp: 1.25, spd: 70  },
-  spider:   { hp: 1.0,  spd: 95  },
+  beetle:   { hp: 1.25, spd: 70 },
+  spider:   { hp: 1.0,  spd: 95 },
   wasp:     { hp: 0.7,  spd: 130 },
-  scorpion: { hp: 1.6,  spd: 55  }
+  scorpion: { hp: 1.6,  spd: 55 }
 };
 function chapterKinds() {
   const all = ['beetle', 'spider', 'wasp', 'scorpion'];
@@ -73,14 +76,8 @@ function aliveByPriority() {
   }
   return null;
 }
-function showCutin(m) {
-  const box = $('cutin'); if (!box) return;
-  const c = document.createElement('div');
-  c.className = 'cutin'; c.style.borderColor = m.def.color;
-  c.innerHTML = '<div class="ciName" style="color:' + m.def.color + '">' + m.def.name + '</div><div class="ciUlt">¡' + m.def.ult + '!</div>';
-  box.appendChild(c);
-  setTimeout(() => c.remove(), 1100);
-}
+// CUT-IN: ahora vía hook (el DOM vive en la capa de render)
+function showCutin(m) { if (HOOKS.cutin) HOOKS.cutin(m); }
 function gainEnergy(m, n) {
   m.energy = Math.min(100, m.energy + n);
   if (m.energy >= 100) { m.energy = 0; castUlt(m); }
@@ -113,7 +110,7 @@ function castUlt(m) {
 }
 // ===== Enemigos =====
 function spawnEnemy() {
-  const slots = [0,1,2,3,4];
+  const slots = [0, 1, 2, 3, 4];
   enemies.forEach(e => { if (e.dying === null) { const i = slots.indexOf(e.slot); if (i >= 0) slots.splice(i, 1); } });
   if (!slots.length) return;
   const slot = slots[Math.random() * slots.length | 0];
@@ -130,7 +127,7 @@ function spawnBoss() {
   enemies.push({ hp, max: hp, slot: 1, x: W + 80, atkT: 1, boss: true, kind: 'boss', dying: null,
     spd: 40, hue: 0, size: 2.2, state: 'walk', flash: 0, lungeX: 0, kb: 0, pop: 0, sprite: null, fx: false });
   bossT = 30; shake = 10;
-  $('bossBar').classList.remove('hidden');
+  if (HOOKS.bossShow) HOOKS.bossShow();
   Audio.SFX.boss();
   notify('👑 ¡JEFE en la etapa ' + S.stage + '!');
 }
@@ -146,7 +143,7 @@ function killEnemy(e) {
   if (Math.random() < (e.boss ? 1 : 0.08)) dropItem(e.boss ? 2 : 0);
   spawnCoins(e.x, groundY() - 40, e.boss ? 8 : 3);
   Audio.SFX.coin();
-  if (e.boss) { shake = 14; $('bossBar').classList.add('hidden'); nextStage(); }
+  if (e.boss) { shake = 14; if (HOOKS.bossHide) HOOKS.bossHide(); nextStage(); }
   else if (S.ks >= killsNeed()) nextStage();
 }
 function nextStage() {
@@ -279,7 +276,7 @@ function update(rawDt) {
               if (S.stage > 1) S.stage--;
               S.ks = 0;
               enemies.forEach(x => { if (x.dying === null) { x.dying = 0.45; puff(x.x, gy + 2); } });
-              $('bossBar').classList.add('hidden');
+              if (HOOKS.bossHide) HOOKS.bossHide();
               spawnT = 0.8;
               reEnter(); // tras caer, volvés a entrar desde el inicio
               persist(); netScore(S.name, S.best);
@@ -295,8 +292,7 @@ function update(rawDt) {
   enemies = enemies.filter(e => e.dying === null || e.dying > 0);
   if (isBossStage() && enemies.length) {
     bossT -= dt;
-    $('bossFill').style.width = Math.max(0, bossT / 30) * 100 + '%';
-    $('bossTime').textContent = Math.max(0, Math.ceil(bossT)) + 's';
+    if (HOOKS.bossTick) HOOKS.bossTick(Math.max(0, bossT / 30) * 100, Math.max(0, Math.ceil(bossT)) + 's');
     if (bossT <= 0) { bossT = 30; notify('⏰ El jefe se recuperó... ¡otra vez!'); }
   }
   if (shake > 0) shake -= dt * 20;

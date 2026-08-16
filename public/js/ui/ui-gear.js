@@ -1,6 +1,7 @@
 'use strict';
 // ===== Equipo: render + equipar + mejorar =====
-wire('btnGear', 'click', () => { renderGear(); $('mGear').style.display = 'flex'; Audio.SFX.click(); });
+// LOTE 2A: al abrir el modal dispara fireGearOpen() (hooks QoL, deuda #9).
+wire('btnGear', 'click', () => { renderGear(); $('mGear').style.display = 'flex'; Audio.SFX.click(); fireGearOpen(); });
 wire('gearClose', 'click', () => { $('mGear').style.display = 'none'; });
 function slotIcon(sl) {
   return (typeof picOr === 'function') ? picOr(SLOT_DEFS[sl].pic, SLOT_DEFS[sl].icon, 14) : SLOT_DEFS[sl].icon;

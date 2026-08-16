@@ -1,20 +1,16 @@
 'use strict';
 // ===== Arena PvP + Colonias =====
 // netEmit = evento CON dato + ack · netCall = evento SIN dato + ack
+// LOTE 2A (deuda #4): checkArenaTickets eliminado → store.checkDailyResets().
 const netEmit = (ev, data, cb) => { if (typeof socket !== 'undefined' && socket) socket.emit(ev, data, cb); };
 const netCall = (ev, cb) => { if (typeof socket !== 'undefined' && socket) socket.emit(ev, cb); };
-
 // ================= ARENA =================
 wire('btnArena', 'click', openArena);
-wire('arenaClose', 'click', () => { $('mArena').style.display = 'none'; }); // FIX: antes no cerraba
-function checkArenaTickets() {
-  const d = new Date().toISOString().slice(0, 10);
-  if (S.arenaDate !== d) { S.arenaDate = d; S.arenaTickets = 5; persist(); }
-}
+wire('arenaClose', 'click', () => { $('mArena').style.display = 'none'; });
 function openArena() {
   Audio.SFX.click();
   if (!authed) { toast('🔒 Entrá con tu cuenta para usar la Arena'); return; }
-  checkArenaTickets();
+  checkDailyResets(); persist();
   netCall('arenaInfo', info => { renderArena(info || {}); $('mArena').style.display = 'flex'; });
 }
 function renderArena(info) {
@@ -41,10 +37,9 @@ function renderArena(info) {
     ' <b style="color:' + (p.name === S.name ? '#7CFC7C' : '#fff') + '">' + p.name + '</b></span><span>' + p.pts + ' pts</span></div>').join('') ||
     '<p style="color:#8fa3c8">Sin luchadores aún</p>';
 }
-
 // ================= COLONIAS =================
 wire('btnColony', 'click', openColony);
-wire('colonyClose', 'click', () => { $('mColony').style.display = 'none'; }); // FIX: antes no cerraba
+wire('colonyClose', 'click', () => { $('mColony').style.display = 'none'; });
 function openColony() {
   Audio.SFX.click();
   if (!authed) { toast('🔒 Entrá con tu cuenta para usar Colonias'); return; }
@@ -75,8 +70,6 @@ function renderColony(info) {
       });
       row.appendChild(b); box.appendChild(row);
     });
-    // FIX BUG REAL: antes 'box.innerHTML += ...' re-parseaba el DOM y
-    // destruía el listener del botón CREAR cuando no había colonias.
     if (!(info.list || []).length) {
       const p = document.createElement('p');
       p.style.color = '#8fa3c8';

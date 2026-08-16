@@ -1,7 +1,7 @@
 'use strict';
 // ===== STORAGE: Mongo + fallback memoria (repositorios U y C) =====
-// OPTIMIZACIÓN (deuda #3): U.setColonyLevel() = 1 escritura bulk (updateMany)
-// en vez de N lecturas+escrituras individuales por donación de colonia.
+// LOTE 1: U.setColonyLevel() = bulk updateMany (deuda #3).
+// LOTE 2C: U.patch() (campos arbitrarios, p.ej. tokenHash) + U.findByTokenHash() (deuda #8).
 let col = null, colonies = null;
 const memUsers = new Map(), memColonies = new Map();
 async function initStorage() {
@@ -21,7 +21,13 @@ const U = {
   get: async k => col ? await col.findOne({ _id: k }) : memUsers.get(k) || null,
   create: async (k, d) => col ? await col.insertOne(Object.assign({ _id: k }, d)) : memUsers.set(k, Object.assign({ _id: k }, d)),
   save: async (k, s) => col ? await col.updateOne({ _id: k }, { $set: { save: s } }) : (u => { if (u) u.save = s; })(memUsers.get(k)),
+  patch: async (k, o) => col ? await col.updateOne({ _id: k }, { $set: o }) : (u => { if (u) Object.assign(u, o); })(memUsers.get(k)),
   all: async () => col ? await col.find({}).toArray() : [...memUsers.values()],
+  findByTokenHash: async h => {
+    if (col) return await col.findOne({ tokenHash: h });
+    for (const u of memUsers.values()) if (u.tokenHash === h) return u;
+    return null;
+  },
   setColonyLevel: async (keys, lvl) => {
     if (!keys || !keys.length) return;
     if (col) return await col.updateMany({ _id: { $in: keys } }, { $set: { 'save.colonyLevel': lvl } });
