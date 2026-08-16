@@ -4,7 +4,11 @@ const DEF_SAVE = { gold: 0, adn: 0, stage: 1, best: 1, kills: 0, prestiges: 0, p
   ups: { dmg: 0, vit: 0, regen: 0, venom: 0, fortune: 0 }, ach: {}, last: Date.now(),
   gear: { equipped: { fang: null, shell: null, antenna: null, charm: null }, inv: [] },
   tickets: 3, ticketDate: '', tower: 1, towerBest: 1, rlTickets: 2, rlDate: '',
-  arenaPts: 0, arenaTickets: 5, arenaDate: '', colony: '', colonyLevel: 1, bossTicketDate: '' };
+  arenaPts: 0, arenaTickets: 5, arenaDate: '', colony: '', colonyLevel: 1, bossTicketDate: '',
+  mDate: '', mBase: { kills: 0, tower: 1, prestiges: 0 }, mClaimed: {},
+  shop: { lv: {}, skins: [], skin: '' } };
+const SHOP_MAX = { fury: 10, vita: 10, fort: 10, regen: 10, crit: 5 };
+const SKIN_IDS = ['oro', 'hielo', 'sombra'];
 
 function sanitizeSave(s) {
   const o = JSON.parse(JSON.stringify(DEF_SAVE));
@@ -41,6 +45,20 @@ function sanitizeSave(s) {
   o.colony = String(s.colony || '').slice(0, 20);
   o.colonyLevel = Math.max(1, num(s.colonyLevel, 999));
   o.bossTicketDate = String(s.bossTicketDate || '').slice(0, 10);
+  o.mDate = String(s.mDate || '').slice(0, 10);
+  const mb = s.mBase || {};
+  o.mBase = { kills: num(mb.kills, 1e9), tower: Math.max(1, num(mb.tower, 9999)), prestiges: num(mb.prestiges, 1e6) };
+  o.mClaimed = (s.mClaimed && typeof s.mClaimed === 'object')
+    ? Object.fromEntries(Object.entries(s.mClaimed).filter(([, v]) => v).map(([k]) => [String(k).slice(0, 16), 1]))
+    : {};
+  // Tienda de ADN: topes reales server-side (anti-cheat)
+  if (s.shop && typeof s.shop === 'object') {
+    const lv = {};
+    Object.keys(SHOP_MAX).forEach(k => { lv[k] = Math.max(0, Math.min(SHOP_MAX[k], num((s.shop.lv || {})[k], SHOP_MAX[k]))); });
+    o.shop.lv = lv;
+    o.shop.skins = Array.isArray(s.shop.skins) ? s.shop.skins.map(x => String(x).slice(0, 12)).filter(x => SKIN_IDS.includes(x)) : [];
+    o.shop.skin = o.shop.skins.includes(String(s.shop.skin || '')) ? String(s.shop.skin) : '';
+  }
   o.last = Number(s.last) || Date.now();
   return o;
 }

@@ -22,18 +22,20 @@
       <div class="panel">🪙 <b id="goldTxt">0</b></div>
       <div class="panel">🧬 <b id="adnTxt">0</b></div>
     </div>
-    <div class="tb-right">
+    <div class="tb-right" style="overflow-x:auto;max-width:62vw">
       <button class="tbtn" id="speedBtn">⏩ x1</button>
       <button class="tbtn" id="btnSettings">⚙️</button>
       <button class="tbtn" id="btnAch">🏅<span class="dot" id="achDot"></span></button>
       <button class="tbtn" id="btnLb">🏆</button>
       <button class="tbtn" id="btnPrestige">🧬<span class="dot" id="prDot"></span></button>
+      <button class="tbtn" id="btnShop">🛒</button>
       <button class="tbtn" id="btnGear">🎒<span class="dot" id="gearDot"></span></button>
       <button class="tbtn" id="btnDaily">🎯<span class="dot" id="dailyDot"></span></button>
       <button class="tbtn" id="btnTower">🗼</button>
       <button class="tbtn" id="btnRogue">🌀</button>
       <button class="tbtn" id="btnArena">⚔️</button>
       <button class="tbtn" id="btnColony">🐜</button>
+      <button class="tbtn" id="btnMissions">📜<span class="dot" id="misDot"></span></button>
     </div>
   </div>
   <div id="battleWrap">
@@ -158,6 +160,24 @@
     <button class="mbtn gray" id="colonyClose">CERRAR</button>
   </div>
 </div>
+<div class="modal" id="mMissions">
+  <div class="mcard">
+    <h2>📜 MISIONES DIARIAS</h2>
+    <div id="misList"></div>
+    <button class="mbtn" id="misAll">🎁 RECLAMAR TODO</button>
+    <button class="mbtn gray" id="misClose">CERRAR</button>
+  </div>
+</div>
+<div class="modal" id="mShop">
+  <div class="mcard">
+    <h2>🧬 TIENDA DE ADN</h2>
+    <p class="hintTxt" style="margin-top:0">Mejoras PERMANENTES (no se pierden al prestigiar)</p>
+    <div id="shopList"></div>
+    <h3 style="color:#7efcff;margin:12px 0 4px">🎨 SKINS DE ESCUADRÓN</h3>
+    <div id="skinList"></div>
+    <button class="mbtn gray" id="shopClose">CERRAR</button>
+  </div>
+</div>
 <div id="cutin"></div>
 <div id="toasts"></div>
 <div id="rotate">📱<small>Girá el celular</small><small>le100.io se juega en horizontal</small></div>
@@ -173,6 +193,8 @@
 <script src="js/ui/ui-auth.js"></script>
 <script src="js/ui/ui-hud.js"></script>
 <script src="js/ui/ui-gear.js"></script>
+<script src="js/ui/ui-missions.js"></script>
+<script src="js/ui/ui-shop.js"></script>
 <script src="js/ui/autoequip.js"></script>
 <script src="js/modes/tower.js"></script>
 <script src="js/modes/rogue.js"></script>
