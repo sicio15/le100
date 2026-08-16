@@ -3,7 +3,7 @@ let squad = [];
 let enemies = [];
 let spawnT = 1, bossT = 0, shake = 0, time = 0, stageFlash = 0, dustT = 0, lastChapter = -1;
 let shieldT = 0, healT = 2, venT = 3;
-// AVANCE: el escuadrón camina hacia adelante cuando el campo está limpio
+// AVANCE: el escuadrón camina hacia la derecha buscando enemigos
 let advance = 0;
 const notify = t => { if (typeof toast !== 'undefined') toast(t); };
 const VFX = { float(){}, burst(){}, coin(){}, puff(){} };
@@ -126,7 +126,6 @@ function spawnEnemy() {
     state: 'walk', flash: 0, lungeX: 0, kb: 0, pop: 0, sprite: null, fx: false });
 }
 function spawnBoss() {
-  advance = 0; // el escuadrón se repliega a su posición base para el jefe
   const hp = eHP(S.stage) * 10;
   enemies.push({ hp, max: hp, slot: 1, x: W + 80, atkT: 1, boss: true, kind: 'boss', dying: null,
     spd: 40, hue: 0, size: 2.2, state: 'walk', flash: 0, lungeX: 0, kb: 0, pop: 0, sprite: null, fx: false });
@@ -162,6 +161,17 @@ function nextStage() {
   persist(); netScore(S.name, S.best);
   notify('⚔️ Etapa ' + S.stage + (isBossStage() ? ' 👑' : ''));
 }
+// ===== AVANCE por proximidad (FIX: antes esperaba "campo limpio" y el spawner nunca lo dejaba) =====
+function updateAdvance(dt) {
+  const hx = heroX();
+  const cap = Math.max(0, Math.min(260, W - 420 - hx));
+  // ante jefe, repliegue a la posición base (formación)
+  if (isBossStage()) { advance = Math.max(0, advance - dt * 140); return; }
+  const near = enemies.filter(e => e.dying === null).sort((a, b) => a.x - b.x)[0];
+  const line = hx + advance + 170; // línea donde se frena el enemigo más cercano
+  if (!near) { advance = Math.min(cap, advance + dt * 70); return; } // campo limpio → avanzar
+  if (near.x > line + 60) advance = Math.min(cap, advance + dt * 70); // enemigo lejos → ir a buscarlo
+}
 // ===== Update =====
 function update(rawDt) {
   const dt = rawDt * SETTINGS.speed;
@@ -170,12 +180,7 @@ function update(rawDt) {
   shieldT = Math.max(0, shieldT - dt);
   if (!squad.length) initSquad();
   const hx = heroX(), gy = groundY();
-  // AVANCE: si el campo está limpio, el escuadrón camina hacia adelante
-  const anyE = enemies.some(e => e.dying === null);
-  if (!anyE && !isBossStage()) {
-    const cap = Math.max(0, Math.min(240, W - 380 - hx));
-    advance = Math.min(cap, advance + dt * 50);
-  }
+  updateAdvance(dt);
   squad.forEach(m => {
     m.flash = Math.max(0, m.flash - dt);
     m.lunge = Math.max(0, m.lunge - dt * 4);

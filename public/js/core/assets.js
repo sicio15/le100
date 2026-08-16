@@ -66,10 +66,11 @@ function analyze(c) {
   return { frames, maxH };
 }
 const STRIP_H = 160;
-// + paperdoll: 3 variantes humanas (pelo) + corona overlay
+// + sheets de ataque humanos (desenvaine + tajo horneados en el arte)
 const SHEETS = ['hero_walk', 'hero_idle', 'hero_attack', 'hero_cast', 'hero_hurt',
   'enemy_beetle', 'enemy_spider', 'enemy_boss', 'enemy_wasp', 'enemy_scorpion',
-  'hero_human_a', 'hero_human_b', 'hero_human_c', 'acc_crown'];
+  'hero_human_a', 'hero_human_b', 'hero_human_c', 'acc_crown',
+  'hero_human_a_attack', 'hero_human_b_attack', 'hero_human_c_attack'];
 const PREP = {};
 function loadImg(src) {
   return new Promise(res => {

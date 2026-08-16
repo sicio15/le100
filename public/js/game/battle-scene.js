@@ -1,5 +1,5 @@
 'use strict';
-// ===== BattleScene: render del combate + paperdoll + espada =====
+// ===== BattleScene: render del combate + paperdoll (sin overlay de espada) =====
 const easeOutBack = p => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); };
 function toColor(str) {
   if (!str) return 0xffffff;
@@ -29,24 +29,6 @@ class BattleScene extends Phaser.Scene {
     this.curBg = 'bg';
     this.prevShake = 0; this.prevFlash = 0; this.lastStage = S.stage;
     this.uiAcc = 0;
-    this.swordReady = false;
-    // overlay de espada (se carga aparte, sin tocar assets.js)
-    loadImg('img/acc_sword.png').then(img => {
-      if (!img) { console.warn('⚠️ sin img/acc_sword.png'); return; }
-      const c = document.createElement('canvas');
-      c.width = img.width; c.height = img.height;
-      const g = c.getContext('2d');
-      g.drawImage(img, 0, 0);
-      try { chroma(g, c); } catch (e) {}
-      const a = analyze(c);
-      if (!a.frames.length) return;
-      const f = a.frames[0];
-      const sw = document.createElement('canvas');
-      sw.width = f.sw; sw.height = f.sh;
-      sw.getContext('2d').drawImage(c, f.sx, f.sy, f.sw, f.sh, 0, 0, f.sw, f.sh);
-      if (!this.textures.exists('acc_sword')) this.textures.addCanvas('acc_sword', sw);
-      this.swordReady = true;
-    });
     this.ff = [];
     for (let i = 0; i < 12; i++) this.ff.push({ x: Math.random(), y: .5 + Math.random() * .5, p: Math.random() * TAU, s: .5 + Math.random() });
     VFX.float = (x, y, txt, color, big) => {
@@ -151,7 +133,6 @@ class BattleScene extends Phaser.Scene {
       if (m.sprite && m.lookKey !== lb) {
         m.sprite.destroy(); m.sprite = null;
         if (m.crown) { m.crown.destroy(); m.crown = null; }
-        if (m.sword) { m.sword.destroy(); m.sword = null; }
       }
       if (!m.sprite && this.anims.exists(lb + '_idle')) {
         m.sprite = this.add.sprite(px, gy, lb + '_idle');
@@ -162,13 +143,14 @@ class BattleScene extends Phaser.Scene {
         this.ring(px, gy - 30, 0x7bed9f);
       }
       if (!m.sprite) return;
+      // tajo blanco de refuerzo al atacar (acompaña al sprite, no reemplaza)
       if (m.lunge > 0.8 && !m.slashDone) { m.slashDone = true; this.slash(px + 62, gy - 50); }
       if (m.lunge < 0.3) m.slashDone = false;
       // humanos: sin hurt/cast/death → caen a idle/attack (muerte = rotación)
       const desired = !m.alive ? lb + (isHuman ? '_idle' : '_death')
         : m.entering ? lb + '_walk'
         : m.flash > 0 ? lb + (isHuman ? '_idle' : '_hurt')
-        : m.castT > 0 ? lb + (isHuman ? '_attack' : '_cast')
+        : m.castT > 0 ? lb + '_attack'
         : m.lunge > 0.35 ? lb + '_attack'
         : enemies.length ? lb + '_walk' : lb + '_idle';
       this.safePlay(m.sprite, desired);
@@ -179,33 +161,15 @@ class BattleScene extends Phaser.Scene {
       const rs = ROLE_SCALE[m.def.role] || 1;
       if (!m.alive) { m.sprite.setRotation(-1.2); m.sprite.setAlpha(0.5); }
       else {
-        // humano inclina más en el tajo para que el swing se sienta
-        m.sprite.setRotation(walking ? 0.02 : (desired === lb + '_attack' ? (isHuman ? 0.14 : 0.06) : 0));
+        // el humano se inclina más en el tajo para vender el swing del sprite
+        m.sprite.setRotation(walking ? 0.02 : (desired === lb + '_attack' ? (isHuman ? 0.12 : 0.06) : 0));
         m.sprite.setAlpha(1);
       }
       m.sprite.setScale(hb * rs * (2 - sy), hb * rs * sy);
       if (m.flash > 0) m.sprite.setTint(0xffffff);
       else if (m.def.tint) m.sprite.setTint(m.def.tint);
       else m.sprite.clearTint();
-      // ESPADA: en la espalda → desenvaine → tajo (solo forma humana)
-      if (isHuman && this.swordReady && m.alive) {
-        if (!m.sword) { m.sword = this.add.sprite(0, 0, 'acc_sword'); m.sword.setOrigin(0.5, 0.8); }
-        const s = m.sprite;
-        let rot, ox, oy, dep;
-        if (m.lunge > 0.35) {
-          const p = 1 - Math.min(1, Math.max(0, (m.lunge - 0.35) / 0.65));
-          rot = -2.2 + p * 3.0; // alzada atrás → tajo adelante
-          ox = 4 + p * 16; oy = -48 + p * 8; dep = 1;
-        } else {
-          rot = -0.7; ox = -12; oy = -54; dep = -1; // envainada en la espalda
-        }
-        m.sword.setPosition(s.x + ox * s.scaleX, s.y + oy * s.scaleY);
-        m.sword.setRotation(rot);
-        m.sword.setScale(s.scaleX * 0.8, s.scaleY * 0.8);
-        m.sword.setDepth(dep);
-        m.sword.setVisible(true);
-      } else if (m.sword) m.sword.setVisible(false);
-      // CORONA: overlay anclado a la cabeza
+      // CORONA: overlay anclado a la cabeza (único overlay que queda)
       if (wantCrown) {
         if (!m.crown && this.textures.exists('acc_crown')) {
           m.crown = this.add.sprite(0, 0, 'acc_crown');
