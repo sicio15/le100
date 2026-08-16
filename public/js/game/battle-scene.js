@@ -1,6 +1,7 @@
 'use strict';
 // ===== BattleScene: render del combate + paperdoll + parallax =====
-// LOTE 4: cada miembro renderiza SU sheet (lookOf) — antes todos usaban S.look (bug de "3 iguales").
+// LOTE 4: cada miembro renderiza SU sheet (lookOf) — fix bug "3 iguales".
+// LOTE 5: el cienpies es MASCOTA (S.look.pet): acompaña al escuadrón y escupe el veneno.
 const easeOutBack = p => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); };
 function toColor(str) {
   if (!str) return 0xffffff;
@@ -12,10 +13,8 @@ function toColor(str) {
 const TARGET_H = { hero: 105, human_a: 105, human_b: 105, human_c: 105, beetle: 80, spider: 80, wasp: 70, scorpion: 85, boss: 115 };
 const ROLE_SCALE = { dps: 1.05, archer: 1, mage: 0.95 };
 const baseScale = kind => (TARGET_H[kind] || 100) / (typeof STRIP_H !== 'undefined' ? STRIP_H : 160);
-// PAPERDOLL por miembro: el principal sigue el vestidor; compañeros con sheet fijo
-const lookOf = m => (m.def.look === 'main')
-  ? ((S.look && S.look.form === 'humano') ? 'human_a' : 'hero')
-  : (m.def.look || 'hero');
+// PAPERDOLL por miembro: sheet fijo definido en HEROES[].look
+const lookOf = m => m.def.look || 'human_a';
 function showBanner(txt) {
   const d = document.createElement('div');
   d.className = 'banner'; d.textContent = txt;
@@ -30,6 +29,7 @@ class BattleScene extends Phaser.Scene {
     this.bars = this.add.graphics();
     this.seen = new Map();
     this.curBg = 'bg';
+    this.petSprite = null; this.petCrown = null;
     this.prevShake = 0; this.prevFlash = 0; this.lastStage = S.stage;
     this.uiAcc = 0;
     this.ff = [];
@@ -147,7 +147,7 @@ class BattleScene extends Phaser.Scene {
     this.bars.clear();
     sq.forEach(m => {
       const px = (typeof m.px === 'number') ? m.px : heroX();
-      const lb = lookOf(m); // ← sheet PROPIO por miembro (fix bug "3 iguales")
+      const lb = lookOf(m); // sheet PROPIO por miembro
       this.bars.fillStyle(0x000000, 0.35);
       this.bars.fillEllipse(px, gy + 6, 60 * (ROLE_SCALE[m.def.role] || 1), 12);
       // PAPERDOLL: si cambió el look del miembro, recreá el sprite
@@ -204,6 +204,43 @@ class BattleScene extends Phaser.Scene {
         }
       } else if (m.crown) { m.crown.destroy(); m.crown = null; }
     });
+    // ===== MASCOTA (LOTE 5): el cienpies acompaña al escuadrón =====
+    // Ya no es forma del héroe: es un pet toggleable (S.look.pet) que escupe el veneno.
+    const wantPet = !!(S.look && S.look.pet);
+    if (!wantPet) {
+      if (this.petSprite) { this.petSprite.destroy(); this.petSprite = null; }
+      if (this.petCrown) { this.petCrown.destroy(); this.petCrown = null; }
+    } else {
+      if (!this.petSprite && this.anims.exists('hero_idle')) {
+        this.petSprite = this.add.sprite(0, gy, 'hero_idle');
+        this.petSprite.setOrigin(0.5, 1);
+        this.safePlay(this.petSprite, 'hero_idle');
+      }
+      if (this.petSprite) {
+        const main = sq.find(m => m.def.role === 'dps');
+        const bx = (main ? main.px : heroX()) - 52;
+        const casting = (typeof petCastT !== 'undefined' && petCastT > 0);
+        const desired = casting ? 'hero_cast'
+          : (main && main.entering) ? 'hero_walk'
+          : enemies.length ? 'hero_walk' : 'hero_idle';
+        this.safePlay(this.petSprite, desired);
+        const pb = baseScale('hero') * 0.62; // tamaño mascota
+        const bob = Math.sin(t * 5) * 2;     // rebote suave de oruga
+        this.petSprite.setPosition(bx, gy - 4 + bob);
+        this.petSprite.setScale(pb, pb);
+        if (wantCrown) {
+          if (!this.petCrown && this.textures.exists('acc_crown')) {
+            this.petCrown = this.add.sprite(0, 0, 'acc_crown');
+            this.petCrown.setOrigin(0.5, 1);
+            this.petCrown.setDepth(2);
+          }
+          if (this.petCrown) {
+            this.petCrown.setPosition(this.petSprite.x, this.petSprite.y - this.petSprite.displayHeight + 4 * this.petSprite.scaleY);
+            this.petCrown.setScale(this.petSprite.scaleX * 0.5, this.petSprite.scaleY * 0.5);
+          }
+        } else if (this.petCrown) { this.petCrown.destroy(); this.petCrown = null; }
+      }
+    }
     const alive = new Set();
     enemies.forEach(e => {
       alive.add(e);

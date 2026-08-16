@@ -44,11 +44,12 @@ const CHAPTERS = [
   { name: 'Pantano Tóxico',  bg: 'img/bg_swamp.png' }
 ];
 const chapterOf = stage => CHAPTERS[Math.min(CHAPTERS.length - 1, Math.floor((stage - 1) / 10))];
-// ===== Escuadrón: héroe principal + compañeros (LOTE 4) =====
-// look: 'main' = sigue el vestidor (cienpies | human_a) · resto = sheet fijo propio.
+// ===== Escuadrón: héroe principal + compañeros (LOTE 4/5) =====
+// look = sheet fijo de cada personaje. El cienpies YA NO es forma del héroe:
+// es la MASCOTA del escuadrón (S.look.pet) y escupe el veneno (hero_cast).
 // roles: dps (melee) · archer (rango, AoE) · mage (AoE + cura).
 const HEROES = [
-  { id: 'sting', name: 'Aguijón', role: 'dps',    look: 'main',    color: '#6ee87e', tint: null, unlock: 1,  ult: 'Tajo Triple' },
+  { id: 'sting', name: 'Aguijón', role: 'dps',    look: 'human_a', color: '#6ee87e', tint: null, unlock: 1,  ult: 'Tajo Triple' },
   { id: 'leaf',  name: 'Elara',   role: 'archer', look: 'human_b', color: '#7efcff', tint: null, unlock: 5,  ult: 'Lluvia de Flechas' },
   { id: 'shell', name: 'Kael',    role: 'mage',   look: 'human_c', color: '#c86bfa', tint: null, unlock: 10, ult: 'Nova Arcana' }
 ];

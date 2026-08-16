@@ -1,10 +1,11 @@
 'use strict';
 // ===== LÓGICA PURA del combate (sin DOM: deuda #7 cerrada) =====
 // LOTE 4: escuadrón rediseñado → principal (dps) + Elara arquera + Kael mago.
+// LOTE 5: el cienpies es MASCOTA → petCastT dispara su anim hero_cast al escupir veneno.
 let squad = [];
 let enemies = [];
 let spawnT = 1, bossT = 0, shake = 0, time = 0, stageFlash = 0, dustT = 0, lastChapter = -1;
-let healT = 2, venT = 3;
+let healT = 2, venT = 3, petCastT = 0;
 // AVANCE: el escuadrón camina hacia la derecha buscando enemigos
 let advance = 0;
 const notify = t => { if (typeof toast !== 'undefined') toast(t); };
@@ -186,6 +187,7 @@ function update(rawDt) {
   const dt = rawDt * SETTINGS.speed;
   time += dt;
   stageFlash = Math.max(0, stageFlash - dt);
+  petCastT = Math.max(0, petCastT - dt);
   if (!squad.length) initSquad();
   const hx = heroX(), gy = groundY();
   updateAdvance(dt);
@@ -221,7 +223,7 @@ function update(rawDt) {
   healT -= dt;
   if (healT <= 0) {
     healT = 2;
-    // regen pasiva global: cura al miembro más herido (antes era rol support)
+    // regen pasiva global: cura al miembro más herido
     const target = squad.filter(m => m.alive && m.hp < m.maxHp).sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp))[0];
     if (target) {
       const h = regenPs() * 2;
@@ -237,6 +239,7 @@ function update(rawDt) {
       const d = venomDm();
       float(hx + advance + 140, gy - 90, '☠️ ' + fmt(d), '#a020f0', true);
       Audio.SFX.venom();
+      petCastT = 0.9; // LOTE 5: la MASCOTA escupe el orbe de veneno
       aliveE.forEach(e => {
         e.hp -= d; e.flash = 0.15; e.kb = 5;
         burst(e.x, gy - 30, '#a020f0', 8);
