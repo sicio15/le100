@@ -1,5 +1,7 @@
 'use strict';
 // ===== POWER: fórmulas server-side para simulaciones (arena/colonias) =====
+// FIX: ahora incluye los permanentes de la Tienda de ADN (fury/vita),
+// igual que el dps()/maxHP() del cliente → Arena justa para quien invirtió 🧬
 function gearB(gear) {
   const b = { atk: 0, hp: 0, crit: 0, critd: 0, regen: 0 };
   if (!gear || !gear.equipped) return b;
@@ -15,9 +17,10 @@ function powerOf(s) {
   const ups = s.ups || {}, b = gearB(s.gear);
   const adn = 1 + 0.1 * (s.adn || 0);
   const colB = 1 + 0.02 * ((s.colonyLevel || 1) - 1);
+  const lv = k => (s.shop && s.shop.lv && s.shop.lv[k]) || 0;
   return {
-    dps: 5 * Math.pow(1.3, ups.dmg || 0) * adn * (1 + b.atk / 100) * colB,
-    hp: 100 * Math.pow(1.22, ups.vit || 0) * (1 + b.hp / 100)
+    dps: 5 * Math.pow(1.3, ups.dmg || 0) * adn * (1 + b.atk / 100) * colB * (1 + 0.05 * lv('fury')),
+    hp: 100 * Math.pow(1.22, ups.vit || 0) * (1 + b.hp / 100) * (1 + 0.05 * lv('vita'))
   };
 }
 const bossMax = c => Math.round(1e6 * (c.level || 1) * Math.max(1, (c.members || []).length));

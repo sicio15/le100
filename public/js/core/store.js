@@ -35,11 +35,9 @@ function normShop(sh) {
   if (!sh || typeof sh !== 'object') return def;
   const lv = {};
   if (sh.lv && typeof sh.lv === 'object') Object.keys(sh.lv).forEach(k => { lv[k] = Math.max(0, Math.min(99, +sh.lv[k] || 0)); });
-  return {
-    lv,
+  return { lv,
     skins: Array.isArray(sh.skins) ? sh.skins.map(x => String(x).slice(0, 12)) : [],
-    skin: String(sh.skin || '').slice(0, 12)
-  };
+    skin: String(sh.skin || '').slice(0, 12) };
 }
 function loadCache() {
   try {
@@ -121,20 +119,36 @@ function checkTickets() {
   const d = new Date().toISOString().slice(0, 10);
   if (S.ticketDate !== d) { S.ticketDate = d; S.tickets = 3; }
 }
+// ===== EVENTOS SEMANALES: rotación determinística por semana (cero campos en save) =====
+const EVENTS = [
+  { id: 'fiebre',    n: '🪙 Fiebre del Oro',      d: 'Todo el oro x2' },
+  { id: 'precision', n: '🎯 Precisión Total',     d: '+25% crítico' },
+  { id: 'furia',     n: '🗡️ Furia Ancestral',     d: '+30% daño' },
+  { id: 'vital',     n: '❤️ Vitalidad Floreciente', d: '+30% vida y regeneración' },
+  { id: 'toxico',    n: '☠️ Marea Tóxica',        d: 'Veneno +50% y cooldown -2s' },
+  { id: 'racha',     n: '🛒 Semana de Ofertas',   d: 'Mejoras 20% más baratas' }
+];
+let _evW = -1, _ev = EVENTS[0];
+function weekEvent() {
+  const w = Math.floor(Date.now() / 604800000); // semana epoch → rotación estable
+  if (w !== _evW) { _evW = w; _ev = EVENTS[w % EVENTS.length]; }
+  return _ev;
+}
+const evHas = id => weekEvent().id === id;
 // ===== Tienda de ADN: niveles permanentes =====
 const shopLv = k => (S.shop && S.shop.lv && S.shop.lv[k]) || 0;
 const adnMult   = () => 1 + 0.1 * S.adn;
-const dps       = () => 5 * Math.pow(1.3, S.ups.dmg) * adnMult() * (1 + gearBonuses().atk / 100) * (1 + 0.02 * ((S.colonyLevel || 1) - 1)) * (1 + 0.05 * shopLv('fury'));
-const maxHP     = () => 100 * Math.pow(1.22, S.ups.vit) * (1 + gearBonuses().hp / 100) * (1 + 0.05 * shopLv('vita'));
-const regenPs   = () => maxHP() * (0.02 + 0.01 * S.ups.regen) * (1 + gearBonuses().regen / 100) * (1 + 0.08 * shopLv('regen'));
-const critChance= () => Math.min(0.6, 0.2 + gearBonuses().crit / 100 + 0.02 * shopLv('crit'));
+const dps       = () => 5 * Math.pow(1.3, S.ups.dmg) * adnMult() * (1 + gearBonuses().atk / 100) * (1 + 0.02 * ((S.colonyLevel || 1) - 1)) * (1 + 0.05 * shopLv('fury')) * (evHas('furia') ? 1.3 : 1);
+const maxHP     = () => 100 * Math.pow(1.22, S.ups.vit) * (1 + gearBonuses().hp / 100) * (1 + 0.05 * shopLv('vita')) * (evHas('vital') ? 1.3 : 1);
+const regenPs   = () => maxHP() * (0.02 + 0.01 * S.ups.regen) * (1 + gearBonuses().regen / 100) * (1 + 0.08 * shopLv('regen')) * (evHas('vital') ? 1.3 : 1);
+const critChance= () => Math.min(0.75, 0.2 + gearBonuses().crit / 100 + 0.02 * shopLv('crit') + (evHas('precision') ? 0.25 : 0));
 const critMult  = () => 2.2 + gearBonuses().critd / 100;
-const venomCd   = () => Math.max(3, 7 - 0.3 * S.ups.venom);
-const venomDm   = () => dps() * (2 + 0.5 * S.ups.venom);
-const goldKill  = st => Math.ceil(3 * Math.pow(1.18, st) * (1 + 0.25 * S.ups.fortune) * adnMult() * (1 + 0.05 * shopLv('fort')));
+const venomCd   = () => Math.max(2, (Math.max(3, 7 - 0.3 * S.ups.venom)) - (evHas('toxico') ? 2 : 0));
+const venomDm   = () => dps() * (2 + 0.5 * S.ups.venom) * (evHas('toxico') ? 1.5 : 1);
+const goldKill  = st => Math.ceil(3 * Math.pow(1.18, st) * (1 + 0.25 * S.ups.fortune) * adnMult() * (1 + 0.05 * shopLv('fort')) * (evHas('fiebre') ? 2 : 1));
 const eHP       = st => 10 * Math.pow(1.27, st);
 const eDmg      = st => 4 * Math.pow(1.22, st);
-const cost      = k => Math.floor(COSTS[k][0] * Math.pow(COSTS[k][1], S.ups[k]));
+const cost      = k => Math.floor(COSTS[k][0] * Math.pow(COSTS[k][1], S.ups[k]) * (evHas('racha') ? 0.8 : 1));
 const isBossStage = () => S.stage % 5 === 0;
 const killsNeed = () => isBossStage() ? 1 : 8;
 const prTotal = x => Math.floor(3 * Math.sqrt(Math.max(0, x - 8)));
