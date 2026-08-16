@@ -6,7 +6,7 @@ function toast(t) {
     setTimeout(() => d.remove(), 2400);
 }
 const wire = (id, ev, fn) => { const e = $(id); if (e) e.addEventListener(ev, fn); };
-/* ===== Logo con chroma (fondo blanco recortado) ===== */
+/* ===== Logo con chroma ===== */
 (function loadLogo() {
     const img = new Image();
     img.onload = () => {
@@ -34,6 +34,22 @@ wire('authBtn', 'click', () => {
     });
 });
 if (!authed) { const m = $('mAuth'); if (m) m.style.display = 'flex'; }
+/* ===== MODO LOCAL: invitado sin servidor/cuenta (no toca index.html) ===== */
+(function addGuestBtn() {
+    const m = $('mAuth'); if (!m) return;
+    const b = document.createElement('button');
+    b.className = 'mbtn gray';
+    b.textContent = '🎮 JUGAR EN LOCAL (sin cuenta)';
+    b.onclick = () => {
+        if (!S.name) S.name = 'Invitado';
+        $('mAuth').style.display = 'none';
+        afterLogin();
+    };
+    const hint = m.querySelector('.hintTxt');
+    if (hint) hint.before(b);
+    else (m.querySelector('.mcard') || m).appendChild(b);
+})();
+let offlinePending = 0, offlineWired = false;
 function afterLogin() {
     Audio.init(); Audio.startMusic();
     Audio.setChapter(Math.floor((S.stage - 1) / 10));
@@ -41,17 +57,24 @@ function afterLogin() {
     checkTickets();
     const sec = Math.min(Date.now() - (S.last || Date.now()), 8 * 3600 * 1000) / 1000;
     const pending = Math.floor(sec * goldKill(S.best) * 0.4);
+    offlinePending = pending;
     if (pending >= 10) {
         $('offlineAmt').textContent = '🪙 ' + fmt(pending);
         $('mOffline').style.display = 'flex';
-        wire('offlineBtn', 'click', () => {
-            S.gold += pending; persist();
-            $('mOffline').style.display = 'none';
-            Audio.SFX.coin();
-            toast('🪙 +' + fmt(pending) + ' de tu AFK');
-        });
+        if (!offlineWired) {
+            offlineWired = true;
+            wire('offlineBtn', 'click', () => {
+                if (offlinePending > 0) {
+                    S.gold += offlinePending; persist();
+                    Audio.SFX.coin();
+                    toast('🪙 +' + fmt(offlinePending) + ' de tu AFK');
+                    offlinePending = 0;
+                }
+                $('mOffline').style.display = 'none';
+            });
+        }
     }
-    netScore(S.name, S.best);
+    if (authed) netScore(S.name, S.best);
     persist();
     toast('¡Hola, ' + S.name + '!');
     if (!SETTINGS.tutorialDone) startTutorial();

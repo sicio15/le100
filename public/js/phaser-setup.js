@@ -16,13 +16,7 @@ class BootScene extends Phaser.Scene {
     constructor() { super('boot'); }
     preload() {
         this.load.on('loaderror', () => {});
-        /* FIX CLAVE (héroe "imagen completa con fondo blanco"):
-           antes se precargaban los sheets CRUDOS con la MISMA clave que usa la
-           spritesheet. La textura cruda ya existía al llegar a create(), el
-           addSpriteSheet se salteaba, y la animación usaba la lámina entera
-           (1 frame, fondo incluido). Ahora solo se precargan los FONDOS; los
-           personajes los registra create() desde los strips procesados de PREP
-           (chroma + analyze ya corrieron en prepareAll). */
+        /* Solo fondos: los sheets crudos colisionaban con la spritesheet */
         ['bg', 'bg_cave', 'bg_swamp', 'bg_tower', 'bg_rogue'].forEach(k => {
             if (!this.textures.exists(k)) this.load.image(k, 'img/' + k + '.png');
         });
@@ -30,22 +24,18 @@ class BootScene extends Phaser.Scene {
     create() {
         ANIM_DEFS.forEach(d => {
             const p = PREP[d.tex];
-            if (!p) { console.warn('⚠️ sin strip para ' + d.tex + ' (falta imagen o 0 frames)'); return; }
+            if (!p) { console.warn('⚠️ sin strip para ' + d.tex); return; }
             const texKey = '__strip_' + d.key;
-            if (!this.textures.exists(texKey)) {
-                this.textures.addCanvas(texKey, p.strip);
-            }
+            if (!this.textures.exists(texKey)) this.textures.addCanvas(texKey, p.strip);
             const srcTex = this.textures.get(texKey);
             if (!srcTex || !srcTex.getSourceImage()) { console.warn('⚠️ strip sin fuente: ' + d.key); return; }
-            /* Si la textura final existe (hot-reload / reintento), se reemplaza */
             if (this.textures.exists(d.key)) this.textures.remove(d.key);
-            this.textures.addSpriteSheet(d.key, srcTex.getSourceImage(), {
-                frameWidth: p.fw, frameHeight: p.fh
-            });
+            this.textures.addSpriteSheet(d.key, srcTex.getSourceImage(), { frameWidth: p.fw, frameHeight: p.fh });
             const tex = this.textures.get(d.key);
             if (!tex || tex.frameTotal <= 0) { console.warn('⚠️ spritesheet vacía: ' + d.key); return; }
             if (this.anims.exists(d.key)) this.anims.remove(d.key);
-            const total = tex.frameTotal;
+            /* FIX off-by-one: frameTotal incluye __BASE; el nº real de frames es p.count */
+            const total = Math.max(1, p.count || (tex.frameTotal - 1));
             const start = Math.min(d.start || 0, total - 1);
             const end = Math.min(d.end !== undefined ? d.end : total - 1, total - 1);
             this.anims.create({
@@ -55,7 +45,7 @@ class BootScene extends Phaser.Scene {
                 repeat: d.loop ? -1 : 0,
                 yoyo: !!d.yoyo
             });
-            console.log('🎞️ anim ' + d.key + ': ' + total + ' frames en textura');
+            console.log('🎞️ anim ' + d.key + ': ' + total + ' frames');
         });
         window.ANIM_KINDS = ANIM_DEFS
             .filter(d => PREP[d.tex])

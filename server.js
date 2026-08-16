@@ -2,12 +2,53 @@ const express = require('express');
 const http = require('http');
 const crypto = require('crypto');
 const path = require('path');
+const fs = require('fs');
 const { Server } = require('socket.io');
-
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
-app.use(express.static(path.join(__dirname, 'public')));
+
+/* ===== MODO DEV (node dev.js): no-cache + live-reload ===== */
+const DEV = process.env.DEV === '1';
+const PUB_DIR = path.join(__dirname, 'public');
+/* Si no existe public/ (prueba local sin deploy), sirve la raíz del proyecto */
+const STATIC_ROOT = fs.existsSync(PUB_DIR) ? PUB_DIR : __dirname;
+
+if (DEV) {
+    const lr = new Set();
+    const INJECT = '<script>(function(){try{var s=new EventSource("/__lr");s.onmessage=function(){location.reload();};}catch(e){}})();</script>';
+    /* index.html con el script de reload inyectado (antes que el static) */
+    app.get(['/', '/index.html'], (req, res) => {
+        fs.readFile(path.join(STATIC_ROOT, 'index.html'), 'utf8', (e, html) => {
+            if (e) return res.status(404).end();
+            res.type('html').send(html.includes('</body>') ? html.replace('</body>', INJECT + '</body>') : html + INJECT);
+        });
+    });
+    app.get('/__lr', (req, res) => {
+        res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', 'Connection': 'keep-alive' });
+        res.write('retry: 500\n\n');
+        lr.add(res);
+        req.on('close', () => lr.delete(res));
+    });
+    let t = null;
+    const onChange = (ev, fn) => {
+        fn = String(fn || '');
+        if (fn.includes('node_modules')) return;
+        clearTimeout(t);
+        t = setTimeout(() => { console.log('🔁 cambio detectado → reload'); lr.forEach(c => c.write('data: reload\n\n')); }, 250);
+    };
+    try { fs.watch(STATIC_ROOT, { recursive: true }, onChange); }
+    catch (e) {
+        fs.watch(STATIC_ROOT, onChange);
+        const img = path.join(STATIC_ROOT, 'img');
+        if (fs.existsSync(img)) fs.watch(img, onChange);
+    }
+    console.log('🔧 DEV: live-reload activo');
+}
+app.use(express.static(STATIC_ROOT, DEV ? {
+    etag: false, maxAge: 0,
+    setHeaders: res => res.setHeader('Cache-Control', 'no-store')
+} : {}));
 
 /* ========== STORAGE (Mongo + fallback memoria) ========== */
 let col = null, colonies = null;
@@ -37,7 +78,6 @@ const C = {
     del: async k => colonies ? await colonies.deleteOne({ _id: k }) : memColonies.delete(k),
     all: async () => colonies ? await colonies.find({}).toArray() : [...memColonies.values()]
 };
-
 /* ========== SAVE SANITIZER ========== */
 const DEF_SAVE = { gold:0, adn:0, stage:1, best:1, kills:0, prestiges:0, prBase:1,
     ups:{ dmg:0, vit:0, regen:0, venom:0, fortune:0 }, ach:{}, last:Date.now(),
@@ -82,7 +122,6 @@ function sanitizeSave(s) {
     o.last = Number(s.last) || Date.now();
     return o;
 }
-
 /* ========== POWER (simulaciones server-side) ========== */
 function gearB(gear) {
     const b = { atk:0, hp:0, crit:0, critd:0, regen:0 };
@@ -105,17 +144,14 @@ function powerOf(s) {
     };
 }
 const bossMax = c => Math.round(1e6 * (c.level || 1) * Math.max(1, (c.members || []).length));
-
 /* ========== RANKING DE ETAPAS ========== */
 const scores = new Map();
 const top = () => [...scores.entries()].map(([name, stage]) => ({ name, stage }))
     .sort((a, b) => b.stage - a.stage).slice(0, 10);
 const pushScore = (name, stage) => { scores.set(name, Math.max(stage, scores.get(name) || 0)); io.emit('top', top()); };
-
 /* ========== SOCKET ========== */
 io.on('connection', (s) => {
     s.user = null;
-
     s.on('register', async (d, cb) => {
         try {
             const name = String(d.name || '').trim();
@@ -131,7 +167,6 @@ io.on('connection', (s) => {
             cb({ ok:true, name, save });
         } catch (e) { cb({ ok:false, err:'Error del servidor' }); }
     });
-
     s.on('login', async (d, cb) => {
         try {
             const key = String(d.name || '').trim().toLowerCase();
@@ -142,7 +177,6 @@ io.on('connection', (s) => {
             cb({ ok:true, name: doc.name, save: doc.save });
         } catch (e) { cb({ ok:false, err:'Error del servidor' }); }
     });
-
     s.on('saveGame', (d) => {
         if (!s.user) return;
         const now = Date.now();
@@ -150,9 +184,7 @@ io.on('connection', (s) => {
         s.lastSaveAt = now;
         U.save(s.user, sanitizeSave(d));
     });
-
     s.on('score', (d) => { if (d && d.name) pushScore(String(d.name).slice(0, 14), Math.min(9999, +d.stage || 1)); });
-
     /* ===== ARENA PvP ===== */
     s.on('arenaInfo', async (cb) => {
         const me = await U.get(s.user); if (!me) return cb({ ops: [], top: [] });
@@ -164,7 +196,6 @@ io.on('connection', (s) => {
             .sort((a, b) => b.pts - a.pts).slice(0, 10);
         cb({ ops, top: topA });
     });
-
     s.on('arenaFight', async (opName, cb) => {
         const me = await U.get(s.user); if (!me) return cb({ win:false, msg:'?' });
         const d = new Date().toISOString().slice(0, 10);
@@ -183,7 +214,6 @@ io.on('connection', (s) => {
         await U.save(s.user, me.save); await U.save(op._id, op.save);
         cb({ win, msg: (win ? '🏆 ¡Victoria! +' : '💀 Derrota... +') + g + ' 🪙 · ' + (win ? '+30' : '-10') + ' pts' });
     });
-
     /* ===== COLONIAS ===== */
     s.on('colonyInfo', async (cb) => {
         const me = await U.get(s.user); if (!me) return cb({ in: null, list: [] });
@@ -204,7 +234,6 @@ io.on('connection', (s) => {
         const list = (await C.all()).map(c => ({ key: c._id, name: c.name, members: (c.members || []).length, level: c.level || 1 })).slice(0, 10);
         cb({ in: null, list });
     });
-
     s.on('colonyCreate', async (name, cb) => {
         const me = await U.get(s.user); if (!me) return cb({ ok:false, err:'?' });
         const nm = String(name || '').trim();
@@ -218,7 +247,6 @@ io.on('connection', (s) => {
         await C.create(key, { name: nm, leader: s.user, members: [s.user], level: 1, xp: 0, bossDay: '', bossHp: 0, claimed: [] });
         cb({ ok:true });
     });
-
     s.on('colonyJoin', async (key, cb) => {
         const me = await U.get(s.user); if (!me) return cb({ ok:false });
         if (me.save.colony) return cb({ ok:false });
@@ -230,7 +258,6 @@ io.on('connection', (s) => {
         await U.save(s.user, me.save); await C.update(key, { members: c.members });
         cb({ ok:true });
     });
-
     s.on('colonyLeave', async (cb) => {
         const me = await U.get(s.user); if (!me || !me.save.colony) return cb({ ok:false });
         const key = me.save.colony; const c = await C.get(key);
@@ -243,7 +270,6 @@ io.on('connection', (s) => {
         await U.save(s.user, me.save);
         cb({ ok:true });
     });
-
     s.on('colonyDonate', async (cb) => {
         const me = await U.get(s.user); if (!me || !me.save.colony) return cb({ ok:false });
         const c = await C.get(me.save.colony); if (!c) return cb({ ok:false });
@@ -254,7 +280,6 @@ io.on('connection', (s) => {
         for (const mk of (c.members || [])) { const mu = await U.get(mk); if (mu) { mu.save.colonyLevel = c.level; await U.save(mk, mu.save); } }
         cb({ ok:true, level: c.level });
     });
-
     s.on('colonyBoss', async (cb) => {
         const me = await U.get(s.user); if (!me || !me.save.colony) return cb({ ok:false });
         const c = await C.get(me.save.colony); if (!c) return cb({ ok:false });
@@ -269,7 +294,6 @@ io.on('connection', (s) => {
         await U.save(s.user, me.save); await C.update(c2._id, { bossHp: c2.bossHp });
         cb({ ok:true, dmg, killed, hp: c2.bossHp, max: bossMax(c2) });
     });
-
     s.on('colonyClaim', async (cb) => {
         const me = await U.get(s.user); if (!me || !me.save.colony) return cb({ ok:false });
         const c = await C.get(me.save.colony); if (!c) return cb({ ok:false });
@@ -280,9 +304,10 @@ io.on('connection', (s) => {
         await U.save(s.user, me.save); await C.update(c._id, { claimed: c.claimed });
         cb({ ok:true, g });
     });
-
-    s.on('disconnect', () => {});
 });
-
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`🚀 le100.io corriendo en ${PORT}`));
+function start() {
+    server.listen(PORT, () => console.log('🚀 le100.io corriendo en ' + PORT + (DEV ? ' (DEV + live-reload)' : '')));
+}
+if (require.main === module) start();
+module.exports = { app, server, io, start };

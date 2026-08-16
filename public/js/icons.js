@@ -1,7 +1,5 @@
 'use strict';
-/* ===== FASE 6: íconos pixel desde img/icons.png (opcional) =====
-   Orden del sheet (filas de arriba a abajo, izq a der):
-   0 coin · 1 leaf · 2 potion · 3 venom · 4 sword · 5 shell · 6 crown · 7 heart · 8 bolt · 9 gem */
+/* Íconos pixel opcionales desde img/icons.png (fallback: emojis) */
 const ICON_NAMES = ['coin', 'leaf', 'potion', 'venom', 'sword', 'shell', 'crown', 'heart', 'bolt', 'gem'];
 const ICON_URL = {};
 function iconTag(name, px) {
@@ -10,7 +8,6 @@ function iconTag(name, px) {
     px = px || 14;
     return '<img class="pxicon" style="width:' + px + 'px;height:' + px + 'px" src="' + u + '" alt="">';
 }
-/* ícono pixel si existe, emoji de fallback si no */
 function picOr(name, emoji, px) {
     return (typeof iconTag === 'function' && iconTag(name, px)) || emoji;
 }

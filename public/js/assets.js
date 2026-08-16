@@ -18,7 +18,8 @@ function chroma(g, c) {
     }
     g.putImageData(d, 0, 0);
 }
-/* FIX: detecta frames por ALPHA (funciona con fondo transparente O blanco) */
+/* Descarta piezas sueltas (bellota, orbes): un blob < 35% del alto máx no es un frame */
+const MIN_FRAME_RATIO = 0.35;
 function analyze(c) {
     const w = c.width, h = c.height;
     const d = c.getContext('2d').getImageData(0, 0, w, h).data;
@@ -58,15 +59,12 @@ function analyze(c) {
     });
     let frames = [];
     rows.forEach(r => { r.items.sort((a, b) => a.cx - b.cx); frames.push(...r.items); });
-    /* FIX FASE 6: descarta piezas sueltas (ej: bellota del frame de muerte).
-       Un blob que mide < 35% del frame más alto es un fragmento, no un frame. */
     const maxAll = frames.reduce((m, f) => Math.max(m, f.sh), 1);
     const filtered = frames.filter(f => f.sh >= maxAll * MIN_FRAME_RATIO);
     if (filtered.length) frames = filtered;
     const maxH = frames.reduce((m, f) => Math.max(m, f.sh), 1);
     return { frames, maxH };
 }
-const MIN_FRAME_RATIO = 0.35;
 const STRIP_H = 160;
 const SHEETS = ['hero_walk', 'hero_idle', 'hero_attack', 'hero_cast', 'hero_hurt',
     'enemy_beetle', 'enemy_spider', 'enemy_boss', 'enemy_wasp', 'enemy_scorpion'];
@@ -88,7 +86,8 @@ async function prepareAll() {
         const g = c.getContext('2d');
         g.drawImage(img, 0, 0);
         try { chroma(g, c); } catch (e) {}
-        const a = analyze(c);
+        let a;
+        try { a = analyze(c); } catch (e) { console.warn('⚠️ ' + k + ': analyze falló', e); continue; }
         if (!a.frames.length) { console.warn('⚠️ ' + k + ': 0 frames detectados'); continue; }
         const sc = STRIP_H / a.maxH;
         const fw = Math.max(1, Math.ceil(a.frames.reduce((m, f) => Math.max(m, f.sw), 1) * sc));

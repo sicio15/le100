@@ -1,7 +1,5 @@
 'use strict';
-/* FIX: guarda contra doble montaje del juego (causa del "Texture key already in use") */
 if (!window.LE100_GAME) {
-    /* Carga icons.js sin tocar index.html; si falla, el juego sigue con emojis */
     const loadScript = src => new Promise(res => {
         const s = document.createElement('script');
         s.src = src; s.onload = res; s.onerror = res;

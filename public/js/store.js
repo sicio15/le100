@@ -7,8 +7,6 @@ const DEF = { name:'', gold:0, adn:0, stage:1, best:1, kills:0, ks:0, prestiges:
     arenaPts:0, arenaTickets:5, arenaDate:'', colony:'', colonyLevel:1, bossTicketDate:'' };
 let S = loadCache();
 let authed = false;
-
-/* ===== Saneado de equipo (fix saves viejos/incompletos) ===== */
 function normGear(g) {
     const def = JSON.parse(JSON.stringify(DEF.gear));
     if (!g || typeof g !== 'object') return def;
@@ -29,7 +27,6 @@ function normGear(g) {
     out.inv = Array.isArray(g.inv) ? g.inv.slice(0, 30).map(cleanItem).filter(Boolean) : [];
     return out;
 }
-
 function loadCache() {
     try {
         const s = JSON.parse(localStorage.getItem(KEY));
@@ -48,9 +45,11 @@ function persist() {
     localStorage.setItem(KEY, JSON.stringify(S));
     if (authed) netSendSave(S);
 }
-setInterval(() => { if (authed) persist(); }, 5000);
-window.addEventListener('visibilitychange', () => { if (authed) persist(); });
-
+/* FIX: autoguardado siempre (invitado incluido); el net ya se guarda solo si authed */
+setInterval(persist, 5000);
+window.addEventListener('visibilitychange', () => persist());
+window.addEventListener('beforeunload', () => persist());
+window.addEventListener('pagehide', () => persist());
 function applyServerSave(save) {
     const name = S.name;
     S = Object.assign({}, JSON.parse(JSON.stringify(DEF)), save || {});
@@ -58,8 +57,6 @@ function applyServerSave(save) {
     S.gear = normGear((save || {}).gear);
     S.name = name; S.ks = 0;
 }
-
-/* ===== Equipo: bonuses, drops, enhance, poder ===== */
 function gearBonuses() {
     const b = { atk: 0, hp: 0, crit: 0, critd: 0, regen: 0 };
     Object.values(S.gear.equipped).forEach(it => {
@@ -73,7 +70,6 @@ function gearBonuses() {
 const itemPower = it => it ? (it.rarity || 0) * 20 + (it.lvl || 0) * 2 + (it.val || 0) + (it.subs || []).reduce((a, s) => a + (s.val || 0), 0) : 0;
 const gearPower = () => Object.values(S.gear.equipped).reduce((a, it) => a + itemPower(it), 0);
 const hasBetterGear = () => S.gear.inv.some(it => itemPower(it) > itemPower(S.gear.equipped[it.slot]));
-
 function rollItem(luck) {
     const slotKeys = Object.keys(SLOT_DEFS);
     const slot = slotKeys[Math.random() * slotKeys.length | 0];
@@ -105,8 +101,6 @@ function checkTickets() {
     const d = new Date().toISOString().slice(0, 10);
     if (S.ticketDate !== d) { S.ticketDate = d; S.tickets = 3; }
 }
-
-/* ===== Fórmulas de balance (con gear + colonia) ===== */
 const adnMult   = () => 1 + 0.1 * S.adn;
 const dps       = () => 5 * Math.pow(1.3, S.ups.dmg) * adnMult() * (1 + gearBonuses().atk / 100) * (1 + 0.02 * ((S.colonyLevel || 1) - 1));
 const maxHP     = () => 100 * Math.pow(1.22, S.ups.vit) * (1 + gearBonuses().hp / 100);
