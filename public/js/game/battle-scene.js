@@ -1,5 +1,6 @@
 'use strict';
 // ===== BattleScene: render del combate + paperdoll + parallax =====
+// LOTE 4: cada miembro renderiza SU sheet (lookOf) — antes todos usaban S.look (bug de "3 iguales").
 const easeOutBack = p => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); };
 function toColor(str) {
   if (!str) return 0xffffff;
@@ -8,11 +9,13 @@ function toColor(str) {
   if (m) { const c = Phaser.Display.Color.HSLToColor(+m[1] / 360, 0.8, 0.6); return ((c.red || 0) << 16) | ((c.green || 0) << 8) | (c.blue || 0); }
   return 0xffffff;
 }
-const TARGET_H = { hero: 105, beetle: 80, spider: 80, wasp: 70, scorpion: 85, boss: 115 };
-const ROLE_SCALE = { dps: 1, tank: 1.15, support: 0.9 };
+const TARGET_H = { hero: 105, human_a: 105, human_b: 105, human_c: 105, beetle: 80, spider: 80, wasp: 70, scorpion: 85, boss: 115 };
+const ROLE_SCALE = { dps: 1.05, archer: 1, mage: 0.95 };
 const baseScale = kind => (TARGET_H[kind] || 100) / (typeof STRIP_H !== 'undefined' ? STRIP_H : 160);
-// PAPERDOLL: base de texturas según S.look → 'hero' o 'human_a/b/c'
-const lookBase = () => (S.look && S.look.form === 'humano') ? ('human_' + (S.look.hair || 'a')) : 'hero';
+// PAPERDOLL por miembro: el principal sigue el vestidor; compañeros con sheet fijo
+const lookOf = m => (m.def.look === 'main')
+  ? ((S.look && S.look.form === 'humano') ? 'human_a' : 'hero')
+  : (m.def.look || 'hero');
 function showBanner(txt) {
   const d = document.createElement('div');
   d.className = 'banner'; d.textContent = txt;
@@ -61,7 +64,7 @@ class BattleScene extends Phaser.Scene {
       HOOKS.crit = (x, y) => { this.ring(x, y, 0xffeb3b); this.hitStop(0.25, 60); };
       HOOKS.ult = () => { this.cameras.main.flash(220, 126, 252, 252); this.hitStop(0.2, 80); this.zoomPulse(); };
       HOOKS.kill = (e) => { this.ring(e.x, groundY() - 30, 0xffffff); };
-      // LOTE 2B (deuda #7): cut-in de ultimates (antes DOM dentro de battle.js)
+      // cut-in de ultimates (DOM en capa de render)
       HOOKS.cutin = m => {
         const box = $('cutin'); if (!box) return;
         const c = document.createElement('div');
@@ -70,7 +73,7 @@ class BattleScene extends Phaser.Scene {
         box.appendChild(c);
         setTimeout(() => c.remove(), 1100);
       };
-      // LOTE 2B (deuda #7): barra de jefe con refs DOM cacheadas 1 sola vez
+      // barra de jefe con refs DOM cacheadas 1 sola vez
       const bb = $('bossBar'), bf = $('bossFill'), bt = $('bossTime');
       if (bb && bf && bt) {
         HOOKS.bossShow = () => bb.classList.remove('hidden');
@@ -140,15 +143,14 @@ class BattleScene extends Phaser.Scene {
       if (a > 0) { this.fliesG.fillStyle(0xffdc6e, a); this.fliesG.fillCircle(x, y, 2); }
     });
     if (S.stage !== this.lastStage) { this.lastStage = S.stage; showBanner('⚔️ ETAPA ' + S.stage); }
-    const hb = baseScale('hero');
-    const lb = lookBase();
     const wantCrown = !!(S.look && S.look.crown);
     this.bars.clear();
     sq.forEach(m => {
       const px = (typeof m.px === 'number') ? m.px : heroX();
+      const lb = lookOf(m); // ← sheet PROPIO por miembro (fix bug "3 iguales")
       this.bars.fillStyle(0x000000, 0.35);
       this.bars.fillEllipse(px, gy + 6, 60 * (ROLE_SCALE[m.def.role] || 1), 12);
-      // PAPERDOLL: si cambió la forma/pelo, recreá el sprite
+      // PAPERDOLL: si cambió el look del miembro, recreá el sprite
       if (m.sprite && m.lookKey !== lb) {
         m.sprite.destroy(); m.sprite = null;
         if (m.crown) { m.crown.destroy(); m.crown = null; }
@@ -164,7 +166,6 @@ class BattleScene extends Phaser.Scene {
       if (!m.sprite) return;
       if (m.lunge > 0.8 && !m.slashDone) { m.slashDone = true; this.slash(px + 62, gy - 50); }
       if (m.lunge < 0.3) m.slashDone = false;
-      // ambas formas tienen hurt/death reales (sheets completos)
       const desired = !m.alive ? lb + '_death'
         : m.entering ? lb + '_walk'
         : m.flash > 0 ? lb + '_hurt'
@@ -172,13 +173,14 @@ class BattleScene extends Phaser.Scene {
         : m.lunge > 0.35 ? lb + '_attack'
         : enemies.length ? lb + '_walk' : lb + '_idle';
       this.safePlay(m.sprite, desired);
-      const phW = t * 7 + (m.def.role === 'tank' ? 2 : m.def.role === 'support' ? 4 : 0);
+      const phW = t * 7 + (m.def.role === 'archer' ? 2 : m.def.role === 'mage' ? 4 : 0);
       const walking = desired === lb + '_walk';
       m.sprite.setPosition(px + m.lunge * 20, gy + (walking ? -Math.abs(Math.sin(phW)) * 2.2 : 0));
-      // POLVO al caminar (héroes), respeta reduceFx
+      // POLVO al caminar, respeta reduceFx
       if (walking && m.alive && !SETTINGS.reduceFx && Math.random() < 0.09) VFX.puff(px - 14, gy + 2);
       const sy = 1 + Math.cos(phW * 2) * (walking ? 0.02 : 0.008);
       const rs = ROLE_SCALE[m.def.role] || 1;
+      const hb = baseScale(lb);
       if (!m.alive) { m.sprite.setRotation(-1.2); m.sprite.setAlpha(0.5); }
       else {
         m.sprite.setRotation(walking ? 0.02 : (desired === lb + '_attack' ? 0.1 : 0));
@@ -188,7 +190,7 @@ class BattleScene extends Phaser.Scene {
       if (m.flash > 0) m.sprite.setTint(0xffffff);
       else if (m.def.tint) m.sprite.setTint(m.def.tint);
       else m.sprite.clearTint();
-      // CORONA: overlay anclado a la cabeza (único overlay que queda)
+      // CORONA: overlay anclado a la cabeza de cada miembro
       if (wantCrown) {
         if (!m.crown && this.textures.exists('acc_crown')) {
           m.crown = this.add.sprite(0, 0, 'acc_crown');
@@ -249,10 +251,6 @@ class BattleScene extends Phaser.Scene {
         if (e.warn) { e.warn.destroy(); e.warn = null; }
         e.sprite.destroy(); e.sprite = null; this.seen.delete(e);
       }
-    }
-    if (shieldT > 0) {
-      this.bars.lineStyle(2, 0xffb347, 0.7);
-      this.bars.strokeRect(heroX() + (typeof advance !== 'undefined' ? advance : 0) - 110, gy - 130, 200, 120);
     }
     enemies.forEach(e => {
       if (e.dying !== null || !e.sprite) return;

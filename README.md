@@ -6,10 +6,10 @@ ranking en vivo, Arena PvP, colonias cooperativas y progresión por prestigio (A
 - **Versión:** 3.1.0 (`package.json`)
 - **Stack server:** Node + Express + Socket.IO (+ MongoDB opcional, fallback memoria)
 - **Stack client:** JS vanilla (scripts clásicos, globals compartidos) + **Phaser 3** + WebAudio procedural
-- **Estado:** jugable de punta a punta (ver §Sistemas) · **Arte: 27/27 completo**
+- **Estado:** jugable de punta a punta · **Arte 27/27** · **Deudas #1–#9 aplicadas ✅** (ver §Deuda)
 
 > 📌 **Convención de trabajo:** todo cambio se entrega como **archivo completo**,
-> con **revisión previa de mejoras/optimizaciones**, y se registra en el §CHANGELOG de este README.
+> con **revisión previa de mejoras/optimizaciones**, y se registra en el §CHANGELOG.
 > Metodología: **divide y vencerás** (módulos pequeños por dominio).
 
 ---
@@ -29,49 +29,51 @@ MONGO_URI=mongodb://... node server.js   # persistencia real (sin esto: memoria)
 
 ```
 le100/
-├── server.js            # Orquestador: Express + Socket.IO + modo DEV (live-reload)
+├── server.js            # Orquestador: Express + Socket.IO + DEV live-reload + tokens de sesión
 ├── dev.js               # node dev.js → DEV=1
 ├── package.json         # v3.1.0 · deps: express, socket.io, mongodb
 ├── README.md            # ← este documento vivo
 ├── server/
-│   ├── storage.js       # Repositorios U (users) y C (colonies): Mongo o Map() memoria
+│   ├── storage.js       # U/C: Mongo o memoria · setColonyLevel (bulk) · patch · findByTokenHash
 │   ├── sanitize.js      # DEF_SAVE + sanitizeSave(): el cliente NUNCA decide números
 │   ├── power.js         # powerOf()/bossMax(): fórmulas server (arena/colonias)
-│   ├── ranking.js       # Ranking de etapas en memoria + broadcast 'top'
-│   ├── arena.js         # arenaInfo / arenaFight
-│   └── colonies.js      # colonyInfo/create/join/leave/donate/boss/claim
+│   ├── ranking.js       # Ranking en memoria + broadcast 'top'
+│   ├── arena.js         # arenaInfo (1 sola lectura) / arenaFight
+│   └── colonies.js      # single-get + ensureBossDay + donate bulk
 └── public/
-    ├── index.html       # topbar + battleWrap + bottombar + 14 modales
+    ├── index.html       # RECONSTRUIDO: 16 modales + IDs validados + orden de scripts (deuda #6)
     ├── css/style.css    # estilos completos + media portrait mobile
-    ├── img/             # 20 sheets + 5 fondos + logo + icons (ver §Arte, 27/27)
+    ├── img/             # 20 sheets + 5 fondos + logo + icons (27/27, ver §Arte)
     └── js/
         ├── core/
         │   ├── config.js   # $, fmt, COSTS, UPDEF, ACH, SETTINGS, CHAPTERS, HEROES, SLOT_DEFS
-        │   ├── store.js    # S, persist, applyServerSave, fórmulas, dropItem, EVENTS, shopLv
-        │   ├── net.js      # socket, netAuth, netSendSave, netScore, LB
+        │   ├── store.js    # S, persist, applyServerSave, fórmulas, dropItem, EVENTS,
+        │   │               # checkDailyResets() central (deuda #4)
+        │   ├── net.js      # socket, netAuth, netSendSave, netScore, LB + TOKEN de sesión (deuda #8)
         │   ├── audio.js    # Chiptune WebAudio procedural por capítulo + SFX 8-bit
-        │   └── assets.js   # chroma/analyze/PREP/loadImg/prepareAll (20 sheets)
+        │   └── assets.js   # chroma/analyze/PREP/loadImg + prepareAll PARALELO (deuda #1)
         ├── game/
-        │   ├── battle.js       # LÓGICA pura del combate (squad, enemies, update, VFX/HOOKS)
-        │   ├── battle-scene.js # RENDER Phaser (VFX, paperdoll, parallax, uiTick 10Hz)
+        │   ├── battle.js       # LÓGICA PURA sin DOM (deuda #7): todo sale por VFX/HOOKS
+        │   ├── battle-scene.js # RENDER Phaser: VFX, HOOKS (boss bar + cut-in), paperdoll, parallax
         │   ├── phaser-setup.js # BootScene + ANIM_DEFS (strips → spritesheets → anims)
-        │   ├── icons.js        # íconos pixel desde img/icons.png (fallback emojis)
+        │   ├── icons.js        # íconos pixel desde img/icons.png (fallback emojis; lo carga main.js)
         │   └── main.js         # bootstrap Phaser.Game (último script)
         ├── ui/
-        │   ├── ui.js           # toast, wire, EL (caché DOM hot-path), logo chroma
-        │   ├── ui-auth.js      # login/registro/invitado, recompensa offline, tutorial
-        │   ├── ui-hud.js       # mejoras, velocidad, settings, logros, prestigio, uiTick
-        │   ├── ui-gear.js      # equipo: render/equipar/mejorar
-        │   ├── autoequip.js    # QoL: botón AUTO-EQUIPAR inyectado en mGear
+        │   ├── ui.js           # toast, wire, EL (caché DOM) + UI_HOOKS onGearOpen (deuda #9)
+        │   ├── ui-auth.js      # login/registro/invitado + AUTO-LOGIN por token + offline + tutorial
+        │   ├── ui-hud.js       # mejoras, velocidad, settings, logros, prestigio, uiTick · logout limpia token
+        │   ├── ui-gear.js      # equipo + fireGearOpen() al abrir
+        │   ├── autoequip.js    # QoL vía hook onGearOpen (sin setTimeout)
         │   ├── ui-shop.js      # Tienda ADN + skins · monkey-patchea applyServerSave
         │   ├── ui-look.js      # Vestidor paperdoll · monkey-patchea applyServerSave
         │   ├── ui-stats.js     # panel de transparencia de multiplicadores
         │   ├── ui-events.js    # badge + anuncio del evento semanal
-        │   └── ui-missions.js  # misiones diarias + reset diario CENTRAL de tickets
+        │   └── ui-missions.js  # misiones diarias (checkMissions = alias de checkDailyResets)
         ├── modes/
+        │   ├── sim.js          # fightChance()/rollFight(): simulación compartida (deuda #5)
         │   ├── daily.js        # Jefe Diario (3 tickets/día)
-        │   ├── tower.js        # Torre Infinita (pisos crecientes)
-        │   └── rogue.js        # El Sotobosque (8 salas, 2 tickets/día, buffs 1-de-3)
+        │   ├── tower.js        # Torre Infinita
+        │   └── rogue.js        # El Sotobosque (8 salas, buffs 1-de-3)
         └── social/
             └── social.js       # UI Arena PvP + Colonias (netEmit/netCall)
 ```
@@ -80,7 +82,7 @@ le100/
 
 ## 🧱 Arquitectura cliente
 
-### Orden de `<script>` (CRÍTICO — globals clásicos, sin módulos)
+### Orden de `<script>` (CRÍTICO — globals clásicos, sin módulos; validado en index.html)
 
 ```
 socket.io.js → phaser
@@ -88,13 +90,13 @@ core/config.js → core/assets.js → core/audio.js → core/net.js → core/sto
 ui/ui.js → game/battle.js → game/phaser-setup.js → game/battle-scene.js
 ui/ui-hud.js → ui/ui-gear.js → ui/autoequip.js → ui/ui-shop.js → ui/ui-look.js
 ui/ui-stats.js → ui/ui-events.js → ui/ui-missions.js
-modes/daily.js → modes/tower.js → modes/rogue.js → social/social.js
-ui/ui-auth.js → game/main.js   (main.js SIEMPRE último)
+modes/sim.js → modes/daily.js → modes/tower.js → modes/rogue.js → social/social.js
+ui/ui-auth.js → game/main.js   (main.js SIEMPRE último; icons.js lo carga él dinámico)
 ```
 
-Notas de orden: `net.js` antes que `store.js` (el `setInterval(persist,5000)` usa `netSendSave`);
-`ui-shop.js`/`ui-look.js` **monkey-patchean `applyServerSave`** y deben correr antes de `ui-auth.js`
-(quien lo invoca al loguear). `icons.js` lo carga `main.js` dinámicamente.
+Notas: `net.js` antes que `store.js` (`setInterval(persist,5000)` usa `netSendSave`);
+`ui-shop.js`/`ui-look.js` monkey-patchean `applyServerSave` antes de `ui-auth.js`;
+`sim.js` antes que los modos (define `fightChance`/`rollFight`).
 
 ### Estado global (quién define qué)
 
@@ -102,22 +104,28 @@ Notas de orden: `net.js` antes que `store.js` (el `setInterval(persist,5000)` us
 |---|---|---|
 | `S` | store.js | Save completo (ver §Save) |
 | `authed` | store.js (let) | ui-auth la muta; persist/net la leen |
-| `SETTINGS` | config.js | audio/volúmenes/velocidad/reduceFx/tutorial (localStorage aparte) |
+| `SETTINGS` | config.js | audio/volúmenes/velocidad/reduceFx/tutorial |
 | `socket`, `LB` | net.js | conexión + leaderboard broadcasteado |
+| `TOKEN_KEY`, `netGet/Set/ClearToken`, `netLoginToken` | net.js | sesión persistente (deuda #8) |
 | `squad`, `enemies`, `time`, `advance`, `shieldT` | battle.js | estado de combate |
 | `W`, `H` | config.js (muta BattleScene) | viewport |
-| `EL` | ui.js | caché de elementos del hot-path (0 `getElementById` por tick) |
+| `EL` | ui.js | caché DOM hot-path (0 getElementById por tick) |
+| `UI_HOOKS`, `onGearOpen`, `fireGearOpen` | ui.js | hooks QoL (deuda #9) |
 | `PREP`, `STRIP_H` | assets.js | strips normalizadas (alto 160px) |
-| `ANIM_KINDS` | phaser-setup.js | kinds de enemigos disponibles según sheets reales |
+| `ANIM_KINDS` | phaser-setup.js | kinds de enemigos según sheets reales |
 | `Audio` | audio.js | motor chiptune + SFX |
-| `VFX`, `HOOKS` | battle.js (implementa BattleScene) | separación lógica→render |
+| `VFX`, `HOOKS` | battle.js (implementa BattleScene) | `HOOKS` = ult/crit/kill/cutin/bossShow/bossHide/bossTick |
+| `fightChance`, `rollFight` | modes/sim.js | simulación compartida (deuda #5) |
 
-### Flujo de guardado
+### Flujo de guardado + sesión
 
+0. **Auto-login (deuda #8):** si hay token en `localStorage` → `loginToken` al conectar;
+   el server valida el **hash SHA-256** guardado en el doc y restaura sesión sin tocar el login.
+   Token se **rota** en login/register manual y se **limpia** en logout.
 1. `persist()` → `localStorage['le100_cache_v4']` + (si `authed`) `netSendSave(S)`.
 2. Autoguardado: `setInterval(5s)` + `visibilitychange`/`beforeunload`/`pagehide`.
 3. Server: throttle 2s por socket → `sanitizeSave()` → `U.save()`.
-4. Login/registro devuelven `save` saneado → `applyServerSave()` (+ patches de shop/look).
+4. Login/registro/auto-login devuelven `save` saneado → `applyServerSave()` (+ patches de shop/look).
 
 ---
 
@@ -125,15 +133,16 @@ Notas de orden: `net.js` antes que `store.js` (el `setInterval(persist,5000)` us
 
 | Evento | Dir | Payload → Ack |
 |---|---|---|
-| `register` / `login` | C→S | `{name,pass}` → `{ok,name,save}` ó `{ok:false,err}` |
+| `register` / `login` | C→S | `{name,pass}` → `{ok,name,save,token}` ó `{ok:false,err}` |
+| `loginToken` | C→S | `token` → `{ok,name,save,token}` ó `{ok:false}` (deuda #8) |
 | `saveGame` | C→S | save (sin ack, throttle 2s) |
 | `score` | C→S | `{name,stage}` (ranking) |
 | `top` | S→C | lista top-10 etapas |
-| `arenaInfo` | C→S | → `{ops[3 cercanos], top[10]}` |
+| `arenaInfo` | C→S | → `{ops[3 cercanos], top[10]}` (1 sola lectura de users, deuda #2) |
 | `arenaFight` | C→S | `opName` → `{win,msg}` |
-| `colonyInfo` | C→S | → `{in,list,members,me}` |
+| `colonyInfo` | C→S | → `{in,list,members,me}` (single-get, deuda #3) |
 | `colonyCreate/Join/Leave` | C→S | name/key/– → `{ok[,err]}` |
-| `colonyDonate` | C→S | → `{ok,level}` |
+| `colonyDonate` | C→S | → `{ok,level}` (bulk `U.setColonyLevel`, deuda #3) |
 | `colonyBoss` | C→S | → `{ok,dmg,killed,hp,max}` |
 | `colonyClaim` | C→S | → `{ok,g}` |
 
@@ -148,6 +157,7 @@ Notas de orden: `net.js` antes que `store.js` (el `setInterval(persist,5000)` us
 ach{}, gear{equipped{fang,shell,antenna,charm}, inv[≤30]}, tickets/ticketDate,
 tower/towerBest, rlTickets/rlDate, arenaPts/arenaTickets/arenaDate, colony, colonyLevel,
 bossTicketDate, mDate/mBase/mClaimed, shop{lv,skins,skin}, look{form,hair,crown}, last`
+(+ campo server-only `tokenHash` en el doc de usuario, nunca en el save).
 
 ---
 
@@ -159,6 +169,8 @@ bossTicketDate, mDate/mBase/mClaimed, shop{lv,skins,skin}, look{form,hair,crown}
 - Escuadrón: **Aguijón** (dps, etapa 1) · **Caparazón** (tank, 5) · **Hojita** (support, 10).
   Energía → ultimate con cut-in (dps: 3 golpes; tank: escudo 3s ×0.4; support: cura 30%).
 - Avance por proximidad (`advance`), repliegue en jefe y al caer (re-entrada desde pantalla).
+- **battle.js es lógica pura** (deuda #7): barra de jefe y cut-in salen por `HOOKS`
+  (implementados en battle-scene con refs DOM cacheadas 1 sola vez).
 
 ### Fórmulas (store.js ↔ sanitize/power espejo)
 
@@ -171,6 +183,13 @@ goldKill(st) = ⌈3·1.18^st⌉ · (1+.25·fortune) · adnMult · (1+.05·shopFo
 eHP(st)=10·1.27^st · eDmg(st)=4·1.22^st · cost(k)=⌊base·mult^lv⌋ (evRacha ×0.8)
 ```
 
+### Simulación de modos (modes/sim.js, deuda #5)
+`fightChance(st, hpMul, atkMul, {our, aguante, min})` → prob = `(our / eHP·mul)`, con aguante
+(`maxHP/(atk·0.5) ≥ 20 ? ×1 : ×0.5`) y clamp `[min, 0.95]` · `rollFight(ch)` = roll.
+- Daily: `fightChance(best+5, 12, 2.5, {min:.1})`
+- Torre: `fightChance(best+f, 6+f·.5, 1.5+f·.08)`
+- Rogue: `fightChance(st, 8, 1.5, {aguante:false, our: dps·b.dmg·10·(1+b.crit)·(1+b.ven·.2)})`
+
 ### Prestigio
 `prTotal(x)=⌊3·√max(0,x−8)⌋`; ganancia = `prTotal(best)−prTotal(prBase)`; requiere `best≥10`.
 Reset: oro, etapa, mejoras. Cada 🧬 = +10% daño y oro permanente.
@@ -179,19 +198,19 @@ Reset: oro, etapa, mejoras. Cada 🧬 = +10% daño y oro permanente.
 - 4 slots · rarezas `[Común..Mítico]` pesos `[50,30,14,5,1]` (+luck) · 0–2 subs · lvl ≤99.
 - Mejorar: `⌊20·1.35^lvl·(rar+1)⌋`  · Mochila 30 (llena → convierte a oro).
 
-### Modos secundarios (tickets diarios)
+### Modos secundarios (tickets diarios, reset único en `checkDailyResets()`, deuda #4)
 
-| Modo | Tickets | Simulación | Premios |
-|---|---|---|---|
-| 🎯 Jefe Diario | 3 | `dps·30·1.4` vs `eHP(best+5)·12`, aguante `maxHP/(atk·.5)` | oro ×40/×8 + drop garantizado |
-| 🗼 Torre |  (oro) | idem vs `eHP(best+f)·(6+f·.5)` | cada 3 pisos 🎒 · cada 10 +1🧬 |
-| 🌀 Sotobosque | 2 | 8 salas, buffs 1-de-3 (`RL_BUFFS`) | salas/3 → drop · 8/8 → +1🧬 |
-| ⚔️ Arena | 5 | server `powerOf` + ruido ±10% | ±pts + oro |
-| 🐲 Jefe Colonia | 1/día/miembro | `dps·30` al boss `1e6·lvl·miembros` | claim de oro al matar |
+| Modo | Tickets | Premios |
+|---|---|---|
+| 🎯 Jefe Diario | 3 | oro ×40/×8 + drop garantizado |
+| 🗼 Torre |  (oro) | cada 3 pisos 🎒 · cada 10 +1🧬 |
+| 🌀 Sotobosque | 2 | salas/3 → drop · 8/8 → +1🧬 |
+| ⚔️ Arena | 5 | ±pts + oro |
+| 🐲 Jefe Colonia | 1/día/miembro | claim de oro al matar |
 
 ### Colonias
 Crear 10.000🪙 · máx 20 miembros · donar `1000·lvl`🪙 → +10xp · `lvl = 1+⌊xp/100⌋`
-→ buff global +2% daño por nivel (`colonyLevel` cacheado en cada miembro).
+→ buff global +2% daño por nivel. Boss diario `1e6·lvl·miembros` (reset por `ensureBossDay`).
 
 ### Tienda de ADN (permanentes) + Skins
 `fury/vita/fort/regen` (10 nv) · `crit` (5) · costo `base + lv·3` 🧬.
@@ -219,38 +238,36 @@ Humano usa sheets `hero_human_{a,b,c}` (+`_attack`/`_hurt`); corona = overlay `a
 **Pipeline (`assets.js`):** PNG con fondo claro → `chroma()` (flood-fill blanco/casi-blanco → alpha,
 umbral >205/>205/>200; también elimina el borde-sticker del logo) → `analyze()` (blobs ordenados
 por fila+columna, descarta piezas <35% del alto máx) → normaliza a **alto 160px** → **strip
-horizontal** → `BootScene` registra spritesheet + anims (`ANIM_DEFS`).
-**Robustez:** si falta un sheet → `prepareAll` avisa y sigue; `ANIM_KINDS`/`safePlay` usan solo lo
-existente (el juego nunca crashea por arte faltante).
+horizontal** → `BootScene` registra spritesheet + anims (`ANIM_DEFS`). Carga **en paralelo**
+(`Promise.all`, deuda #1). **Robustez:** sheet faltante → warn y sigue; `safePlay`/`ANIM_KINDS`
+usan solo lo existente.
 
 ###  Biblia visual (guía de estilo para generaciones consistentes)
 
-**Estilo global (TODO sheet de personaje/enemigo):**
-- Chibi/kawaii pixel-art 16-bit, **2–2.5 cabezas** de alto (cabeza ≈ 45–50% del cuerpo).
-- **Contorno negro grueso** (2–3px), cel-shading suave, **rubor rosado** en mejillas,
-  ojos grandes brillantes con brillos blancos.
-- Fondo **lavanda muy claro uniforme (≈ #EAE8F2)** — todos los canales >205 → compatible con `chroma()`.
-- Sombra elíptica suave gris-lavanda bajo el personaje (queda como parte del blob, es correcto).
-- Frames en **fila(s) horizontal(es) bien separados** (margen amplio entre blobs para `analyze()`).
-- **Sin texto, sin watermark, sin borde sticker** (el borde blanco solo existe en `logo.png`).
-- Altura del personaje de pie ≈ 60–75% del alto de la imagen (consistente entre sheets del mismo char).
+**Estilo global (todo sheet de personaje/enemigo):**
+- Chibi/kawaii pixel-art 16-bit, **2–2.5 cabezas** (cabeza ≈ 45–50% del cuerpo).
+- **Contorno negro grueso** (2–3px), cel-shading suave, **rubor rosado**, ojos grandes con brillos.
+- Fondo **lavanda muy claro uniforme (≈ #EAE8F2)** (canales >205 → compatible con `chroma()`).
+- Sombra elíptica gris-lavanda bajo el personaje (parte del blob, correcto).
+- Frames en fila(s) horizontal(es) **bien separados**; sin texto/watermark/borde sticker.
+- Altura de pie ≈ 60–75% del alto de la imagen, consistente entre sheets del mismo char.
 
-**Paleta base (no variar entre generaciones):**
+**Paleta base (no variar):**
 
 | Elemento | Colores |
 |---|---|
 | Cienpies cuerpo/cabeza | verde #7EC87E |
-| Cienpies panza | crema #F5F0D0 (segmentada) |
+| Cienpies panza | crema #F5F0D0 segmentada |
 | Cienpies patas | naranja #F5A040 |
-| Cienpies capa | roja #C03030 (nudo al cuello) |
+| Cienpies capa | roja #C03030 |
 | Antenas | verdes con esfera blanca |
 | Túnica humana | verde #3E8E5A |
-| Correa/belt/brazaletes | cuero marrón #8B5A2B, hebilla gris |
+| Correa/belt/brazaletes | cuero #8B5A2B, hebilla gris |
 | Botas | marrón #8B5A3B |
-| Espada a la espalda | empuñadura marrón + guarda gris + hoja gris |
-| Corona | oro #E8C050 con gemas rojas |
+| Espada espalda | empuñadura marrón + hoja gris |
+| Corona | oro #E8C050 + gemas rojas |
 
-**Descripciones BASE de personajes (copiar VERBATIM en cada prompt):**
+**Descripciones BASE (copiar VERBATIM en cada prompt):**
 - 🐛 **Cienpies:** "cute green caterpillar hero with big round head, huge black shiny eyes with
   white highlights, cream segmented belly, tiny orange feet, red cape tied at the neck,
   two green antennae with white ball tips, pink blush cheeks"
@@ -262,43 +279,26 @@ existente (el juego nunca crashea por arte faltante).
   blue eyebrows, green tunic, brown leather cross strap with sword on back, belt with gray buckle,
   brown boots, pink blush"
 
-**Enemigos (base):**
-- `beetle`: cabeza roja con colmillos blancos y ojos amarillos, caparazón púrpura brillante, patas marrón.
-- `spider`: araña peluda azul oscuro, ojos cian brillantes, colmillos blancos.
-- `wasp`: avispa marrón con abdomen rayado amarillo/negro, ojos rojos, alas celestes translúcidas.
-- `scorpion`: escorpión púrpura con pinzas rojas, aguijón verde brillante, ojos amarillos.
-- `boss`: bestia rojo-músculosa con armadura dorada con picos, corona con gemas, garras blancas (2 frames yoyo).
+**Enemigos (base):** beetle (cabeza roja, caparazón púrpura) · spider (azul peluda, ojos cian) ·
+wasp (rayas amarillo/negro, ojos rojos, alas celestes) · scorpion (púrpura, pinzas rojas, aguijón
+verde) · boss (bestia roja musculosa, armadura dorada con picos, corona, 2 frames yoyo).
 
-**Fondos (sin chroma, escena completa pixel-art nocturna):**
-`bg` bosque con luna+hongos azules+luciérnagas · `bg_cave` cueva azul con cristales rosa/cian ·
-`bg_swamp` árboles muertos+niebla verde+charcos tóxicos · `bg_tower` salón de piedra con estandartes
-rojos y antorchas (modal Torre) · `bg_rogue` sendero de bosque con musgo, hongos y luciérnagas (modal Sotobosque).
-
-**Íconos (`icons.png`):** pixel-art 16-bit con contorno negro sobre fondo claro, en 3 filas;
-orden fila+columna = `ICON_NAMES` (coin·leaf·potion·venom / sword·shell / crown·heart·bolt·gem).
+**Fondos (sin chroma):** `bg` bosque nocturno · `bg_cave` cueva cristal · `bg_swamp` pantano tóxico ·
+`bg_tower` salón de piedra (modal Torre) · `bg_rogue` sendero bosque (modal Sotobosque).
 
 **🎯 Plantilla de prompt (Qwen-Image 3.0) para sheets nuevos:**
 
 ```
-chibi pixel art sprite sheet, [DESCRIPCIÓN BASE DEL PERSONAJE], [N] frames in one horizontal row:
+chibi pixel art sprite sheet, [DESCRIPCIÓN BASE], [N] frames in one horizontal row:
 [POSES EN ORDEN DE ANIM], uniform very light lavender background (#EAE8F2), thick black outlines,
 soft cel shading, pink blush cheeks, huge shiny eyes, soft ground shadow under each frame,
 consistent character size and palette across frames, wide spacing between frames,
 no text, no watermark, 16-bit style
 ```
 
-**Reglas de consistencia (obligatorias):**
-1. Pegar la descripción base **completa** del personaje (nunca resumida).
-2. No cambiar ropa/paleta/accesorios entre sheets; solo cambian poses y expresiones.
-3. Mismo fondo y misma escala que los sheets existentes del personaje.
-4. Orden de frames = ventanas de `ANIM_DEFS` (dolor 0-2 primero, caída/muerte al final).
-5. Antes de generar, usar como referencia visual los sheets existentes del mismo personaje
-   (walk/attack) y replicar trazo, paleta y proporciones.
-
-**Ejemplo aplicado (hurts generados, reproducibles):**
-- `hero_human_a_hurt`: base human_a + "5 frames: clenching teeth in pain, clutching chest hurt,
-  dazed stagger, falling back with X eyes, lying down with X eyes".
-- `hero_human_c_hurt`: base human_c + mismas 5 poses. Ambos verificados contra `chroma`/`analyze`/`ANIM_DEFS`.
+**Reglas de consistencia:** 1) descripción base completa siempre · 2) no cambiar ropa/paleta,
+solo poses · 3) mismo fondo/escala que sheets existentes · 4) orden de frames = ventanas de
+`ANIM_DEFS` (dolor primero, muerte al final) · 5) referenciar sheets existentes del personaje.
 
 ### Sheets (20)
 
@@ -309,75 +309,67 @@ no text, no watermark, 16-bit style
 | `hero_attack.png` | Cienpies ataque | 6 | one-shot fps14 |
 | `hero_cast.png` | Escupir orbe veneno | 3 | one-shot fps10 |
 | `hero_hurt.png` | Dolor + muerte | 6 | hurt 0-2 · death 3-5 |
-| `enemy_beetle.png` | Escarabajo rojo/púrpura | 4 | loop fps7 |
-| `enemy_spider.png` | Araña azul ojos cian | 4 | loop fps10 |
-| `enemy_wasp.png` | Avispa ojos rojos | 4 | loop fps12 |
-| `enemy_scorpion.png` | Escorpión púrpura | 4 | loop fps8 |
-| `enemy_boss.png` | Rey bestia coronado | 2 | yoyo fps3 |
-| `hero_human_a.png` | Castaño picado walk | 4 | loop fps10 |
+| `enemy_beetle.png` | Escarabajo | 4 | loop fps7 |
+| `enemy_spider.png` | Araña azul | 4 | loop fps10 |
+| `enemy_wasp.png` | Avispa | 4 | loop fps12 |
+| `enemy_scorpion.png` | Escorpión | 4 | loop fps8 |
+| `enemy_boss.png` | Rey bestia | 2 | yoyo fps3 |
+| `hero_human_a.png` | Castaño walk | 4 | loop fps10 |
 | `hero_human_a_attack.png` | Castaño ataque | 4 | one-shot fps9 |
-| `hero_human_a_hurt.png` | Castaño dolor + caída *(generado)* | 5 | hurt 0-2 · death 3-4 ✔ |
-| `hero_human_b.png` | Elfa rubia walk | 4 | loop fps10 |
+| `hero_human_a_hurt.png` | Castaño dolor+caída *(generado)* | 5 | hurt 0-2 · death 3-4 |
+| `hero_human_b.png` | Elfa walk | 4 | loop fps10 |
 | `hero_human_b_attack.png` | Elfa ataque | 4 | one-shot fps9 |
-| `hero_human_b_hurt.png` | Elfa dolor + muerte | 7 | hurt 0-2 · death 5-6 |
-| `hero_human_c.png` | Mohawk azul walk | 5 | loop fps10 |
+| `hero_human_b_hurt.png` | Elfa dolor+muerte | 7 | hurt 0-2 · death 5-6 |
+| `hero_human_c.png` | Mohawk walk | 5 | loop fps10 |
 | `hero_human_c_attack.png` | Mohawk ataque | 4 | one-shot fps9 |
-| `hero_human_c_hurt.png` | Mohawk dolor + caída *(generado)* | 5 | hurt 0-2 · death 3-4 ✔ |
+| `hero_human_c_hurt.png` | Mohawk dolor+caída *(generado)* | 5 | hurt 0-2 · death 3-4 |
 | `acc_crown.png` | Corona overlay | 1 | estática |
 
 ### Fondos (5) + UI (2)
 
 | Archivo | Uso |
 |---|---|
-| `bg.png` | Capítulo 1 Bosque Nocturno (luna, hongos, luciérnagas) |
-| `bg_cave.png` | Capítulo 2 Cueva Cristal |
-| `bg_swamp.png` | Capítulo 3 Pantano Tóxico |
-| `bg_tower.png` | Fondo modal Torre (`#mTower .mcard`, CSS) |
-| `bg_rogue.png` | Fondo modal Sotobosque (`#mRogue .mcard`, CSS) |
-| `logo.png` | Logo chroma (pantalla de login) |
+| `bg.png` / `bg_cave.png` / `bg_swamp.png` | Capítulos 1/2/3 |
+| `bg_tower.png` / `bg_rogue.png` | Fondos modales Torre / Sotobosque (CSS) |
+| `logo.png` | Logo chroma (login) |
 | `icons.png` | 10 íconos 3 filas → orden = `ICON_NAMES` ✔ |
 
-### Arte generado (Qwen-Image 3.0)
-`hero_human_a_hurt.png` y `hero_human_c_hurt.png`, generados con la Biblia Visual de esta sección
-(prompt reproducible arriba). Guardar en `img/` con esos nombres exactos.
+---
+
+## 🧠 Informe estratégico (resumen del PDF)
+
+- **Motor:** Phaser hoy; **Godot** candidata a largo plazo (prototipo comparativo). Unity descartada.
+- **Rendimiento:** strips/atlases (✅ PREP), batching, `reduceFx`.
+- **Personalización:** paperdoll por capas (✅ form/hair/crown) con descubrimiento progresivo.
+- **Retención:** cloud save (✅ + sesión token), eventos (✅ semanales v1), UI responsive (✅).
 
 ---
 
-## 🧠 Informe estratégico (resumen del PDF de investigación)
+## 🔧 Deuda técnica — ESTADO TRAS 5 LOTES
 
-- **Motor:** quedarse en **Phaser** hoy; **Godot** como candidata de migración a largo plazo (prototipo comparativo futuro). Unity descartada para web-first.
-- **Rendimiento:** sprite atlases/strips (✅ ya implementado con PREP), batching de draw calls, `reduceFx`.
-- **Personalización:** paperdoll por capas (✅ prototipo: form/hair/crown) con descubrimiento progresivo.
-- **Retención:** cloud save formalizado, calendario de eventos temporales (✅ eventos semanales v1), recompensas frecuentes y específicas, UI responsive (✅ portrait).
-
----
-
-## 🔧 Deuda técnica / optimizaciones detectadas (priorizadas)
-
-**Alta**
-1. `assets.js prepareAll()` carga 20 sheets **en serie** → `Promise.all` (boot ~3-4× más rápido).
-2. `server/arena.js arenaInfo`: **2× `U.all()`** por llamada → 1.
-3. `server/colonies.js`: `colonyInfo` hace 2× `C.get`; `colonyDonate` escribe **N miembros** por donación → derivar `colonyLevel` en lectura o `updateMany`.
-4. Reset de tickets **triplicado** (`checkTickets`/`checkRlTickets`/`checkArenaTickets` + `checkMissions`) → unificar en `checkDailyResets()` en store.js.
-5. Simulación de combate **duplicada** en daily/tower/rogue → extraer `modes/sim.js` (`simulateFight(...)`).
-6. `index.html` sin reconstruir/validar (orden de scripts, ver §Arquitectura).
-
-**Media**
-7. `battle.js` toca DOM (`$('bossBar')`) dentro de lógica pura → mover a `HOOKS`.
-8. Sesión no persistida: recargar obliga re-login → token en `localStorage` (net.js).
-9. `autoequip.js` depende de `setTimeout(0)` tras click de `btnGear` → hook explícito `onGearOpen`.
-
-**Baja / futuro**
-10. Atlas unificado de enemigos + fondos (menos texture swaps).
-11. Prototipo Godot de una escena (comparativa del informe).
+| # | Deuda | Solución aplicada | Lote |
+|---|---|---|---|
+| 1 | `prepareAll` en serie | `Promise.all` + `prepareSheet()` | 1 ✅ |
+| 2 | `arenaInfo` 2× `U.all()` | 1 sola lectura | 1 ✅ |
+| 3 | `colonyDonate` N writes | `U.setColonyLevel()` bulk + single-get + `ensureBossDay` | 1 ✅ |
+| 4 | Resets triplicados | `store.checkDailyResets()` (alias `checkTickets`/`checkMissions`) | 1+2A ✅ |
+| 5 | Simulación duplicada | `modes/sim.js` (`fightChance`/`rollFight`) | 3A ✅ |
+| 6 | `index.html` sin validar | Reconstruido: 16 modales, IDs verificados, orden de scripts | 3A ✅ |
+| 7 | `battle.js` tocaba DOM | `HOOKS.bossShow/bossHide/bossTick/cutin` (refs cacheadas en scene) | 2B ✅ |
+| 8 | Sesión no persistida | Token localStorage + hash SHA-256 server + `loginToken` + rotación | 2C ✅ |
+| 9 | `autoequip` setTimeout(0) | `UI_HOOKS.onGearOpen`/`fireGearOpen` | 2A ✅ |
+| 10 | Atlas unificado | pendiente (baja) | — |
+| 11 | Prototipo Godot | pendiente (baja) | — |
 
 ---
 
 ## 🗺️ Roadmap
 
-1. **Consolidación:** items Alta de deuda + reconstrucción de `index.html`. *(Arte: cerrado ✅ + Biblia Visual ✅)*
-2. **Profundización:** eventos temporales v2, recompensas semanales de Arena/Colonias, cloud-save con indicador de sync en UI.
-3. **Expansión:** más capas de paperdoll (armaduras como overlays — generar con la Biblia Visual), árbol de habilidades ramificado, calendario editorial de eventos.
+1. **Consolidación:** ✅ completada (deudas #1–#9 + index.html + arte 27/27 + Biblia Visual).
+2. **Profundización:** eventos v2, recompensas semanales Arena/Colonias, indicador de sync
+   cloud-save en UI, árbol de habilidades ramificado (del informe).
+3. **Expansión:** más capas de paperdoll (armaduras overlay con la Biblia Visual),
+   calendario editorial de eventos, prototipo Godot de 1 escena.
 
 ---
 
@@ -385,10 +377,16 @@ no text, no watermark, 16-bit style
 
 | Fecha | Cambio |
 |---|---|
-| 2026-08-17 | 📄 README creado: inventario completo del estado v3.1.0, protocolo, fórmulas y deuda técnica. |
-| 2026-08-17 | 🎨 §Arte verificado (25/27): sheets/fondos/UI contra `ANIM_DEFS` e `ICON_NAMES` (icons.png = mapeo 1:1 ✔). |
-| 2026-08-17 | 🎨 Generados `hero_human_a_hurt` y `hero_human_c_hurt` (Qwen-Image 3.0) → inventario 27/27 cerrado. |
-| 2026-08-17 | 📖 §Biblia Visual agregada: estilo global, paletas, descripciones base por personaje, reglas de layout para el pipeline y plantilla de prompt para generaciones futuras consistentes. |
+| 2026-08-17 | 📄 README creado: inventario v3.1.0, protocolo, fórmulas y deuda técnica. |
+| 2026-08-17 | 🎨 §Arte verificado (25/27) contra `ANIM_DEFS` e `ICON_NAMES` (icons = mapeo 1:1 ✔). |
+| 2026-08-17 | 🎨 Generados `hero_human_a_hurt`/`hero_human_c_hurt` (Qwen-Image 3.0) → 27/27. |
+| 2026-08-17 | 📖 §Biblia Visual: estilo, paletas, descripciones base y plantilla de prompt. |
+| 2026-08-17 | 🔧 **Lote 1:** assets paralelo (#1) · arena 1 lectura (#2) · colonias bulk (#3) · store `checkDailyResets` (#4) · storage `setColonyLevel/patch/findByTokenHash`. |
+| 2026-08-17 | 🔧 **Lote 2A:** daily/rogue/social/missions/auth → `checkDailyResets` · `UI_HOOKS` gearOpen · autoequip por hook (#9). |
+| 2026-08-17 | 🔧 **Lote 2B:** `battle.js` 100% sin DOM (#7): HOOKS boss bar + cut-in; scene con refs cacheadas. |
+| 2026-08-17 | 🔧 **Lote 2C:** sesión persistente con token (#8): net/server/ui-auth/ui-hud. |
+| 2026-08-17 | 🔧 **Lote 3A:** `modes/sim.js` (#5) + daily/tower/rogue lo consumen · `index.html` reconstruido (#6). |
+| 2026-08-17 | 📝 **Lote 3B:** README actualizado al estado final post-optimizaciones. |
 
 ---
 

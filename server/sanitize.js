@@ -1,5 +1,6 @@
 'use strict';
 // ===== SAVE SANITIZER: el cliente NUNCA decide sus números =====
+// LOTE 4: look = { form, crown } (el hair dejó de existir: ahora son personajes distintos).
 const DEF_SAVE = { gold: 0, adn: 0, stage: 1, best: 1, kills: 0, prestiges: 0, prBase: 1,
   ups: { dmg: 0, vit: 0, regen: 0, venom: 0, fortune: 0 }, ach: {}, last: Date.now(),
   gear: { equipped: { fang: null, shell: null, antenna: null, charm: null }, inv: [] },
@@ -7,11 +8,9 @@ const DEF_SAVE = { gold: 0, adn: 0, stage: 1, best: 1, kills: 0, prestiges: 0, p
   arenaPts: 0, arenaTickets: 5, arenaDate: '', colony: '', colonyLevel: 1, bossTicketDate: '',
   mDate: '', mBase: { kills: 0, tower: 1, prestiges: 0 }, mClaimed: {},
   shop: { lv: {}, skins: [], skin: '' },
-  look: { form: 'cienpies', hair: 'a', crown: false } };
+  look: { form: 'cienpies', crown: false } };
 const SHOP_MAX = { fury: 10, vita: 10, fort: 10, regen: 10, crit: 5 };
 const SKIN_IDS = ['oro', 'hielo', 'sombra'];
-const HAIR_IDS = ['a', 'b', 'c'];
-
 function sanitizeSave(s) {
   const o = JSON.parse(JSON.stringify(DEF_SAVE));
   if (!s || typeof s !== 'object') return o;
@@ -60,16 +59,14 @@ function sanitizeSave(s) {
     o.shop.skins = Array.isArray(s.shop.skins) ? s.shop.skins.map(x => String(x).slice(0, 12)).filter(x => SKIN_IDS.includes(x)) : [];
     o.shop.skin = o.shop.skins.includes(String(s.shop.skin || '')) ? String(s.shop.skin) : '';
   }
-  // PAPERDOLL: whitelist de forma/pelo + boolean de corona
+  // PAPERDOLL: whitelist de forma + boolean de corona (solo héroe principal)
   if (s.look && typeof s.look === 'object') {
     o.look = {
       form: s.look.form === 'humano' ? 'humano' : 'cienpies',
-      hair: HAIR_IDS.includes(String(s.look.hair || '')) ? String(s.look.hair) : 'a',
       crown: !!s.look.crown
     };
   }
   o.last = Number(s.last) || Date.now();
   return o;
 }
-
 module.exports = { sanitizeSave, DEF_SAVE };

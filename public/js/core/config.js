@@ -14,19 +14,19 @@ const UPDEF = {
   fortune: { icon: '🪙', pic: 'coin',   name: 'Fortuna' }
 };
 const ACH = [
-  { id: 'k100',  d: 'Eliminá 100 enemigos',        r: { g: 300 },  c: () => S.kills >= 100 },
-  { id: 'k1000', d: 'Eliminá 1.000 enemigos',      r: { g: 3000 }, c: () => S.kills >= 1000 },
-  { id: 's10',   d: 'Llegá a etapa 10',            r: { a: 1 },    c: () => S.best >= 10 },
-  { id: 's25',   d: 'Llegá a etapa 25',            r: { a: 2 },    c: () => S.best >= 25 },
-  { id: 's50',   d: 'Llegá a etapa 50',            r: { a: 3 },    c: () => S.best >= 50 },
-  { id: 'p1',    d: 'Hacé tu primer prestigio',    r: { a: 3 },    c: () => S.prestiges >= 1 },
-  { id: 'd10',   d: 'Daño nivel 10',               r: { g: 2000 }, c: () => S.ups.dmg >= 10 },
-  { id: 'v5',    d: 'Veneno nivel 5',              r: { g: 2500 }, c: () => S.ups.venom >= 5 },
-  { id: 't10',   d: '🗼 Torre: piso 10',           r: { g: 5000 }, c: () => S.towerBest >= 10 },
-  { id: 't25',   d: '🗼 Torre: piso 25',           r: { a: 2 },    c: () => S.towerBest >= 25 },
-  { id: 'a100',  d: '⚔️ Arena: llegá a 100 pts',   r: { g: 4000 }, c: () => S.arenaPts >= 100 },
+  { id: 'k100',  d: 'Eliminá 100 enemigos',           r: { g: 300 },  c: () => S.kills >= 100 },
+  { id: 'k1000', d: 'Eliminá 1.000 enemigos',         r: { g: 3000 }, c: () => S.kills >= 1000 },
+  { id: 's10',   d: 'Llegá a etapa 10',               r: { a: 1 },    c: () => S.best >= 10 },
+  { id: 's25',   d: 'Llegá a etapa 25',               r: { a: 2 },    c: () => S.best >= 25 },
+  { id: 's50',   d: 'Llegá a etapa 50',               r: { a: 3 },    c: () => S.best >= 50 },
+  { id: 'p1',    d: 'Hacé tu primer prestigio',       r: { a: 3 },    c: () => S.prestiges >= 1 },
+  { id: 'd10',   d: 'Daño nivel 10',                  r: { g: 2000 }, c: () => S.ups.dmg >= 10 },
+  { id: 'v5',    d: 'Veneno nivel 5',                 r: { g: 2500 }, c: () => S.ups.venom >= 5 },
+  { id: 't10',   d: '🗼 Torre: piso 10',              r: { g: 5000 }, c: () => S.towerBest >= 10 },
+  { id: 't25',   d: '🗼 Torre: piso 25',              r: { a: 2 },    c: () => S.towerBest >= 25 },
+  { id: 'a100',  d: '⚔️ Arena: llegá a 100 pts',      r: { g: 4000 }, c: () => S.arenaPts >= 100 },
   { id: 'sh5',   d: '🛒 Tienda: 5 niveles comprados', r: { g: 3000 }, c: () => Object.values((S.shop && S.shop.lv) || {}).reduce((a, b) => a + b, 0) >= 5 },
-  { id: 'sk1',   d: '🎨 Coleccioná una skin',      r: { a: 2 },    c: () => ((S.shop && S.shop.skins) || []).length >= 1 }
+  { id: 'sk1',   d: '🎨 Coleccioná una skin',         r: { a: 2 },    c: () => ((S.shop && S.shop.skins) || []).length >= 1 }
 ];
 // ===== Settings persistentes =====
 const SETTINGS_KEY = 'le100_settings_v1';
@@ -44,11 +44,13 @@ const CHAPTERS = [
   { name: 'Pantano Tóxico',  bg: 'img/bg_swamp.png' }
 ];
 const chapterOf = stage => CHAPTERS[Math.min(CHAPTERS.length - 1, Math.floor((stage - 1) / 10))];
-// ===== Escuadrón =====
+// ===== Escuadrón: héroe principal + compañeros (LOTE 4) =====
+// look: 'main' = sigue el vestidor (cienpies | human_a) · resto = sheet fijo propio.
+// roles: dps (melee) · archer (rango, AoE) · mage (AoE + cura).
 const HEROES = [
-  { id: 'sting', name: 'Aguijón',   role: 'dps',     color: '#6ee87e', tint: null,     unlock: 1,  ult: 'Mordida Triple' },
-  { id: 'shell', name: 'Caparazón', role: 'tank',    color: '#ffb347', tint: 0xffb347, unlock: 5,  ult: 'Grito de Guerra' },
-  { id: 'leaf',  name: 'Hojita',    role: 'support', color: '#7efcff', tint: 0x7efcff, unlock: 10, ult: 'Lluvia Vital' }
+  { id: 'sting', name: 'Aguijón', role: 'dps',    look: 'main',    color: '#6ee87e', tint: null, unlock: 1,  ult: 'Tajo Triple' },
+  { id: 'leaf',  name: 'Elara',   role: 'archer', look: 'human_b', color: '#7efcff', tint: null, unlock: 5,  ult: 'Lluvia de Flechas' },
+  { id: 'shell', name: 'Kael',    role: 'mage',   look: 'human_c', color: '#c86bfa', tint: null, unlock: 10, ult: 'Nova Arcana' }
 ];
 // ===== Equipo =====
 const RAR_NAMES  = ['Común', 'Raro', 'Épico', 'Legendario', 'Mítico'];
