@@ -1,7 +1,7 @@
 'use strict';
 // ===== ASSETS: chroma-key + blob-detect + strips normalizadas =====
-// OPTIMIZACIÓN (deuda #1): prepareAll() procesa los 20 sheets EN PARALELO
-// (antes: for..of secuencial → boot ~3-4× más lento).
+// OPTIMIZACIÓN (deuda #1): prepareAll() procesa los sheets EN PARALELO.
+// LOTE 6/7: + idle dedicados de los 3 héroes (a/b/c).
 function chroma(g, c) {
   const w = c.width, h = c.height;
   const d = g.getImageData(0, 0, w, h), px = d.data;
@@ -69,10 +69,10 @@ function analyze(c) {
   return { frames, maxH };
 }
 const STRIP_H = 160;
-// + hurt/death humanos (ventanas según ANIM_DEFS en phaser-setup.js)
+// hurt/death humanos estándar: 5 frames (dolor 0-2 · muerte 3-4)
 const SHEETS = ['hero_walk', 'hero_idle', 'hero_attack', 'hero_cast', 'hero_hurt',
   'enemy_beetle', 'enemy_spider', 'enemy_boss', 'enemy_wasp', 'enemy_scorpion',
-  'hero_human_a', 'hero_human_b', 'hero_human_c', 'acc_crown',
+  'hero_human_a', 'hero_human_a_idle', 'hero_human_b', 'hero_human_b_idle', 'hero_human_c', 'hero_human_c_idle', 'acc_crown',
   'hero_human_a_attack', 'hero_human_b_attack', 'hero_human_c_attack',
   'hero_human_a_hurt', 'hero_human_b_hurt', 'hero_human_c_hurt'];
 const PREP = {};
