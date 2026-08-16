@@ -80,11 +80,6 @@ html, body { position: fixed; inset: 0; overflow: hidden; background: #0d0a1a;
 .setRow input[type=range] { width: 120px; }
 .setRow b { color: #ffd700; }
 #speedBtn { color: #7efcff; font-size: 10px; }
-#rotate { position: fixed; inset: 0; background: #0d0a1a; color: #fff; display: none;
-  align-items: center; justify-content: center; flex-direction: column; gap: 12px;
-  font-size: 26px; z-index: 200; text-align: center; padding: 20px; }
-#rotate small { font-size: 14px; color: #8fa3c8; }
-@media (orientation: portrait) { #rotate { display: flex; } #app { display: none; } }
 #toasts { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 100;
   display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
 .toast { background: rgba(23,18,48,.92); border: 1px solid rgba(255,215,0,.4); color: #ffd700;
@@ -138,3 +133,13 @@ html, body { position: fixed; inset: 0; overflow: hidden; background: #0d0a1a;
 #rogueBody h3 { font-family: 'Press Start 2P', monospace; font-size: 12px; }
 #mTower .mcard { background: linear-gradient(rgba(23,18,48,.9), rgba(23,18,48,.95)), url('../img/bg_tower.png') center/cover; }
 #mRogue .mcard { background: linear-gradient(rgba(23,18,48,.9), rgba(23,18,48,.95)), url('../img/bg_rogue.png') center/cover; }
+/* ===== MOBILE VERTICAL: layout apilado, nada de "girar el celular" ===== */
+@media (orientation: portrait) {
+  #topbar { height: auto; flex-wrap: wrap; gap: 6px; padding: 6px 8px; }
+  .tb-left, .tb-right { max-width: 100%; }
+  .tb-right { overflow-x: auto; }
+  #bottombar { height: auto; flex-direction: column; gap: 6px; padding: 6px 8px; }
+  #heroStats { flex-direction: row; justify-content: space-around; min-width: 0; }
+  #heroHpWrap { bottom: 8px; left: 8px; }
+  #ups { padding-bottom: 4px; }
+}
