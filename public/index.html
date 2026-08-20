@@ -31,9 +31,10 @@
     <div class="panel">🧬 <b id="adnTxt">0</b></div>
   </div>
   <div class="tb-right">
-    <button class="tbtn" id="btnEvent" title="Evento semanal">✨</button>
+    <button class="tbtn" id="btnEvent" title="Eventos">✨<span class="dot" id="evDot"></span></button>
     <button class="tbtn" id="speedBtn">⏩ x1</button>
     <button class="tbtn" id="btnSettings" title="Ajustes">⚙️</button>
+    <button class="tbtn" id="btnBattlePass" title="Battle Pass">🎫<span class="dot" id="bpDot"></span></button>
     <button class="tbtn" id="btnAch" title="Logros">🏅<span class="dot" id="achDot"></span></button>
     <button class="tbtn" id="btnLb" title="Ranking">🏆</button>
     <button class="tbtn" id="btnStats" title="Estadísticas">📊</button>
@@ -91,7 +92,11 @@
   <div class="big" id="offlineAmt">🪙 0</div>
   <button class="mbtn" id="offlineBtn">RECLAMAR</button>
 </div></div>
-
+<div class="modal" id="mBattlePass"><div class="mcard wide">
+  <h2>🎫 BATTLE PASS</h2>
+  <div id="bpBody"></div>
+  <button class="mbtn gray" id="bpClose">CERRAR</button>
+</div></div>
 <div class="modal" id="mPrestige"><div class="mcard">
   <h2>🧬 PRESTIGIO</h2>
   <p style="color:#8fa3c8;font-size:12px">Mudá de piel: reiniciás etapa, oro y mejoras, pero ganás ADN permanente.<br>
@@ -166,7 +171,11 @@
   <h3 style="color:#ffd700;margin-top:12px">TOP 10</h3><div id="arenaTop"></div>
   <button class="mbtn gray" id="arenaClose">CERRAR</button>
 </div></div>
-
+<div class="modal" id="mEvents"><div class="mcard">
+  <h2>✨ EVENTOS</h2>
+  <div id="evBody"></div>
+  <button class="mbtn gray" id="evClose">CERRAR</button>
+</div></div>
 <div class="modal" id="mColony"><div class="mcard">
   <h2>🐜 COLONIA</h2><div id="colonyBody"></div>
   <button class="mbtn gray" id="colonyClose">CERRAR</button>
@@ -238,6 +247,7 @@
 <script src="js/social/social.js"></script>
 <script src="js/ui/ui-weekly.js"></script>
 <script src="js/ui/ui-hub.js"></script>
+<script src="js/ui/ui-battlepass.js"></script>
 <script src="js/ui/ui-auth.js"></script>
 <script src="js/game/main.js"></script>
 </body>

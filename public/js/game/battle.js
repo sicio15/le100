@@ -1,14 +1,11 @@
 'use strict';
-// ===== LÓGICA PURA del combate (sin DOM: deuda #7 cerrada) =====
-// LOTE 4: escuadrón rediseñado → principal (dps) + Elara arquera + Kael mago.
-// LOTE 5: el cienpies es MASCOTA → petCastT dispara su anim hero_cast al escupir veneno.
+// ===== LÓGICA PURA del combate =====
+// LOTE 17: drops x3 y energía x2 durante eventos relámpago.
 let squad = [];
 let enemies = [];
 let spawnT = 1, bossT = 0, shake = 0, time = 0, stageFlash = 0, dustT = 0, lastChapter = -1;
 let healT = 2, venT = 3, petCastT = 0;
-let stageStartTime = Date.now();
-let stageHadDeaths = false;
-// AVANCE: el escuadrón camina hacia la derecha buscando enemigos
+let stageStartTime = Date.now(), stageHadDeaths = false;
 let advance = 0;
 const notify = t => { if (typeof toast !== 'undefined') toast(t); };
 const VFX = { float(){}, burst(){}, coin(){}, puff(){} };
@@ -16,13 +13,10 @@ function float(x, y, txt, color, big) { VFX.float(x, y, txt, color, big); }
 function burst(x, y, color, n) { VFX.burst(x, y, color, n); }
 function spawnCoins(x, y, n) { for (let i = 0; i < n; i++) VFX.coin(x, y); }
 function puff(x, y) { VFX.puff(x, y); }
-// HOOKS: bossShow/bossHide/bossTick = barra de jefe · cutin = ultimate (DOM en battle-scene)
-const HOOKS = { ult: null, crit: null, kill: null, cutin: null, bossShow: null, bossHide: null, bossTick: null };
+const HOOKS = { ult: null, crit: null, kill: null, cutin: null, bossShow: null, bossHide: null, bossTick: null, bossRoar: null };
 const heroX = () => Math.min(230, W * 0.22);
 const groundY = () => H - 78;
-// Formación: dps al frente · arquera al medio · mago atrás
 const slotX = m => heroX() + (m.def.role === 'dps' ? 52 : m.def.role === 'archer' ? -6 : -70);
-// ===== Enemigos por capítulo (con fallback si falta la imagen) =====
 const KIND_STATS = {
   beetle:   { hp: 1.25, spd: 70 },
   spider:   { hp: 1.0,  spd: 95 },
@@ -42,8 +36,6 @@ function chapterKinds() {
   if (!pool.length) pool = ['beetle'];
   return pool;
 }
-// ===== Escuadrón =====
-// Reparto de vida por rol: dps aguanta más · arquera media · mago frágil
 function makeHero(def) {
   const share = def.role === 'dps' ? 0.45 : def.role === 'archer' ? 0.3 : 0.25;
   const mh = maxHP() * share;
@@ -66,7 +58,6 @@ function initSquad() {
 function resetSquad() {
   squad.forEach(m => { m.alive = true; m.hp = m.maxHp; m.energy = 0; m.flash = 0; m.lunge = 0; m.castT = 0; });
 }
-// RE-ENTRADA: en cada etapa (o tras caer) el escuadrón aparece al inicio de la pantalla
 function reEnter() {
   advance = 0;
   squad.forEach(m => { m.px = -60 - Math.random() * 90; m.entering = true; });
@@ -81,9 +72,9 @@ function aliveByPriority() {
   }
   return null;
 }
-// CUT-IN: vía hook (el DOM vive en la capa de render)
 function showCutin(m) { if (HOOKS.cutin) HOOKS.cutin(m); }
 function gainEnergy(m, n) {
+  n *= (typeof flashMult === 'function' ? flashMult('energia') : 1); // LOTE 17
   m.energy = Math.min(100, m.energy + n);
   if (m.energy >= 100) { m.energy = 0; castUlt(m); }
 }
@@ -99,19 +90,16 @@ function castUlt(m) {
   if (HOOKS.ult) HOOKS.ult(m);
   const gy = groundY();
   if (m.def.role === 'dps') {
-    // Tajo Triple: 3 golpes fuertes al objetivo cercano
     for (let i = 0; i < 3; i++) {
       const t = pickTarget(); if (!t) break;
       hitEnemy(t, dps() * 1.5, '#ffeb3b', true);
     }
   } else if (m.def.role === 'archer') {
-    // Lluvia de Flechas: daño a TODOS los enemigos vivos
     const aliveE = enemies.filter(e => e.dying === null);
     if (!aliveE.length) return;
     aliveE.forEach(e => hitEnemy(e, dps() * 1.2, '#7efcff', false));
     Audio.SFX.venom();
   } else if (m.def.role === 'mage') {
-    // Nova Arcana: AoE grande + cura al escuadrón
     const aliveE = enemies.filter(e => e.dying === null);
     aliveE.forEach(e => hitEnemy(e, dps() * 1.8, '#c86bfa', true));
     squad.forEach(a => {
@@ -123,7 +111,6 @@ function castUlt(m) {
     });
   }
 }
-// ===== Enemigos =====
 function spawnEnemy() {
   const slots = [0, 1, 2, 3, 4];
   enemies.forEach(e => { if (e.dying === null) { const i = slots.indexOf(e.slot); if (i >= 0) slots.splice(i, 1); } });
@@ -143,10 +130,12 @@ function spawnBoss() {
     spd: 40, hue: 0, size: 2.2, state: 'walk', flash: 0, lungeX: 0, kb: 0, pop: 0, sprite: null, fx: false });
   bossT = 30; shake = 10;
   if (HOOKS.bossShow) HOOKS.bossShow();
+  if (HOOKS.bossRoar) HOOKS.bossRoar();
   Audio.SFX.boss();
   notify('👑 ¡JEFE en la etapa ' + S.stage + '!');
 }
 function killEnemy(e) {
+  addSeasonXp(SEASON_XP_PER_KILL * (e.boss ? SEASON_XP_PER_BOSS : 1));
   if (e.dying !== null) return;
   e.dying = 0.45;
   puff(e.x, groundY() + 2);
@@ -155,25 +144,26 @@ function killEnemy(e) {
   float(e.x, groundY() - 60, '+' + fmt(g), '#ffd700');
   burst(e.x, groundY() - 30, 'hsl(' + e.hue + ',80%,60%)', e.boss ? 40 : 14);
   if (HOOKS.kill) HOOKS.kill(e);
-  if (Math.random() < (e.boss ? 1 : 0.08)) dropItem(e.boss ? 2 : 0);
+  // LOTE 17: drops x3 durante flash 'drop'
+  const dropChance = (e.boss ? 1 : 0.08) * (typeof flashMult === 'function' ? flashMult('drop') : 1);
+  if (Math.random() < dropChance) dropItem(e.boss ? 2 : 0);
   spawnCoins(e.x, groundY() - 40, e.boss ? 8 : 3);
   Audio.SFX.coin();
   if (e.boss) { shake = 14; if (HOOKS.bossHide) HOOKS.bossHide(); nextStage(); }
   else if (S.ks >= killsNeed()) nextStage();
 }
 function nextStage() {
-   // --- EVALUAR RANGO DE LA ETAPA ACTUAL ---
+  addSeasonXp(SEASON_XP_PER_STAGE);
   const timeSec = (Date.now() - stageStartTime) / 1000;
   const rank = getStageRank(timeSec, stageHadDeaths, isBossStage());
   if (!S.stageRanks) S.stageRanks = {};
   S.stageRanks[S.stage] = rank;
-  
   if (rank === 'S') toast('🌟 ¡RANGO S EN ETAPA ' + S.stage + '!');
   S.stage++; S.best = Math.max(S.best, S.stage); S.ks = 0;
-  stageStartTime = Date.now(); // Reset timer
-  stageHadDeaths = false;      // Reset deaths
+  stageStartTime = Date.now();
+  stageHadDeaths = false;
   resetSquad(); initSquad();
-  reEnter(); // aparece al inicio de la pantalla en cada etapa
+  reEnter();
   enemies = []; spawnT = 0.6;
   stageFlash = 0.5;
   const ch = Math.floor((S.stage - 1) / 10);
@@ -182,18 +172,15 @@ function nextStage() {
   persist(); netScore(S.name, S.best);
   notify('⚔️ Etapa ' + S.stage + (isBossStage() ? ' 👑' : ''));
 }
-// ===== AVANCE por proximidad =====
 function updateAdvance(dt) {
   const hx = heroX();
   const cap = Math.max(0, Math.min(260, W - 420 - hx));
-  // ante jefe, repliegue a la posición base (formación)
   if (isBossStage()) { advance = Math.max(0, advance - dt * 140); return; }
   const near = enemies.filter(e => e.dying === null).sort((a, b) => a.x - b.x)[0];
-  const line = hx + advance + 170; // línea donde se frena el enemigo más cercano
-  if (!near) { advance = Math.min(cap, advance + dt * 70); return; } // campo limpio → avanzar
-  if (near.x > line + 60) advance = Math.min(cap, advance + dt * 70); // enemigo lejos → ir a buscarlo
+  const line = hx + advance + 170;
+  if (!near) { advance = Math.min(cap, advance + dt * 70); return; }
+  if (near.x > line + 60) advance = Math.min(cap, advance + dt * 70);
 }
-// ===== Update =====
 function update(rawDt) {
   const dt = rawDt * SETTINGS.speed;
   time += dt;
@@ -207,7 +194,6 @@ function update(rawDt) {
     m.lunge = Math.max(0, m.lunge - dt * 4);
     m.castT = Math.max(0, m.castT - dt);
     if (!m.alive) return;
-    // movimiento: entra desde la izquierda / avanza / se repliega
     const tx = slotX(m) + advance;
     if (m.px < tx - 2) { m.px = Math.min(tx, m.px + 150 * dt); m.entering = true; }
     else { if (m.px > tx + 2) m.px = Math.max(tx, m.px - 150 * dt); m.entering = false; }
@@ -217,7 +203,6 @@ function update(rawDt) {
       const t = pickTarget();
       if (t) {
         m.lunge = 1;
-        // daño básico por rol: dps 100% · arquera 85% · mago 55% (el mago vive de su ult)
         const mult = m.def.role === 'dps' ? 1 : m.def.role === 'archer' ? 0.85 : 0.55;
         const isCrit = Math.random() < critChance();
         const d = dps() * 0.5 * mult * (isCrit ? critMult() : 1);
@@ -234,7 +219,6 @@ function update(rawDt) {
   healT -= dt;
   if (healT <= 0) {
     healT = 2;
-    // regen pasiva global: cura al miembro más herido
     const target = squad.filter(m => m.alive && m.hp < m.maxHp).sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp))[0];
     if (target) {
       const h = regenPs() * 2;
@@ -250,7 +234,7 @@ function update(rawDt) {
       const d = venomDm();
       float(hx + advance + 140, gy - 90, '☠️ ' + fmt(d), '#a020f0', true);
       Audio.SFX.venom();
-      petCastT = 0.9; // LOTE 5: la MASCOTA escupe el orbe de veneno
+      petCastT = 0.9;
       aliveE.forEach(e => {
         e.hp -= d; e.flash = 0.15; e.kb = 5;
         burst(e.x, gy - 30, '#a020f0', 8);
@@ -301,7 +285,7 @@ function update(rawDt) {
               enemies.forEach(x => { if (x.dying === null) { x.dying = 0.45; puff(x.x, gy + 2); } });
               if (HOOKS.bossHide) HOOKS.bossHide();
               spawnT = 0.8;
-              reEnter(); // tras caer, volvés a entrar desde el inicio
+              reEnter();
               persist(); netScore(S.name, S.best);
               notify('💀 Caíste → Etapa ' + S.stage + '. ¡Farmeá y volvé!');
               resetSquad();

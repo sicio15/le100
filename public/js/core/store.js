@@ -1,6 +1,6 @@
 'use strict';
 // ===== STORE: estado S + fórmulas + persistencia =====
-// LOTE 14: Equipo 2.0 (esencia, amuletos, forja, rotura, mochila ampliable, auto-fundir)
+// LOTE 17: eventos relámpago (flash) + calendario semanal.
 const KEY = 'le100_cache_v4';
 const DEF = { name: '', gold: 0, adn: 0, stage: 1, best: 1, kills: 0, ks: 0, prestiges: 0, prBase: 1,
   ups: { dmg: 0, vit: 0, regen: 0, venom: 0, fortune: 0 }, ach: {}, last: Date.now(),
@@ -10,7 +10,8 @@ const DEF = { name: '', gold: 0, adn: 0, stage: 1, best: 1, kills: 0, ks: 0, pre
   mDate: '', mBase: { kills: 0, tower: 1, prestiges: 0 }, mClaimed: {},
   shop: { lv: {}, skins: [], skin: '' },
   stageRanks: {}, weekTower: 1, weekClaimedKey: 0, milestones: {},
-  essence: 0, amulets: 0, bagSize: 30, autoSalvage: -1 };
+  essence: 0, amulets: 0, bagSize: 30, autoSalvage: -1,
+  flashType: '', flashEnd: 0, flashNext: 0, season: 1, seasonXp: 0, seasonLevel: 1, hasPremiumPass: false, seasonClaimed: {}, seasonStart: Date.now() };
 let S = loadCache();
 let authed = false;
 function normGear(g) {
@@ -60,6 +61,15 @@ function loadCache() {
       out.amulets = Math.max(0, +s.amulets || 0);
       out.bagSize = Math.max(30, Math.min(100, +s.bagSize || 30));
       out.autoSalvage = Math.max(-1, Math.min(3, +s.autoSalvage != null ? +s.autoSalvage : -1));
+      out.flashType = String(s.flashType || '');
+      out.flashEnd = Math.max(0, +s.flashEnd || 0);
+      out.flashNext = Math.max(0, +s.flashNext || 0);
+      out.season = Math.max(1, +s.season || 1);
+out.seasonXp = Math.max(0, +s.seasonXp || 0);
+out.seasonLevel = Math.max(1, Math.min(SEASON_MAX_LEVEL, +s.seasonLevel || 1));
+out.hasPremiumPass = !!s.hasPremiumPass;
+out.seasonClaimed = (s.seasonClaimed && typeof s.seasonClaimed === 'object') ? s.seasonClaimed : {};
+out.seasonStart = +s.seasonStart || Date.now();
       return out;
     }
   } catch (e) {}
@@ -86,9 +96,9 @@ function applyServerSave(save) {
   S.milestones = ((save || {}).milestones && typeof (save || {}).milestones === 'object') ? save.milestones : {};
   S.name = name; S.ks = 0;
 }
-// ===== EQUIPO 2.0: esencia, amuletos, forja, rotura =====
+// ===== EQUIPO 2.0 =====
 const ESSENCE_BY_RAR = [1, 3, 8, 20, 50];
-const FUSE_COST = [3, 10, 25, 60];            // esencia p/ fusionar rareza r → r+1
+const FUSE_COST = [3, 10, 25, 60];
 const AMULET_DROP_CHANCE = [0, 0, 0.05, 0.15, 0.4];
 const bagMax = () => S.bagSize || 30;
 const bagExpandCost = () => 25000 * Math.pow(4, ((S.bagSize || 30) - 30) / 10);
@@ -112,7 +122,7 @@ function destroyItem(it) {
 }
 const enhanceChance = lvl => lvl < 5 ? 100 : lvl < 10 ? 80 : lvl < 15 ? 60 : lvl < 20 ? 45 : 30;
 const enhanceGold = it => Math.floor(20 * Math.pow(1.35, it.lvl) * (it.rarity + 1));
-const enhanceCost = enhanceGold; // alias retro-compat
+const enhanceCost = enhanceGold;
 const enhanceEssence = it => (it.rarity + 1) * (1 + Math.floor(it.lvl / 5));
 function removeFromEverywhere(it) {
   Object.keys(S.gear.equipped).forEach(k => { if (S.gear.equipped[k] === it) S.gear.equipped[k] = null; });
@@ -164,7 +174,6 @@ function fuseItems(items, targetSlot) {
   toast('⚗️ ¡Forja: ' + RAR_NAMES[nu.rarity] + ' ' + SLOT_DEFS[nu.slot].name + '!');
   Audio.SFX.levelup(); persist();
 }
-// ===== Equipo clásico =====
 function gearBonuses() {
   const b = { atk: 0, hp: 0, crit: 0, critd: 0, regen: 0 };
   Object.values(S.gear.equipped).forEach(it => {
@@ -196,7 +205,6 @@ function rollItem(luck) {
 }
 function dropItem(luck) {
   const it = rollItem(luck + Math.floor(S.stage / 10));
-  // auto-fundir QoL
   if ((S.autoSalvage != null ? S.autoSalvage : -1) >= 0 && it.rarity <= S.autoSalvage) {
     const es = salvageEssence(it);
     S.essence = (S.essence || 0) + es;
@@ -212,7 +220,7 @@ function dropItem(luck) {
   S.gear.inv.push(it);
   if (typeof toast !== 'undefined') toast(SLOT_DEFS[it.slot].icon + ' ¡' + RAR_NAMES[it.rarity] + ' ' + SLOT_DEFS[it.slot].name + '!');
 }
-// ===== Resets / eventos / fórmulas (sin cambios) =====
+// ===== Resets / eventos semanales =====
 function checkDailyResets() {
   const d = new Date().toISOString().slice(0, 10);
   if (S.ticketDate !== d) { S.ticketDate = d; S.tickets = 3; }
@@ -255,23 +263,46 @@ const EVENTS = [
   { id: 'toxico',    n: '☠️ Marea Tóxica',         d: 'Veneno +50% y cooldown -2s' },
   { id: 'racha',     n: '🛒 Semana de Ofertas',    d: 'Mejoras 20% más baratas' }
 ];
-let _evW = -1, _ev = EVENTS[0];
-function weekEvent() {
-  const w = Math.floor(Date.now() / 604800000);
-  if (w !== _evW) { _evW = w; _ev = EVENTS[w % EVENTS.length]; }
-  return _ev;
-}
+function weekEventAt(w) { return EVENTS[((w % EVENTS.length) + EVENTS.length) % EVENTS.length]; }
+function weekEvent() { return weekEventAt(weekNow()); }
 const evHas = id => weekEvent().id === id;
+// ===== EVENTOS RELÁMPAGO (LOTE 17) =====
+const FLASH_TYPES = [
+  { id: 'oro',     n: '🌠 Lluvia de Oro',  d: 'Oro x3',    mult: 3 },
+  { id: 'drop',    n: '🎁 Cosecha',        d: 'Drops x3',  mult: 3 },
+  { id: 'energia', n: '⚡ Sobrecarga',     d: 'Energía x2', mult: 2 },
+  { id: 'dano',    n: '🔥 Furia Estelar',  d: 'Daño x2',   mult: 2 }
+];
+const FLASH_DUR = 5 * 60 * 1000; // 5 minutos
+const flashActive = () => !!(S.flashEnd && Date.now() < S.flashEnd);
+const flashType = () => flashActive() ? S.flashType : null;
+const flashMult = id => flashType() === id ? (FLASH_TYPES.find(f => f.id === id) || {}).mult || 1 : 1;
+const flashInfo = () => FLASH_TYPES.find(f => f.id === S.flashType);
+function checkFlash() {
+  const now = Date.now();
+  if (flashActive()) return;
+  if (!S.flashNext) { S.flashNext = now + (10 + Math.random() * 10) * 60000; persist(); return; }
+  if (now >= S.flashNext) {
+    const t = FLASH_TYPES[Math.random() * FLASH_TYPES.length | 0];
+    S.flashType = t.id;
+    S.flashEnd = now + FLASH_DUR;
+    S.flashNext = S.flashEnd + (45 + Math.random() * 45) * 60000;
+    toast('🌠 ¡EVENTO: ' + t.n + ' — ' + t.d + ' por 5 min!');
+    Audio.SFX.levelup();
+    persist();
+  }
+}
+// ===== Tienda / fórmulas =====
 const shopLv = k => (S.shop && S.shop.lv && S.shop.lv[k]) || 0;
 const adnMult   = () => 1 + 0.1 * S.adn;
-const dps       = () => 5 * Math.pow(1.3, S.ups.dmg) * adnMult() * (1 + gearBonuses().atk / 100) * (1 + 0.02 * ((S.colonyLevel || 1) - 1)) * (1 + 0.05 * shopLv('fury')) * (evHas('furia') ? 1.3 : 1);
+const dps       = () => 5 * Math.pow(1.3, S.ups.dmg) * adnMult() * (1 + gearBonuses().atk / 100) * (1 + 0.02 * ((S.colonyLevel || 1) - 1)) * (1 + 0.05 * shopLv('fury')) * (evHas('furia') ? 1.3 : 1) * flashMult('dano');
 const maxHP     = () => 100 * Math.pow(1.22, S.ups.vit) * (1 + gearBonuses().hp / 100) * (1 + 0.05 * shopLv('vita')) * (evHas('vital') ? 1.3 : 1);
 const regenPs   = () => maxHP() * (0.02 + 0.01 * S.ups.regen) * (1 + gearBonuses().regen / 100) * (1 + 0.08 * shopLv('regen')) * (evHas('vital') ? 1.3 : 1);
 const critChance= () => Math.min(0.75, 0.2 + gearBonuses().crit / 100 + 0.02 * shopLv('crit') + (evHas('precision') ? 0.25 : 0));
 const critMult  = () => 2.2 + gearBonuses().critd / 100;
 const venomCd   = () => Math.max(2, (Math.max(3, 7 - 0.3 * S.ups.venom)) - (evHas('toxico') ? 2 : 0));
 const venomDm   = () => dps() * (2 + 0.5 * S.ups.venom) * (evHas('toxico') ? 1.5 : 1);
-const goldKill  = st => Math.ceil(3 * Math.pow(1.18, st) * (1 + 0.25 * S.ups.fortune) * adnMult() * (1 + 0.05 * shopLv('fort')) * (evHas('fiebre') ? 2 : 1));
+const goldKill  = st => Math.ceil(3 * Math.pow(1.18, st) * (1 + 0.25 * S.ups.fortune) * adnMult() * (1 + 0.05 * shopLv('fort')) * (evHas('fiebre') ? 2 : 1) * flashMult('oro'));
 const eHP       = st => 10 * Math.pow(1.27, st);
 const eDmg      = st => 4 * Math.pow(1.22, st);
 const cost      = k => Math.floor(COSTS[k][0] * Math.pow(COSTS[k][1], S.ups[k]) * (evHas('racha') ? 0.8 : 1));
@@ -279,6 +310,7 @@ const isBossStage = () => S.stage % 5 === 0;
 const killsNeed = () => isBossStage() ? 1 : 8;
 const prTotal = x => Math.floor(3 * Math.sqrt(Math.max(0, x - 8)));
 const prGain  = () => Math.max(0, prTotal(S.best) - prTotal(S.prBase || 1));
+// ===== Rangos de etapa =====
 function getStageRank(timeSeconds, hadDeaths, isBoss) {
   if (isBoss) return timeSeconds < 20 ? 'S' : 'R';
   if (timeSeconds < 15 && !hadDeaths) return 'S';
@@ -328,4 +360,59 @@ function skipToRecord() {
   persist();
   toast('⚡ Saltaste a tu récord: Etapa ' + S.best);
   Audio.SFX.levelup();
+}
+// ===== TEMPORADAS / BATTLE PASS (LOTE 18) =====
+function checkSeasonReset() {
+  const now = Date.now();
+  const elapsed = now - S.seasonStart;
+  if (elapsed >= SEASON_DURATION) {
+    // Nueva temporada
+    S.season++;
+    S.seasonXp = 0;
+    S.seasonLevel = 1;
+    S.seasonClaimed = {};
+    S.seasonStart = now;
+    toast('🎫 ¡Nueva temporada #' + S.season + '!');
+    Audio.SFX.levelup();
+    persist();
+  }
+}
+const xpForLevel = lvl => 100 + (lvl - 1) * 50; // 100, 150, 200, 250...
+function addSeasonXp(amount) {
+  if (S.hasPremiumPass) amount = Math.floor(amount * 1.5); // +50% XP con pase premium
+  S.seasonXp += amount;
+  while (S.seasonLevel < SEASON_MAX_LEVEL && S.seasonXp >= xpForLevel(S.seasonLevel)) {
+    S.seasonXp -= xpForLevel(S.seasonLevel);
+    S.seasonLevel++;
+    toast('🎫 ¡Nivel ' + S.seasonLevel + ' del pase!');
+    Audio.SFX.levelup();
+  }
+  persist();
+}
+function claimSeasonReward(lvl, type) {
+  const key = lvl + '_' + type;
+  if (S.seasonClaimed[key]) return toast('❌ Ya reclamado');
+  if (S.seasonLevel < lvl) return toast('❌ Nivel insuficiente');
+  if (type === 'premium' && !S.hasPremiumPass) return toast('❌ Necesitás el pase premium');
+  
+  const reward = SEASON_REWARDS[lvl - 1][type];
+  S.seasonClaimed[key] = 1;
+  
+  if (reward.gold) { S.gold += reward.gold; toast('+' + fmt(reward.gold) + ' 🪙'); }
+  if (reward.adn) { S.adn += reward.adn; toast('+' + reward.adn + ' 🧬'); }
+  if (reward.item) dropItem(reward.item.rarity);
+  if (reward.skin) { S.shop.skins.push(reward.skin); toast('🎨 Skin desbloqueada: ' + reward.skin); }
+  if (reward.title) toast('🏆 Título: ' + reward.title);
+  
+  Audio.SFX.coin();
+  persist();
+}
+function buyPremiumPass() {
+  if (S.hasPremiumPass) return toast('✅ Ya tenés el pase premium');
+  if (S.adn < PREMIUM_PASS_COST) return toast('❌ Necesitás ' + PREMIUM_PASS_COST + ' 🧬');
+  S.adn -= PREMIUM_PASS_COST;
+  S.hasPremiumPass = true;
+  toast('🎫 ¡Pase premium activado! +50% XP');
+  Audio.SFX.levelup();
+  persist();
 }

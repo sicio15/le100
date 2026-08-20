@@ -64,3 +64,33 @@ const SLOT_DEFS = {
 };
 const STAT_NAMES = { atk: 'Daño%', hp: 'Vida%', crit: 'Crítico%', critd: 'DañoCrit%', regen: 'Regen%' };
 const SUB_POOL = ['atk', 'hp', 'crit', 'critd', 'regen'];
+// ===== BATTLE PASS / TEMPORADAS (LOTE 18) =====
+const SEASON_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 días
+const SEASON_XP_PER_KILL = 1;
+const SEASON_XP_PER_STAGE = 10;
+const SEASON_XP_PER_BOSS = 50;
+const SEASON_XP_PER_MISSION = 100;
+const SEASON_MAX_LEVEL = 50;
+const PREMIUM_PASS_COST = 50; // ADN
+
+// Recompensas por nivel (gratis + premium)
+const SEASON_REWARDS = [];
+for (let lvl = 1; lvl <= SEASON_MAX_LEVEL; lvl++) {
+  const free = {};
+  const premium = {};
+  
+  // Gratis: oro cada 2 niveles, ADN cada 10, equipo cada 5
+  if (lvl % 2 === 0) free.gold = 500 * lvl;
+  if (lvl % 10 === 0) free.adn = 5;
+  if (lvl % 5 === 0) free.item = { rarity: Math.min(4, Math.floor(lvl / 10)) };
+  
+  // Premium: más oro, más ADN, skins exclusivas, títulos
+  premium.gold = 1000 * lvl;
+  if (lvl % 5 === 0) premium.adn = 3;
+  if (lvl === 10) premium.skin = 'bronce';
+  if (lvl === 25) premium.skin = 'plata';
+  if (lvl === 50) premium.skin = 'oro';
+  if (lvl === 50) premium.title = 'Conquistador de Temporada';
+  
+  SEASON_REWARDS.push({ lvl, free, premium });
+}

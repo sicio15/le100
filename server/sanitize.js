@@ -1,6 +1,5 @@
 'use strict';
 // ===== SAVE SANITIZER: el cliente NUNCA decide sus números =====
-// LOTE 14: +essence/amulets/bagSize/autoSalvage + item.locked
 const DEF_SAVE = { gold: 0, adn: 0, stage: 1, best: 1, kills: 0, prestiges: 0, prBase: 1,
   ups: { dmg: 0, vit: 0, regen: 0, venom: 0, fortune: 0 }, ach: {}, last: Date.now(),
   gear: { equipped: { fang: null, shell: null, antenna: null, charm: null }, inv: [] },
@@ -10,12 +9,14 @@ const DEF_SAVE = { gold: 0, adn: 0, stage: 1, best: 1, kills: 0, prestiges: 0, p
   shop: { lv: {}, skins: [], skin: '' },
   look: { form: 'cienpies', hair: 'a', crown: false },
   stageRanks: {}, weekTower: 1, weekClaimedKey: 0, milestones: {},
-  essence: 0, amulets: 0, bagSize: 30, autoSalvage: -1 };
+  essence: 0, amulets: 0, bagSize: 30, autoSalvage: -1,
+  flashType: '', flashEnd: 0, flashNext: 0, season: 1, seasonXp: 0, seasonLevel: 1, hasPremiumPass: false, seasonClaimed: {}, seasonStart: Date.now() };
 const SHOP_MAX = { fury: 10, vita: 10, fort: 10, regen: 10, crit: 5 };
 const SKIN_IDS = ['oro', 'hielo', 'sombra'];
 const HAIR_IDS = ['a', 'b', 'c'];
 const VALID_RANKS = ['S', 'A', 'B', 'C', 'R'];
 const MILESTONE_IDS = ['t10', 't25', 't50', 't100'];
+const FLASH_IDS = ['oro', 'drop', 'energia', 'dano'];
 function sanitizeSave(s) {
   const o = JSON.parse(JSON.stringify(DEF_SAVE));
   if (!s || typeof s !== 'object') return o;
@@ -87,12 +88,23 @@ function sanitizeSave(s) {
     Object.entries(s.milestones).forEach(([k, v]) => { if (MILESTONE_IDS.includes(k) && v) ms[k] = 1; });
     o.milestones = ms;
   }
-  // Equipo 2.0
   o.essence = num(s.essence, 1e9);
   o.amulets = num(s.amulets, 9999);
   o.bagSize = Math.max(30, Math.min(100, num(s.bagSize, 100) || 30));
   o.autoSalvage = Math.max(-1, Math.min(3, Number.isFinite(+s.autoSalvage) ? +s.autoSalvage : -1));
+  // LOTE 17: eventos relámpago
+  o.flashType = FLASH_IDS.includes(String(s.flashType || '')) ? String(s.flashType) : '';
+  o.flashEnd = num(s.flashEnd, 1e15);
+  o.flashNext = num(s.flashNext, 1e15);
   o.last = Number(s.last) || Date.now();
+  o.season = Math.max(1, num(s.season, 999));
+o.seasonXp = num(s.seasonXp, 1e9);
+o.seasonLevel = Math.max(1, Math.min(SEASON_MAX_LEVEL, num(s.seasonLevel, SEASON_MAX_LEVEL)));
+o.hasPremiumPass = !!s.hasPremiumPass;
+o.seasonClaimed = (s.seasonClaimed && typeof s.seasonClaimed === 'object')
+  ? Object.fromEntries(Object.entries(s.seasonClaimed).filter(([, v]) => v).map(([k]) => [String(k).slice(0, 20), 1]))
+  : {};
+o.seasonStart = num(s.seasonStart, 1e15) || Date.now();
   return o;
 }
 module.exports = { sanitizeSave, DEF_SAVE };

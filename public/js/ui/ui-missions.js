@@ -26,6 +26,7 @@ wire('misAll', 'click', () => {
   if (got) { persist(); Audio.SFX.levelup(); }
   renderMissions();
 });
+addSeasonXp(SEASON_XP_PER_MISSION);
 function renderMissions() {
   checkMissions();
   const box = $('misList'); if (!box) return;
