@@ -1,21 +1,20 @@
 'use strict';
-// ===== UI base: toasts + wire + caché de elementos + hooks QoL =====
+// ===== UI base: toasts (tope 4) + wire + caché EL + hooks QoL =====
 function toast(t) {
+  const wrap = $('toasts');
   const d = document.createElement('div');
   d.className = 'toast'; d.textContent = t;
-  $('toasts').appendChild(d);
+  wrap.appendChild(d);
+  while (wrap.children.length > 4) wrap.firstChild.remove(); // POLISH: no apilar infinito
   setTimeout(() => d.remove(), 2400);
 }
 const wire = (id, ev, fn) => { const e = $(id); if (e) e.addEventListener(ev, fn); };
 // OPTIMIZACIÓN: elementos del hot-path (uiTick 10Hz) cacheados 1 sola vez.
-// 0 getElementById por tick (antes ~270/s).
 const EL = {};
 ['goldTxt', 'stageTxt', 'adnTxt', 'bossTag', 'hpTxt', 'dpsTxt', 'heroHpWrap',
   'stageProgFill', 'stageProgTxt', 'prDot', 'achDot', 'gearDot'
 ].forEach(id => { EL[id] = $(id); });
-// ===== HOOKS QoL (deuda #9): eventos explícitos en vez de setTimeout(0) =====
-// Cualquier módulo puede suscribirse a la apertura de un modal sin acoplarse
-// al orden de listeners del click. Genérico para futuros hooks.
+// HOOKS QoL: eventos explícitos (autoequip etc.)
 const UI_HOOKS = { gearOpen: [] };
 function onGearOpen(fn) { UI_HOOKS.gearOpen.push(fn); }
 function fireGearOpen() { UI_HOOKS.gearOpen.forEach(fn => { try { fn(); } catch (e) {} }); }

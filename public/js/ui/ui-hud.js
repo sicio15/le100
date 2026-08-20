@@ -1,5 +1,36 @@
 'use strict';
-// ===== HUD: mejoras, velocidad, settings, logros, prestigio, ranking, escuadrón, uiTick =====
+// ===== HUD: mejoras (cantidad + mantenido), velocidad, settings, logros,
+// prestigio (info clara), ranking, escuadrón, uiTick, sync, atajos desktop =====
+
+// ----- Cantidad de compra (x1 → x10 → MAX) -----
+let buyQtyMode = (SETTINGS && SETTINGS.buyQty) || 1;
+const qtyLabel = () => buyQtyMode === 'max' ? 'MAX' : 'x' + buyQtyMode;
+function cycleBuyQty() {
+  buyQtyMode = buyQtyMode === 1 ? 10 : buyQtyMode === 10 ? 'max' : 1;
+  SETTINGS.buyQty = buyQtyMode; saveSettings();
+  const b = $('buyQtyBtn'); if (b) b.textContent = '🛒 ' + qtyLabel();
+  toast('🛒 Compra ' + qtyLabel());
+  Audio.SFX.click();
+}
+function buyUps(k, n) {
+  let bought = 0;
+  for (let i = 0; i < n; i++) { const co = cost(k); if (S.gold < co) break; S.gold -= co; S.ups[k]++; bought++; }
+  if (bought) { if (k === 'vit') initSquad(); persist(); Audio.SFX.buy(); }
+  else Audio.SFX.click();
+  return bought;
+}
+// click = cantidad elegida · mantener pulsado = compra continua
+function attachBuy(btn, k) {
+  let holdT = null, repT = null, held = false;
+  btn.addEventListener('click', () => { if (held) { held = false; return; } buyUps(k, buyQtyMode === 'max' ? 999 : buyQtyMode); });
+  btn.addEventListener('pointerdown', () => {
+    held = false;
+    holdT = setTimeout(() => { held = true; repT = setInterval(() => buyUps(k, 1), 140); }, 450);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev =>
+    btn.addEventListener(ev, () => { clearTimeout(holdT); if (repT) { clearInterval(repT); repT = null; } }));
+}
+
 // ----- Mejoras -----
 const upBtns = {}, upLvs = {};
 (function buildUps() {
@@ -11,18 +42,21 @@ const upBtns = {}, upLvs = {};
     c.innerHTML = '<div class="un">' + ico + ' ' + UPDEF[k].name + ' <span class="ul" id="lv_' + k + '">Nv 0</span></div><button class="ubuy" id="buy_' + k + '"></button>';
     ups.appendChild(c);
     upBtns[k] = c.querySelector('button');
-    upLvs[k] = c.querySelector('.ul'); // span de nivel cacheado
-    upBtns[k].onclick = () => {
-      const co = cost(k);
-      if (S.gold >= co) {
-        S.gold -= co; S.ups[k]++;
-        if (k === 'vit') initSquad();
-        persist(); Audio.SFX.buy();
-        toast(UPDEF[k].icon + ' ' + UPDEF[k].name + ' Nv ' + S.ups[k]);
-      } else { Audio.SFX.click(); }
-    };
+    upLvs[k] = c.querySelector('.ul');
+    attachBuy(upBtns[k], k);
   });
+  // botón de cantidad en heroStats
+  const hs = $('heroStats');
+  if (hs && !$('buyQtyBtn')) {
+    const b = document.createElement('button');
+    b.id = 'buyQtyBtn'; b.className = 'tbtn'; b.title = 'Cantidad de compra (click para cambiar)';
+    b.style.cssText = 'font-size:8px;padding:4px 8px;';
+    b.textContent = '🛒 ' + qtyLabel();
+    b.onclick = cycleBuyQty;
+    hs.appendChild(b);
+  }
 })();
+
 // ----- Velocidad -----
 const SPEEDS = [1, 2, 3];
 function cycleSpeed() {
@@ -33,6 +67,20 @@ function cycleSpeed() {
 }
 wire('speedBtn', 'click', cycleSpeed);
 if ($('speedBtn')) $('speedBtn').textContent = '⏩ x' + SETTINGS.speed;
+
+// ----- Atajos de teclado (desktop) -----
+window.addEventListener('keydown', e => {
+  if (e.repeat) return;
+  const tag = (e.target && e.target.tagName) || '';
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+  switch (e.key) {
+    case ' ': e.preventDefault(); cycleSpeed(); break;
+    case 'm': case 'M': { const b = $('btnMap'); if (b) b.click(); break; }
+    case 'e': case 'E': { const b = $('btnGear'); if (b) b.click(); break; }
+    case 'p': case 'P': { const b = $('btnPrestige'); if (b) b.click(); break; }
+  }
+});
+
 // ----- Settings -----
 function openSettings() {
   Audio.SFX.click();
@@ -48,13 +96,13 @@ wire('setAudio', 'change', e => { SETTINGS.audio = e.target.checked; Audio.setEn
 wire('setMusic', 'input', e => { SETTINGS.musicVol = +e.target.value; $('setMusicV').textContent = Math.round(SETTINGS.musicVol * 100); Audio.setMusicVol(SETTINGS.musicVol); });
 wire('setSfx', 'input', e => { SETTINGS.sfxVol = +e.target.value; $('setSfxV').textContent = Math.round(SETTINGS.sfxVol * 100); Audio.setSfxVol(SETTINGS.sfxVol); });
 wire('setReduce', 'change', e => { SETTINGS.reduceFx = e.target.checked; saveSettings(); });
-// LOTE 2C (deuda #8): logout limpia el token persistente antes del reload
 wire('setLogout', 'click', () => {
   if (!confirm('¿Cerrar sesión? (tu partida queda guardada en la cuenta)')) return;
   persist();
   if (typeof netClearToken === 'function') netClearToken();
   location.reload();
 });
+
 // ----- Logros -----
 function renderAch() {
   $('achList').innerHTML = '';
@@ -78,10 +126,18 @@ function renderAch() {
     $('achList').appendChild(row);
   });
 }
-// ----- Prestigio -----
+
+// ----- Prestigio (con resumen claro) -----
 wire('btnPrestige', 'click', () => {
   $('prGain').textContent = '+' + prGain() + ' 🧬';
   $('prBtn').disabled = !(S.best >= 10 && prGain() > 0);
+  let info = $('prInfo');
+  if (!info) {
+    info = document.createElement('p'); info.id = 'prInfo';
+    info.style.cssText = 'color:#8fa3c8;font-size:11px;margin:8px 0;line-height:1.5;';
+    $('prGain').after(info);
+  }
+  info.innerHTML = '♻️ Se reinicia: oro, etapa y mejoras.<br>💾 Se conserva: ADN, equipo, logros, tienda, rangos y modos.';
   $('mPrestige').style.display = 'flex'; Audio.SFX.click();
 });
 wire('prClose', 'click', () => { $('mPrestige').style.display = 'none'; });
@@ -99,6 +155,7 @@ wire('prBtn', 'click', () => {
   Audio.SFX.levelup();
   toast('🧬 ¡Prestigio! +' + g + ' ADN');
 });
+
 // ----- Modales: logros + ranking -----
 wire('btnAch', 'click', () => { renderAch(); $('mAch').style.display = 'flex'; Audio.SFX.click(); });
 wire('achClose', 'click', () => { $('mAch').style.display = 'none'; });
@@ -110,6 +167,7 @@ wire('btnLb', 'click', () => {
   $('mLb').style.display = 'flex'; Audio.SFX.click();
 });
 wire('lbClose', 'click', () => { $('mLb').style.display = 'none'; });
+
 // ----- HUD de escuadrón -----
 let sqBuiltKey = '';
 const sqRows = {};
@@ -129,7 +187,32 @@ function buildSquadHud() {
     sqRows[m.def.id] = { row: r, hp: r.querySelector('.sqHp i'), en: r.querySelector('.sqEn i') };
   });
 }
-// ----- HUD tick (llamado a 10Hz desde BattleScene) -----
+
+// ----- Indicador de sincronización cloud-save -----
+let syncEl = null, lastSync = 0;
+function initSync() {
+  if (syncEl) return;
+  syncEl = document.createElement('div');
+  syncEl.id = 'syncIndicator';
+  document.body.appendChild(syncEl);
+}
+function showSync(status, msg) {
+  initSync();
+  syncEl.style.color = status === 'saved' ? '#7bed9f' : status === 'error' ? '#ff4757' : '#ffd700';
+  syncEl.textContent = msg;
+  syncEl.style.opacity = '1';
+  if (status === 'saved') setTimeout(() => { syncEl.style.opacity = '0'; }, 2000);
+}
+const _persistHud = persist;
+persist = function () {
+  if (authed && typeof socket !== 'undefined' && socket && socket.connected) { showSync('saving', '💾 Guardando...'); lastSync = Date.now(); }
+  _persistHud();
+  if (authed && typeof socket !== 'undefined' && socket && socket.connected) {
+    setTimeout(() => { if (Date.now() - lastSync < 3000) showSync('saved', '✅ Sincronizado'); }, 500);
+  }
+};
+
+// ----- HUD tick (10Hz desde BattleScene) -----
 let dotAcc = 0;
 function uiTick() {
   EL.goldTxt.textContent = fmt(S.gold);
@@ -156,11 +239,10 @@ function uiTick() {
   for (const k in UPDEF) {
     const lv = upLvs[k]; if (lv) lv.textContent = 'Nv ' + S.ups[k];
     const b = upBtns[k]; if (!b) continue;
-    const co = cost(k); // 1 cost() por mejora y tick (antes 2)
+    const co = cost(k);
     b.textContent = '🪙 ' + fmt(co);
     b.disabled = S.gold < co;
   }
-  // dots a 2Hz en vez de 10Hz (hasBetterGear/ACH.some no necesitan más)
   if (++dotAcc >= 5) {
     dotAcc = 0;
     EL.prDot.style.display = (S.best >= 10 && prGain() > 0) ? 'block' : 'none';
@@ -168,61 +250,3 @@ function uiTick() {
     if (EL.gearDot) EL.gearDot.style.display = hasBetterGear() ? 'block' : 'none';
   }
 }
-// ===== INDICADOR DE SINCRONIZACIÓN CLOUD-SAVE =====
-let syncIndicator = null;
-let lastSyncTime = 0;
-
-function initSyncIndicator() {
-  if (syncIndicator) return;
-  syncIndicator = document.createElement('div');
-  syncIndicator.id = 'syncIndicator';
-  syncIndicator.style.cssText = `
-    position: fixed;
-    top: 70px;
-    right: 10px;
-    background: rgba(0,0,0,.7);
-    border: 1px solid rgba(255,255,255,.2);
-    border-radius: 20px;
-    padding: 4px 12px;
-    font-size: 10px;
-    color: #8fa3c8;
-    z-index: 99;
-    opacity: 0;
-    transition: opacity 0.3s;
-    pointer-events: none;
-  `;
-  document.body.appendChild(syncIndicator);
-}
-
-function showSyncStatus(status, message) {
-  initSyncIndicator();
-  const colors = {
-    saving: '#ffd700',
-    saved: '#7bed9f',
-    error: '#ff4757'
-  };
-  syncIndicator.style.color = colors[status] || '#8fa3c8';
-  syncIndicator.textContent = message;
-  syncIndicator.style.opacity = '1';
-  
-  if (status === 'saved') {
-    setTimeout(() => { syncIndicator.style.opacity = '0'; }, 2000);
-  }
-}
-
-// Hook en persist() para mostrar estado de sync
-const _persist = persist;
-persist = function() {
-  if (authed && socket && socket.connected) {
-    showSyncStatus('saving', '💾 Guardando...');
-    lastSyncTime = Date.now();
-  }
-  _persist();
-  if (authed && socket && socket.connected) {
-    setTimeout(() => {
-      if (Date.now() - lastSyncTime < 3000) {
-        showSyncStatus('saved', '✅ Sincronizado');
-      }
-    }, 500);
-  }
-};

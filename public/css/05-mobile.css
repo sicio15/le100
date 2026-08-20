@@ -1,0 +1,70 @@
+/* ===== 05-mobile: portrait / <700px (HUD v2+v3 consolidado) ===== */
+@media (orientation: portrait), (max-width: 700px) {
+  html, body { height:100dvh; }
+  #app { height:100dvh; }
+  #battleWrap { flex:1 1 auto; min-height:0; }
+  /* Topbar mínima + HUB */
+  #topbar { flex-wrap:nowrap; justify-content:space-between; padding:6px 8px; }
+  .tb-left { flex:0 0 auto; }
+  .tb-mid { gap:5px; }
+  .tb-right { width:auto; overflow:visible; }
+  .tb-right .tbtn:not(.hubBtn) { display:none; }
+  #btnHub { display:block; width:34px; height:34px; font-size:15px;
+    border-color:rgba(255,215,0,.5); box-shadow:0 0 10px rgba(255,215,0,.25); }
+  .panel { font-size:9px; padding:4px 9px; }
+  .panel b { font-size:10px; }
+  #stageProg { width:40px; height:7px; }
+  #stageProgTxt { font-size:6px; }
+  /* Boss / toasts / cut-ins compactos */
+  #bossBar { top:46px; height:16px; }
+  #bossTime { font-size:8px; line-height:16px; }
+  #toasts { top:50px; max-width:94vw; gap:4px; z-index:70; }
+  #toasts .toast { font-size:9px; padding:5px 12px; }
+  #toasts .toast:nth-child(n+4) { display:none; }
+  #cutin { top:15%; gap:5px; }
+  .cutin { padding:5px 14px; }
+  .ciName { font-size:10px; }
+  .ciUlt { font-size:8px; }
+  #cutin .cutin:nth-child(n+3) { display:none; }
+  .banner { font-size:12px; }
+  /* Escuadrón flotante */
+  #heroHpWrap { bottom:6px; left:6px; right:6px; width:auto; }
+  #heroHpWrap button { display:none; }
+  #heroHpWrap.squad { display:flex; flex-direction:row; gap:8px; padding:5px 8px; }
+  .sqRow { flex:1; min-width:0; }
+  .sqName { font-size:8px; width:auto; }
+  .sqHp { height:6px; }
+  .sqEn { height:3px; width:auto; flex:0 0 34px; }
+  /* Bottombar: pill + 5 mejoras visibles */
+  #bottombar { flex:0 0 auto; flex-direction:column; gap:5px;
+    padding:5px 8px calc(6px + env(safe-area-inset-bottom)); }
+  #heroStats { flex-direction:row; justify-content:center; gap:10px; font-size:9px;
+    padding:3px 12px; background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.02));
+    border:1px solid rgba(255,255,255,.1); border-radius:var(--r-pill);
+    width:max-content; margin:0 auto; min-width:0; }
+  #ups { display:grid; grid-template-columns:repeat(5,1fr); gap:4px; overflow:visible; padding:3px 0 4px; }
+  .ucard { flex:none; min-width:0; max-width:none; padding:4px 3px; }
+  .un { font-size:6.5px; }
+  .ul { font-size:6px; }
+  .ubuy { font-size:6.5px; padding:5px 1px; }
+  /* Modales */
+  .modal { padding:10px; }
+  .mcard { width:min(94vw,430px); max-height:88dvh; padding:16px 14px; border-radius:16px; }
+  .mcard h2 { font-size:13px; }
+  .mbtn { font-size:10px; padding:10px 12px; }
+  .minput { font-size:11px; padding:10px; }
+  .mrow { font-size:10px; }
+  #logoImg { width:90px; }
+  /* Equipo */
+  #gearBody { grid-template-columns:1fr; }
+  .gearCol { max-height:34vh; }
+  .gearTop { top:4px; padding:8px; }
+  .gearX { width:32px; height:32px; }
+  #autoEqBtn { font-size:9px; padding:7px 10px; }
+  /* Mapa */
+  .mapGrid { grid-template-columns:repeat(5,1fr); gap:5px; }
+  .mapNode { padding:7px 0; }
+  .nodeStage { font-size:8px; }
+  .nodeRank { font-size:9px; }
+  #syncIndicator { top:auto; bottom:120px; right:10px; }
+}

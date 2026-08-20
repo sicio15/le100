@@ -1,5 +1,7 @@
 'use strict';
-// ===== EQUIPO 2.0 UI: filas compactas, scroll independiente, cierre sticky =====
+// ===== EQUIPO 2.0 UI =====
+// FIX: gearPower formateado (sin coma flotante) + estilos inline de seguridad
+// (el layout de filas no depende de que cargue algún CSS en particular).
 let fuseSel = [];
 let enhTarget = null;
 let bagSort = 'rar';
@@ -48,7 +50,7 @@ const BAG_SORTS = {
 function renderGear() {
   const box = $('gearBody'); if (!box) return;
   box.innerHTML = '';
-  // ===== header: recursos + mochila + auto-fundir (ocupa todo el ancho) =====
+  // ===== header =====
   const head = document.createElement('div');
   head.style.cssText = 'grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:12px;';
   head.innerHTML =
@@ -70,7 +72,7 @@ function renderGear() {
     const it = enhTarget;
     const ch = enhanceChance(it.lvl);
     const p = document.createElement('div');
-    p.style.cssText = 'grid-column:1/-1;background:rgba(126,252,252,.08);border:1px solid #7efcff;border-radius:10px;padding:10px;font-size:12px;';
+    p.style.cssText = 'grid-column:1/-1;background:rgba(126,252,252,.08);border:1px solid #7efcff;border-radius:10px;padding:10px;font-size:12px;text-align:left;';
     p.innerHTML = '<b>⬆ ' + itemLabel(it) + '</b><br>' +
       'Éxito: <b style="color:' + (ch >= 80 ? '#7bed9f' : ch >= 50 ? '#ffd700' : '#ff5252') + '">' + ch + '%</b> · 🪙 ' + fmt(enhanceGold(it)) + ' · 💎 ' + enhanceEssence(it) +
       (it.lvl >= 10 ? '<br><small style="color:#ff5252">⚠️ Fallar desde +10: 30% de ROMPERSE</small>' : '<br><small style="color:#8fa3c8">Al fallar: −1 nivel</small>');
@@ -85,7 +87,7 @@ function renderGear() {
   if (fuseSel.length) {
     const r = fuseSel[0].rarity;
     const fb = document.createElement('div');
-    fb.style.cssText = 'grid-column:1/-1;background:rgba(200,107,250,.1);border:1px solid #c86bfa;border-radius:10px;padding:10px;font-size:12px;';
+    fb.style.cssText = 'grid-column:1/-1;background:rgba(200,107,250,.1);border:1px solid #c86bfa;border-radius:10px;padding:10px;font-size:12px;text-align:left;';
     fb.innerHTML = '<b>⚗️ FORJA:</b> ' + fuseSel.length + '/3 de rareza ' + RAR_NAMES[r] + ' · 💎' + FUSE_COST[r] + ' → ';
     const ss = document.createElement('select');
     ss.style.cssText = 'background:#1a2340;color:#fff;border:1px solid #3a4a7a;border-radius:8px;padding:3px;font-size:11px;';
@@ -97,27 +99,30 @@ function renderGear() {
   }
   // ===== equipado =====
   const eq = document.createElement('div'); eq.className = 'gearCol';
-  eq.innerHTML = '<div class="gColHead"><h3>EQUIPADO · ⚙️ ' + gearPower() + '</h3></div>';
+  eq.innerHTML = '<div class="gColHead"><h3>EQUIPADO · ⚙️ ' + fmt(gearPower()) + '</h3></div>'; // FIX float
   Object.keys(SLOT_DEFS).forEach(sl => {
     const it = S.gear.equipped[sl];
     const row = document.createElement('div'); row.className = 'gRow';
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;text-align:left;'; // layout seguro
     if (it) {
       row.style.borderColor = RAR_COLORS[it.rarity];
       const info = document.createElement('div'); info.className = 'gInfo';
+      info.style.cssText = 'flex:1;min-width:0;';
       info.innerHTML = '<b style="color:' + RAR_COLORS[it.rarity] + '">' + itemLabel(it) + '</b><small>' + itemStats(it) + '</small>';
       row.appendChild(info);
       const btns = document.createElement('div'); btns.className = 'gBtns';
+      btns.style.cssText = 'display:grid;grid-template-columns:repeat(2,auto);gap:4px;';
       btns.appendChild(mkBtn('⬆', () => { enhTarget = it; renderGear(); }, 'claim', 'Mejorar'));
       btns.appendChild(mkBtn(it.locked ? '🔒' : '🔓', () => { it.locked = !it.locked; persist(); renderGear(); }, 'claim', 'Bloquear/desbloquear'));
-      btns.appendChild(mkBtn('✖', () => { S.gear.inv.push(it); S.gear.equipped[sl] = null; Audio.SFX.click(); persist(); renderGear(); }, 'claim gEquip', 'Desequipar'));
+      btns.appendChild(mkBtn('✖ DESEQUIPAR', () => { S.gear.inv.push(it); S.gear.equipped[sl] = null; Audio.SFX.click(); persist(); renderGear(); }, 'claim gEquip', 'Desequipar'));
       row.appendChild(btns);
     } else {
-      row.innerHTML = '<div class="gInfo"><b>' + slotIcon(sl) + ' ' + SLOT_DEFS[sl].name + '</b><small>vacío</small></div>';
+      row.innerHTML = '<div class="gInfo" style="flex:1;min-width:0;"><b>' + slotIcon(sl) + ' ' + SLOT_DEFS[sl].name + '</b><small>vacío</small></div>';
     }
     eq.appendChild(row);
   });
   box.appendChild(eq);
-  // ===== mochila (scroll propio + orden) =====
+  // ===== mochila =====
   const inv = document.createElement('div'); inv.className = 'gearCol';
   const invHead = document.createElement('div'); invHead.className = 'gColHead';
   invHead.innerHTML = '<h3>MOCHILA (' + S.gear.inv.length + '/' + bagMax() + ')</h3>';
@@ -130,15 +135,18 @@ function renderGear() {
   inv.appendChild(invHead);
   S.gear.inv.slice().sort(BAG_SORTS[bagSort] || BAG_SORTS.rar).forEach(it => {
     const row = document.createElement('div'); row.className = 'gRow';
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;text-align:left;';
     row.style.borderColor = RAR_COLORS[it.rarity];
     if (fuseSel.includes(it)) row.style.background = 'rgba(200,107,250,.15)';
     const better = itemPower(it) > itemPower(S.gear.equipped[it.slot]);
     const info = document.createElement('div'); info.className = 'gInfo';
+    info.style.cssText = 'flex:1;min-width:0;';
     info.innerHTML = '<b style="color:' + RAR_COLORS[it.rarity] + '">' + itemLabel(it) + '</b> ' +
       (better ? '<b style="color:#7bed9f">▲</b>' : '<b style="color:#ff6b81">▼</b>') +
       '<small>' + itemStats(it) + ' · 💥+' + salvageEssence(it) + '💎</small>';
     row.appendChild(info);
     const btns = document.createElement('div'); btns.className = 'gBtns';
+    btns.style.cssText = 'display:grid;grid-template-columns:repeat(2,auto);gap:4px;';
     btns.appendChild(mkBtn('EQUIPAR', () => {
       const prev = S.gear.equipped[it.slot];
       S.gear.equipped[it.slot] = it;

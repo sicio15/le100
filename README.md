@@ -3,12 +3,12 @@
 Juego **idle AFK** pixel-art, web + mobile (portrait incluido), con cuentas online,
 ranking en vivo, Arena PvP, colonias cooperativas, escuadrón de compañeros,
 mascota, progresión por prestigio (ADN), mapa con rangos, recompensas semanales,
-sistema de equipo profundo y HUD adaptativo desktop/mobile.
+sistema de equipo profundo y HUD adaptativo desktop/mobile con QoL de idle AAA.
 
-- **Versión:** 3.5.0 (`package.json`)
+- **Versión:** 3.6.0 (`package.json`)
 - **Stack server:** Node + Express + Socket.IO (+ MongoDB opcional, fallback memoria)
 - **Stack client:** JS vanilla (scripts clásicos, globals compartidos) + **Phaser 3** + WebAudio procedural
-- **Estado:** jugable de punta a punta · **Arte 33/33** · **Deudas #1–#9 ✅** · **HUD desktop+mobile pulido ✅**
+- **Estado:** jugable de punta a punta · **Arte 33/33** · **Deudas #1–#9 ✅** · **CSS modular ✅**
 
 > 📌 **Convención:** todo cambio → **archivo completo** · revisión previa de
 > optimizaciones · **divide y vencerás** · registro en §CHANGELOG.
@@ -33,7 +33,7 @@ MONGO_URI=mongodb://... node server.js   # persistencia real (sin esto: memoria)
 le100/
 ├── server.js            # Express + Socket.IO + DEV live-reload + CORS + tokens
 ├── dev.js               # node dev.js → DEV=1
-├── package.json         # v3.5.0 · deps: express, socket.io, mongodb
+├── package.json         # v3.6.0 · deps: express, socket.io, mongodb
 ├── README.md
 ├── server/
 │   ├── storage.js       # U/C: Mongo o memoria · setColonyLevel (bulk) · patch · findByTokenHash
@@ -44,27 +44,32 @@ le100/
 │   ├── colonies.js      # single-get + ensureBossDay + donate bulk
 │   └── weekly.js        # weeklyInfo / weeklyClaim (server-authoritative)
 └── public/
-    ├── index.html       # topbar mínima + 📱 HUB + 18 modales + socket CDN
-    ├── css/style.css    # UNIFICADO desktop+mobile (glass, pills, vignette, hub)
+    ├── index.html       # head: 5 CSS + theme-color + viewport-fit + favicon · topbar mínima + 📱 HUB
+    ├── css/             # ⚡ MODULAR (reemplaza al viejo style.css)
+    │   ├── 01-base.css       # reset, variables :root, estructura, accesibilidad
+    │   ├── 02-layout.css     # topbar, batalla (vignette), escuadrón, bottombar
+    │   ├── 03-components.css # toasts, cut-ins, banner, modales, sync, tutorial
+    │   ├── 04-features.css   # equipo 2.0, mapa, hub, modales temáticos
+    │   └── 05-mobile.css     # portrait/<700px (HUD v2+v3 consolidado)
     ├── img/             # 26 sheets + 5 fondos + logo + icons (33/33)
     └── js/
         ├── core/
-        │   ├── config.js   # $, fmt, COSTS, UPDEF, ACH, SETTINGS, CHAPTERS, HEROES, SLOT_DEFS
+        │   ├── config.js   # $, fmt, COSTS, UPDEF, ACH, SETTINGS (buyQty), CHAPTERS, HEROES, SLOT_DEFS
         │   ├── store.js    # S + fórmulas + checkDailyResets + rangos + bonus + equipo 2.0
         │   ├── net.js      # socket CDN + autodetección backend + token de sesión
         │   ├── audio.js    # Chiptune WebAudio procedural + SFX 8-bit
         │   └── assets.js   # chroma + analyze (MERGE_GAP) + Promise.all
         ├── game/
         │   ├── battle.js       # Lógica pura · roles · petCastT · HOOKS.bossRoar · rangos
-        │   ├── battle-scene.js # Render · VFX · paperdoll · mascota · parallax · vignette-safe
+        │   ├── battle-scene.js # Render · VFX · paperdoll · mascota · parallax
         │   ├── phaser-setup.js # ANIM_DEFS con fallbacks (sheet faltante → hermano)
         │   ├── icons.js        # íconos pixel (fallback emojis)
         │   └── main.js
         ├── ui/
-        │   ├── ui.js           # toast, wire, EL (caché DOM) + UI_HOOKS
-        │   ├── ui-auth.js      # login/registro + auto-login token + offline + tutorial
-        │   ├── ui-hud.js       # mejoras, settings, prestigio, sync indicator
-        │   ├── ui-hub.js       # ⚡ HUB mobile categorizado (reutiliza handlers originales)
+        │   ├── ui.js           # toast (tope 4), wire, EL (caché DOM) + UI_HOOKS
+        │   ├── ui-auth.js      # login/registro + auto-login token + offline (tiempo fuera) + tutorial
+        │   ├── ui-hud.js       # mejoras (x1/x10/MAX + mantenido), atajos, settings, prestigio, sync
+        │   ├── ui-hub.js       # HUB mobile categorizado (reutiliza handlers originales)
         │   ├── ui-gear.js      # Equipo 2.0: sticky ✖ · tooltips · orden · filas compactas
         │   ├── autoequip.js    # QoL · ignora items 🔒 · botón en gearTop
         │   ├── ui-shop.js      # Tienda ADN + skins
@@ -87,7 +92,13 @@ le100/
 
 ## 🧱 Arquitectura cliente
 
-### Orden de `<script>` en `index.html`
+### Orden de `<link>` CSS (head de index.html)
+```
+01-base → 02-layout → 03-components → 04-features → 05-mobile
+```
+El tema completo vive en **variables `:root`** (01-base): cambiar paleta/radios/fuentes/sombras = tocar 1 bloque.
+
+### Orden de `<script>`
 ```
 socket.io CDN → phaser
 core/config → core/assets → core/audio → core/net → core/store
@@ -104,7 +115,7 @@ ui/ui-auth → game/main
 |---|---|---|
 | `S` | store.js | Save completo (ver §Save) |
 | `authed` | store.js (let) | ui-auth la muta |
-| `SETTINGS` | config.js | audio/volúmenes/velocidad/reduceFx/tutorial |
+| `SETTINGS` | config.js | audio/volúmenes/velocidad/reduceFx/tutorial/**buyQty** |
 | `socket`, `LB` | net.js | conexión + leaderboard |
 | `TOKEN_KEY`, `netGet/Set/ClearToken`, `netLoginToken` | net.js | sesión persistente |
 | `squad`, `enemies`, `time`, `advance`, `petCastT`, `stageStartTime`, `stageHadDeaths` | battle.js | combate + rangos |
@@ -112,6 +123,7 @@ ui/ui-auth → game/main
 | `EL` | ui.js | caché DOM hot-path |
 | `UI_HOOKS`, `onGearOpen`, `fireGearOpen` | ui.js | hooks QoL |
 | `HUB_SECTIONS` | ui-hub.js | menú mobile categorizado |
+| `buyQtyMode`, `cycleBuyQty`, `buyUps` | ui-hud.js | compra en cantidad + mantenido |
 | `PREP`, `STRIP_H` | assets.js | strips normalizadas 160px |
 | `ANIM_KINDS` | phaser-setup.js | kinds de enemigos según sheets reales |
 | `Audio` | audio.js | motor chiptune + SFX |
@@ -120,7 +132,8 @@ ui/ui-auth → game/main
 
 ### Flujo de guardado + sesión
 0. **Auto-login:** token `localStorage` → `loginToken`; server valida hash SHA-256.
-1. `persist()` → `localStorage['le100_cache_v4']` + `netSendSave(S)` si `authed`.
+1. `persist()` → `localStorage['le100_cache_v4']` + `netSendSave(S)` si `authed`
+   (hook de ui-hud muestra 💾 Guardando… → ✅ Sincronizado).
 2. Autoguardado: `setInterval(5s)` + `visibilitychange`/`beforeunload`/`pagehide`.
 3. Server: throttle 2s → `sanitizeSave()` → `U.save()`.
 
@@ -151,26 +164,40 @@ essence, amulets, bagSize, autoSalvage`
 
 ---
 
-## 🖥️📱 UI/UX (LOTE 15)
+## 🖥️ UI/UX (Lotes 15-16 + investigación)
+
+### Investigación aplicada (idle games)
+| Hallazgo | Implementación |
+|---|---|
+| Progreso ~60% idle / 40% activo | ✅ Offline rewards + modos activos |
+| Tareas/bonos diarios retienen | ✅ Misiones diarias + semanales |
+| "Mostrar solo lo necesario ahora" | ✅ Topbar mínima + HUB categorizado |
+| Dar control al jugador | ✅ Settings/skins + `prefers-reduced-motion` |
+| UI visible↔oculta con animaciones | ✅ Toasts/cut-ins/modales animados |
+| Feedback rápido y consistente | ✅ SFX + hover/active + variables CSS |
 
 ### Desktop refinado
-- Glassmorphism: topbar/bottombar con `backdrop-filter: blur` + bordes dorados.
-- Panels como **pills** con `tabular-nums` · botones con **hover glow** y profundidad.
-- **Vignette** en batalla (`#battleWrap::after`) para profundidad sin tapar input.
-- Boss bar con **brillo animado** (`bossShine`) · cut-ins diagonales skew.
-- Cards de mejoras con **borde de color por stat** + hover lift + botones 3D.
-- Scrollbars finos estilizados · `:focus-visible` accesible · modales con sombra profunda.
+- Glassmorphism (blur) + pills doradas + hover glow + vignette en batalla.
+- Boss bar con brillo animado · cut-ins diagonales · cards con color por stat.
+- **Atajos:** `Espacio` velocidad · `M` mapa · `E` equipo · `P` prestigio.
+- Scrollbars finos · `:focus-visible` accesible.
 
-### Mobile (HUD v3, patrón de idle games AAA)
-- **Topbar mínima (1 fila, cero scroll):** `[⚔️ etapa+progreso] [🪙] [] [ MENU]`.
-- **📱 HUB:** modal con grilla 4 columnas agrupada en 4 categorías
-  (🎮 Modos / 📋 Progreso / 🛒 Tienda / ⚙️ Sistema) · **todo visible sin deslizar**.
-  - Cada item con dot de notificación; **dot agregado** en 📱 si hay algo pendiente.
-  - **Cero lógica duplicada:** cada item dispara `.click()` del botón original (oculto en mobile).
-- **Mejoras:** grilla de **5 columnas** (todas visibles sin carrusel).
-- Modales con cierre **✖ sticky** arriba a la derecha (equipo y hub).
-- `100dvh` + `env(safe-area-inset-bottom)` (notch/home-indicator) · `touch-action: manipulation`.
-- Toasts máx 3 / cut-ins máx 2 (límite por CSS `:nth-child`, sin JS).
+### Mobile (HUD v3)
+- **Topbar mínima (1 fila):** `[⚔️ etapa] [🪙] [🧬] [ MENU]` · cero scroll.
+- **📱 HUB:** grilla 4 columnas · 4 categorías (Modos/Progreso/Tienda/Sistema) ·
+  dots por item + dot agregado en 📱 · **cero lógica duplicada** (`.click()` del original).
+- **Mejoras:** grilla 5 columnas (todas visibles) · safe-area + `100dvh`.
+- Toasts máx 3 / cut-ins máx 2 (CSS `:nth-child`).
+
+### QoL de progresión (Lote 16)
+- **Compra x1/x10/MAX** (botón 🛒 en heroStats) + **mantener pulsado = compra continua**.
+- **Prestigio** con resumen claro (qué se reinicia / qué se conserva).
+- **Offline** con tiempo fuera legible ("⏰ Estuviste fuera 2h 15min").
+- Toasts con tope de 4 también por JS.
+
+### Accesibilidad / PWA-feel
+- `prefers-reduced-motion` apaga animaciones decorativas.
+- `viewport-fit=cover` + `theme-color` + favicon 🐛 + `preconnect` a fonts.
 
 ---
 
@@ -189,13 +216,13 @@ essence, amulets, bagSize, autoSalvage`
 - Toggleable (`S.look.pet`) · escala 0.62 + bob · escupe veneno (`petCastT`) · corona 👑 opcional.
 
 ### 🗺️ Mapa y Rangos
-- Capítulos de 10 etapas con stats (S/A/B/C/R visibles por nodo).
+- Capítulos de 10 etapas con stats por nodo (S/A/B/C/R).
 - Rangos: **S** (<15s sin bajas) · **A** (<30s) · **B** (<60s) · **C** (>60s) · **R** (jefe).
 - Viaje a cualquier etapa ≤ récord · **⚡ SALTAR AL RÉCORD** · bonus pasivo +0.5%/S y +0.2%/A.
 
 ### 🎁 Recompensas Semanales + Milestones
 - `weeklyClaim` server-authoritative (1 por `weekNow()`): Torre semanal (10/25/50/100) + Top Arena (1º→20🧬 … 4-10→3🧬).
-- Milestones permanentes de Torre: 10/25/50/100 → títulos + /🧬.
+- Milestones permanentes de Torre: 10/25/50/100 → títulos + 🧬.
 
 ### 🎒 Equipo 2.0
 - 💎 Esencia (fundir) · 🧿 Amuletos (protección) · ⬆ mejorar con riesgo (100→30%, rotura desde +10)
@@ -260,13 +287,14 @@ Fondos: `bg`/`bg_cave`/`bg_swamp`/`bg_tower`/`bg_rogue` · UI: `logo.png`/`icons
 | 9 | autoequip setTimeout | ✅ onGearOpen (L2A) |
 | 10 | atlas unificado | ⏳ baja |
 | 11 | prototipo Godot | ⏳ baja |
+| 12 | CSS monolítico | ✅ modular 5 archivos + variables (L16) |
 
 ---
 
 ## 🗺️ Roadmap
 1. ✅ Consolidación (deudas, arte 33/33, escuadrón, mascota, boss v2).
 2. ✅ Profundización (mapa+rangos, semanales, milestones, equipo 2.0).
-3. ✅ UI/UX (desktop refinado + mobile HUD v3 con hub).
+3. ✅ UI/UX (desktop refinado + mobile HUD v3 + QoL idle + CSS modular).
 4. **Expansión (pendiente):** Temporadas/battle pass · más compañeros (Biblia v5) ·
    overlays de armadura · calendario de eventos · prototipo Godot.
 
@@ -294,9 +322,11 @@ Fondos: `bg`/`bg_cave`/`bg_swamp`/`bg_tower`/`bg_rogue` · UI: `logo.png`/`icons
 | 2026-08-18 | L12 | ⚡ skipToRecord + sync indicator + stats capítulo + bonus rangos. |
 | 2026-08-18 | L13 | 🎁 Semanales server-auth + milestones Torre. |
 | 2026-08-18 | L14 | 🎒 Equipo 2.0 (esencia/amuletos/forja/rotura/mochila/auto-fundir/🔒). |
-| 2026-08-18 | UI | 💅 Equipo: sticky ✖ · tooltips · orden · filas compactas · confirm plain-text fix. |
-| 2026-08-19 | L15 | 📱 Mobile HUD v3: topbar mínima + 📱 HUB categorizado (grilla, dots agregados, sin lógica duplicada) + mejoras en grilla 5 · 🖥️ Desktop: glass/pills/hover/vignette/bossShine · style.css unificado y limpio. |
-| 2026-08-19 | README | 📝 Actualizado a v3.5.0. |
+| 2026-08-18 | UI | 💅 Equipo: sticky ✖ · tooltips · orden · confirm plain-text fix. |
+| 2026-08-19 | L15 | 📱 Mobile HUD v3 (topbar mínima + HUB) · 🖥️ desktop glass/hover/vignette. |
+| 2026-08-21 | CSS | 🧩 style.css → **5 archivos modulares** + variables `:root` + investigación idle-games aplicada (reduced-motion, theme-color, viewport-fit, favicon). |
+| 2026-08-21 | L16 | ✨ QoL: compra x1/x10/MAX + mantenido · atajos Espacio/M/E/P · toasts tope 4 · prestigio con resumen · offline con tiempo fuera. |
+| 2026-08-21 | README | 📝 Actualizado a v3.6.0. |
 
 ---
 
