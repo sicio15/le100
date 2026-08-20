@@ -2,16 +2,16 @@
 
 Juego **idle AFK** pixel-art, web + mobile (portrait incluido), con cuentas online,
 ranking en vivo, Arena PvP, colonias cooperativas, escuadrón de compañeros,
-mascota, progresión por prestigio (ADN), mapa con rangos, recompensas semanales
-y sistema de equipo profundo.
+mascota, progresión por prestigio (ADN), mapa con rangos, recompensas semanales,
+sistema de equipo profundo y HUD adaptativo desktop/mobile.
 
-- **Versión:** 3.4.0 (`package.json`)
+- **Versión:** 3.5.0 (`package.json`)
 - **Stack server:** Node + Express + Socket.IO (+ MongoDB opcional, fallback memoria)
 - **Stack client:** JS vanilla (scripts clásicos, globals compartidos) + **Phaser 3** + WebAudio procedural
-- **Estado:** jugable de punta a punta · **Arte 33/33** · **Deudas #1–#9 ✅**
+- **Estado:** jugable de punta a punta · **Arte 33/33** · **Deudas #1–#9 ✅** · **HUD desktop+mobile pulido ✅**
 
 > 📌 **Convención:** todo cambio → **archivo completo** · revisión previa de
-> optimizaciones · metodología **divide y vencerás** · registro en §CHANGELOG.
+> optimizaciones · **divide y vencerás** · registro en §CHANGELOG.
 
 ---
 
@@ -21,7 +21,7 @@ y sistema de equipo profundo.
 npm install
 node dev.js        # DEV: live-reload + no-cache → http://localhost:3000
 node server.js     # PROD
-# Opción Live Server: node server.js (puerto 3000) + Live Server (5500) con CORS configurado
+# Live Server (5500): correr además `node server.js` (CORS ya configurado)
 MONGO_URI=mongodb://... node server.js   # persistencia real (sin esto: memoria)
 ```
 
@@ -33,53 +33,54 @@ MONGO_URI=mongodb://... node server.js   # persistencia real (sin esto: memoria)
 le100/
 ├── server.js            # Express + Socket.IO + DEV live-reload + CORS + tokens
 ├── dev.js               # node dev.js → DEV=1
-├── package.json         # v3.4.0 · deps: express, socket.io, mongodb
+├── package.json         # v3.5.0 · deps: express, socket.io, mongodb
 ├── README.md
 ├── server/
 │   ├── storage.js       # U/C: Mongo o memoria · setColonyLevel (bulk) · patch · findByTokenHash
-│   ├── sanitize.js      # DEF_SAVE + sanitizeSave() · stageRanks · essence/amulets/bagSize
+│   ├── sanitize.js      # DEF_SAVE + sanitizeSave() · stageRanks · essence/amulets/bagSize/autoSalvage
 │   ├── power.js         # powerOf()/bossMax()
-│   ├── ranking.js       # Top 10 etapas en memoria + broadcast
-│   ├── arena.js         # arenaInfo / arenaFight
+│   ├── ranking.js       # Top 10 etapas en memoria + broadcast 'top'
+│   ├── arena.js         # arenaInfo (1 lectura) / arenaFight
 │   ├── colonies.js      # single-get + ensureBossDay + donate bulk
-│   └── weekly.js        # ⚡ weeklyInfo / weeklyClaim (server-authoritative)
+│   └── weekly.js        # weeklyInfo / weeklyClaim (server-authoritative)
 └── public/
-    ├── index.html       # 16+ modales · gearTop sticky · mapa · weekly · socket CDN
-    ├── css/style.css    # estilos + media portrait + gear compacto
+    ├── index.html       # topbar mínima + 📱 HUB + 18 modales + socket CDN
+    ├── css/style.css    # UNIFICADO desktop+mobile (glass, pills, vignette, hub)
     ├── img/             # 26 sheets + 5 fondos + logo + icons (33/33)
     └── js/
         ├── core/
         │   ├── config.js   # $, fmt, COSTS, UPDEF, ACH, SETTINGS, CHAPTERS, HEROES, SLOT_DEFS
         │   ├── store.js    # S + fórmulas + checkDailyResets + rangos + bonus + equipo 2.0
-        │   ├── net.js      # socket (CDN) + autodetección de backend + token de sesión
+        │   ├── net.js      # socket CDN + autodetección backend + token de sesión
         │   ├── audio.js    # Chiptune WebAudio procedural + SFX 8-bit
-        │   └── assets.js   # chroma + analyze (MERGE_GAP fix avispa) + paralelo
+        │   └── assets.js   # chroma + analyze (MERGE_GAP) + Promise.all
         ├── game/
         │   ├── battle.js       # Lógica pura · roles · petCastT · HOOKS.bossRoar · rangos
-        │   ├── battle-scene.js # Render · VFX · paperdoll · mascota · parallax
-        │   ├── phaser-setup.js # ANIM_DEFS con fallbacks (si falta sheet → hermano)
-        │   ├── icons.js        # íconos pixel fallback emojis
+        │   ├── battle-scene.js # Render · VFX · paperdoll · mascota · parallax · vignette-safe
+        │   ├── phaser-setup.js # ANIM_DEFS con fallbacks (sheet faltante → hermano)
+        │   ├── icons.js        # íconos pixel (fallback emojis)
         │   └── main.js
         ├── ui/
         │   ├── ui.js           # toast, wire, EL (caché DOM) + UI_HOOKS
-        │   ├── ui-auth.js      # login/registro + auto-login token + offline
+        │   ├── ui-auth.js      # login/registro + auto-login token + offline + tutorial
         │   ├── ui-hud.js       # mejoras, settings, prestigio, sync indicator
-        │   ├── ui-gear.js      # ⚡ Equipo 2.0: sticky ✖ · filas compactas · tooltips · orden
-        │   ├── autoequip.js    # QoL · ignora items 🔒
+        │   ├── ui-hub.js       # ⚡ HUB mobile categorizado (reutiliza handlers originales)
+        │   ├── ui-gear.js      # Equipo 2.0: sticky ✖ · tooltips · orden · filas compactas
+        │   ├── autoequip.js    # QoL · ignora items 🔒 · botón en gearTop
         │   ├── ui-shop.js      # Tienda ADN + skins
         │   ├── ui-look.js      # Vestidor: mascota + corona
-        │   ├── ui-map.js       # ⚡ Mapa con capítulos · rangos · stats · bonus · skipToRecord
-        │   ├── ui-weekly.js    # ⚡ Recompensas semanales + dot de pendiente
+        │   ├── ui-map.js       # Mapa capítulos · rangos · stats · bonus · skipToRecord
+        │   ├── ui-weekly.js    # Recompensas semanales + dot pendiente
         │   ├── ui-stats.js     # panel de multiplicadores
         │   ├── ui-events.js    # badge + anuncio semanal
         │   └── ui-missions.js  # misiones diarias
         ├── modes/
         │   ├── sim.js          # fightChance / rollFight compartida
         │   ├── daily.js        # Jefe Diario (3🎟️)
-        │   ├── tower.js        # Torre Infinita + weekTower + checkMilestones
-        │   └── rogue.js        # El Sotobosque (8 salas, 1-de-3)
+        │   ├── tower.js        # Torre + weekTower + checkMilestones
+        │   └── rogue.js        # Sotobosque (8 salas, 1-de-3)
         └── social/
-            └── social.js       # Arena PvP + Colonias (netEmit/netCall)
+            └── social.js       # Arena PvP + Colonias
 ```
 
 ---
@@ -92,7 +93,7 @@ socket.io CDN → phaser
 core/config → core/assets → core/audio → core/net → core/store
 ui/ui → game/battle → game/phaser-setup → game/battle-scene
 ui/ui-hud → ui/ui-gear → ui/autoequip → ui/ui-shop → ui/ui-look
-ui/ui-map → ui/ui-weekly → ui/ui-stats → ui/ui-events → ui/ui-missions
+ui/ui-map → ui/ui-weekly → ui/ui-hub → ui/ui-stats → ui/ui-events → ui/ui-missions
 modes/sim → modes/daily → modes/tower → modes/rogue → social/social
 ui/ui-auth → game/main
 ```
@@ -110,10 +111,11 @@ ui/ui-auth → game/main
 | `W`, `H` | config.js (muta BattleScene) | viewport |
 | `EL` | ui.js | caché DOM hot-path |
 | `UI_HOOKS`, `onGearOpen`, `fireGearOpen` | ui.js | hooks QoL |
+| `HUB_SECTIONS` | ui-hub.js | menú mobile categorizado |
 | `PREP`, `STRIP_H` | assets.js | strips normalizadas 160px |
 | `ANIM_KINDS` | phaser-setup.js | kinds de enemigos según sheets reales |
 | `Audio` | audio.js | motor chiptune + SFX |
-| `VFX`, `HOOKS` | battle.js (implementa BattleScene) | ult/crit/kill/cutin/bossShow/bossHide/bossTick/**bossRoar** |
+| `VFX`, `HOOKS` | battle.js (implementa BattleScene) | ult/crit/kill/cutin/bossShow/bossHide/bossTick/bossRoar |
 | `fightChance`, `rollFight` | modes/sim.js | simulación compartida |
 
 ### Flujo de guardado + sesión
@@ -133,7 +135,7 @@ ui/ui-auth → game/main
 | `score` / `top` | C→S / S→C | ranking etapas |
 | `arenaInfo` / `arenaFight` | C→S | `{ops,top}` / `{win,msg}` |
 | `colonyInfo/Create/Join/Leave/Donate/Boss/Claim` | C→S | ver §Colonias |
-| `weeklyInfo` / `weeklyClaim` | C→S | ⚡ recompensas semanales (server-authoritative) |
+| `weeklyInfo` / `weeklyClaim` | C→S | recompensas semanales (server-authoritative) |
 
 ---
 
@@ -149,44 +151,55 @@ essence, amulets, bagSize, autoSalvage`
 
 ---
 
+## 🖥️📱 UI/UX (LOTE 15)
+
+### Desktop refinado
+- Glassmorphism: topbar/bottombar con `backdrop-filter: blur` + bordes dorados.
+- Panels como **pills** con `tabular-nums` · botones con **hover glow** y profundidad.
+- **Vignette** en batalla (`#battleWrap::after`) para profundidad sin tapar input.
+- Boss bar con **brillo animado** (`bossShine`) · cut-ins diagonales skew.
+- Cards de mejoras con **borde de color por stat** + hover lift + botones 3D.
+- Scrollbars finos estilizados · `:focus-visible` accesible · modales con sombra profunda.
+
+### Mobile (HUD v3, patrón de idle games AAA)
+- **Topbar mínima (1 fila, cero scroll):** `[⚔️ etapa+progreso] [🪙] [] [ MENU]`.
+- **📱 HUB:** modal con grilla 4 columnas agrupada en 4 categorías
+  (🎮 Modos / 📋 Progreso / 🛒 Tienda / ⚙️ Sistema) · **todo visible sin deslizar**.
+  - Cada item con dot de notificación; **dot agregado** en 📱 si hay algo pendiente.
+  - **Cero lógica duplicada:** cada item dispara `.click()` del botón original (oculto en mobile).
+- **Mejoras:** grilla de **5 columnas** (todas visibles sin carrusel).
+- Modales con cierre **✖ sticky** arriba a la derecha (equipo y hub).
+- `100dvh` + `env(safe-area-inset-bottom)` (notch/home-indicator) · `touch-action: manipulation`.
+- Toasts máx 3 / cut-ins máx 2 (límite por CSS `:nth-child`, sin JS).
+
+---
+
 ## ⚔️ Sistemas clave
 
 ### Combate + escuadrón
 - Etapas infinitas · **jefe cada 5** (30s) · caer → −1 etapa · capítulos cada 10.
-- 🗡️ **Aguijón** `dps` (etapa 1, *Tajo Triple*) · 🏹 **Elara** `archer` (etapa 5, *Lluvia*) · 🔮 **Kael** `mage` (etapa 10, *Nova* +cura 15%).
+- 🗡️ **Aguijón** `dps` (1, *Tajo Triple*) · 🏹 **Elara** `archer` (5, *Lluvia*) · 🔮 **Kael** `mage` (10, *Nova* +cura 15%).
 - Vida 45/30/25% · daño 100/85/55% · formación dps→archer→mage.
 
 ### 👑 Rey Bestia v2
-- Sheets: `enemy_boss` + `boss_idle` + `boss_attack` + `boss_roar` (8f c/u).
-- Puesta en escena: `HOOKS.bossRoar` = flash rojo + slow-mo 0.25 (350ms) + shake.
-- Tamaño +13% (`TARGET_H.boss` 130).
+- Sheets `enemy_boss` + `boss_idle` + `boss_attack` + `boss_roar` (8f c/u).
+- `HOOKS.bossRoar`: flash rojo + slow-mo 0.25 (350ms) + shake · tamaño +13%.
 
 ### 🐛 Mascota
-- Toggleable (`S.look.pet`) · escala 0.62 + bob · escupe veneno (`petCastT`).
-- Puede llevar corona 👑.
+- Toggleable (`S.look.pet`) · escala 0.62 + bob · escupe veneno (`petCastT`) · corona 👑 opcional.
 
-### 🗺️ Mapa y Rangos (LOTE 11-12)
-- Etapas agrupadas por capítulos (10 c/u) con estadísticas visibles.
-- Rangos: **S** (<15s + sin bajas) · **A** (<30s) · **B** (<60s) · **C** (>60s) · **R** (jefe).
-- Viajar a cualquier etapa ≤ récord; botón **⚡ SALTAR AL RÉCORD** si estás atrás.
-- Bonus pasivos: +0.5% daño por S, +0.2% por A.
+### 🗺️ Mapa y Rangos
+- Capítulos de 10 etapas con stats (S/A/B/C/R visibles por nodo).
+- Rangos: **S** (<15s sin bajas) · **A** (<30s) · **B** (<60s) · **C** (>60s) · **R** (jefe).
+- Viaje a cualquier etapa ≤ récord · **⚡ SALTAR AL RÉCORD** · bonus pasivo +0.5%/S y +0.2%/A.
 
-### 🎁 Recompensas Semanales (LOTE 13)
-- **Server-authoritative** (`weeklyClaim` único por `weekNow()`).
-- Torre semanal: piso 10/25/50/100 → oro + ADN.
-- Arena Top 10: 1er→20🧬 · 2do→12🧬 · 3ro→8🧬 · 4-10→3🧬.
-- **Milestones permanentes**: piso 10/25/50/100 → títulos + recompensas únicas.
+### 🎁 Recompensas Semanales + Milestones
+- `weeklyClaim` server-authoritative (1 por `weekNow()`): Torre semanal (10/25/50/100) + Top Arena (1º→20🧬 … 4-10→3🧬).
+- Milestones permanentes de Torre: 10/25/50/100 → títulos + /🧬.
 
-### 🎒 Equipo 2.0 (LOTE 14)
-- **💎 Esencia**: fundiendo items.
-- **🧿 Amuletos**: caen al fundir items Épico+ (5/15/40%).
-- **⬆ Mejorar con riesgo**: oro + esencia; 100→80→60→45→30% éxito; desde +10 falla = 30% ROMPERSE.
-- **⚗️ Forja**: 3 iguales → 1 de rareza superior (elige slot).
-- **💥 Fundir**: item → esencia (+ chance amuleto).
-- **🎒 Mochila ampliable**: 30→100 con oro.
-- **♻️ Auto-fundir**: filtro ≤ rareza.
-- **🔒 Bloqueo**: protege de fundir/fusionar/autoequip.
-- **UI sticky ✖**, columnas scroll independiente, orden por rareza/poder/esencia.
+### 🎒 Equipo 2.0
+- 💎 Esencia (fundir) · 🧿 Amuletos (protección) · ⬆ mejorar con riesgo (100→30%, rotura desde +10)
+- ⚗️ Forja 3→1 · 🎒 mochila 30→100 · ♻️ auto-fundir · 🔒 bloqueo · UI sticky ✖ + tooltips + orden.
 
 ### Fórmulas (store.js ↔ sanitize/power espejo)
 ```
@@ -203,30 +216,25 @@ eHP(st)=10·1.27^st · eDmg(st)=4·1.22^st · cost(k)=⌊base·mult^lv⌋ (evRac
 
 ## 🎨 Arte: pipeline + inventario (33/33) + BIBLIA VISUAL v5
 
-**Pipeline (`assets.js`):** fondo claro → `chroma()` (>205/>205/>200) → `analyze()` (blobs
-fila+columna, **MERGE_GAP = 4** fusiona partes de un sprite (alas/piedras), descarta <35%
-alto máx) → strip alto 160px → spritesheets+anims · **Promise.all** (paralelo).
+**Pipeline (`assets.js`):** fondo claro → `chroma()` (>205/>205/>200) → `analyze()`
+(blobs fila+columna · **MERGE_GAP=4** fusiona alas/piedras · descarta <35% alto) →
+strip 160px → spritesheets+anims · **Promise.all**.
 
 ### Biblia Visual v5 — flujo de referencia
 1. Walk con MASTER PROMPT v5 → REFERENCIA canónica.
-2. Sheets siguientes con REF-LOCK PROMPT + walk adjunta.
+2. Resto de sheets con REF-LOCK PROMPT + walk adjunta.
 3. Checklist: silueta · ojos · 1 correa · muñequeras · orientación · escala · fondo.
-4. Bloques: STYLE + CHARACTER LOCK + FACING LOCK + SCALE LOCK + BACKGROUND LOCK
-   + LAYOUT LOCK + FORBIDDEN + POSES.
+4. Bloques: STYLE + CHARACTER LOCK + FACING LOCK + SCALE LOCK + BACKGROUND LOCK + LAYOUT LOCK + FORBIDDEN + POSES.
 
-**Specs canónicas:** Aguijón (corto castaño, espada, túnica verde #4C9E6A) · Elara
-(rubia larga, arco+carcaj) · Kael (mohawk azul #2FA8E0, bastón gema #A020F0) ·
-Rey Bestia (3 cabezas, encorvado, rojo #A81C1C, corona black-gold #C89020, garras
-serradas #F0F0F0, cadenas rotas) · Mascota (cienpies verde #7EC87E).
-
+**Specs:** Aguijón (castaño corto, espada) · Elara (rubia larga, arco+carcaj) · Kael (mohawk azul, bastón gema) ·
+Rey Bestia (rojo #A81C1C, corona black-gold, garras serradas) · Mascota (cienpies verde).
 **Orientación:** héroes/mascota → DERECHA · enemigos/boss → IZQUIERDA.
 
 ### Sheets (26)
-
 | Grupo | Archivos | Frames |
 |---|---|---|
 | Cienpies/mascota | `hero_walk/idle/attack/cast/hurt` | 4/3/6/3/6 |
-| Enemigos | `enemy_beetle/spider/wasp/scorpion` | 4 c/u loops |
+| Enemigos | `enemy_beetle/spider/wasp/scorpion` | 4 c/u |
 | Boss v2 | `enemy_boss` + `_idle` + `_attack` + `_roar` | 8/8/8(0-3)/8(0-3) |
 | Aguijón | `hero_human_a` + `_idle` + `_attack` + `_hurt` | 5/3/4/5 |
 | Elara | `hero_human_b` + `_idle` + `_attack` + `_hurt` | 5/3/4/5 |
@@ -246,7 +254,7 @@ Fondos: `bg`/`bg_cave`/`bg_swamp`/`bg_tower`/`bg_rogue` · UI: `logo.png`/`icons
 | 3 | colonyDonate N writes | ✅ bulk + single-get (L1) |
 | 4 | resets triplicados | ✅ checkDailyResets (L1+2A) |
 | 5 | sim duplicada | ✅ modes/sim.js (L3A) |
-| 6 | index.html | ✅ reconstruido (L3A) |
+| 6 | index.html | ✅ reconstruido (L3A) + topbar/hub (L15) |
 | 7 | battle con DOM | ✅ HOOKS (L2B) |
 | 8 | sesión no persistida | ✅ token SHA-256 (L2C) |
 | 9 | autoequip setTimeout | ✅ onGearOpen (L2A) |
@@ -257,13 +265,10 @@ Fondos: `bg`/`bg_cave`/`bg_swamp`/`bg_tower`/`bg_rogue` · UI: `logo.png`/`icons
 
 ## 🗺️ Roadmap
 1. ✅ Consolidación (deudas, arte 33/33, escuadrón, mascota, boss v2).
-2. ✅ Profundización: mapa+rangos, recompensas semanales, milestones, equipo 2.0.
-3. **Expansión (pendiente):**
-   - Temporadas (battle pass con niveles + rewards).
-   - Más compañeros reclutables (Biblia v5) + overlays de armadura.
-   - Calendario de eventos especiales.
-   - Prototipo Godot de 1 escena.
-   - Sistema de guildas/clanes grandes (actualmente colonias pequeñas).
+2. ✅ Profundización (mapa+rangos, semanales, milestones, equipo 2.0).
+3. ✅ UI/UX (desktop refinado + mobile HUD v3 con hub).
+4. **Expansión (pendiente):** Temporadas/battle pass · más compañeros (Biblia v5) ·
+   overlays de armadura · calendario de eventos · prototipo Godot.
 
 ---
 
@@ -278,19 +283,20 @@ Fondos: `bg`/`bg_cave`/`bg_swamp`/`bg_tower`/`bg_rogue` · UI: `logo.png`/`icons
 | 2026-08-17 | L2B | 🔧 battle sin DOM (HOOKS boss+cut-in). |
 | 2026-08-17 | L2C | 🔧 sesión token (net/server/ui-auth/ui-hud). |
 | 2026-08-17 | L3 | 🔧 modes/sim.js + index.html · 📝 README. |
-| 2026-08-17 | L4 | 🔧 escuadrón Aguijón/Elara/Kael (dps/archer/mage, looks propios). |
+| 2026-08-17 | L4 | 🔧 escuadrón Aguijón/Elara/Kael (dps/archer/mage). |
 | 2026-08-17 | L5 | 🔧 cienpies → mascota (`look{pet,crown}`, petCastT). |
 | 2026-08-17 | L6 | 🎬 `hero_human_a_idle` + rework right-facing · Biblia v5. |
-| 2026-08-17 | L7 | 🎬 sets completos Elara/Kael · idles dedicados · muertes 3-4. |
-| 2026-08-17 | L8 | 👑 Rey Bestia v2 + `HOOKS.bossRoar` + TARGET_H 130 → arte 33/33. |
-| 2026-08-18 | L9 | 🔧 fallbacks en phaser-setup (sheets faltantes → hermano). |
-| 2026-08-18 | L10 | 🔧 nombres alineados (boss_*) + MERGE_GAP fix avispa + CORS. |
-| 2026-08-18 | L11 | 🗺️ Mapa con capítulos + rangos S/A/B/C/R + travelToStage. |
-| 2026-08-18 | L12 | ⚡ skipToRecord + sync indicator + stats por capítulo + bonus de rangos. |
-| 2026-08-18 | L13 | 🎁 Recompensas semanales (server-auth) + milestones Torre 10/25/50/100. |
-| 2026-08-18 | L14 | 🎒 Equipo 2.0: esencia, amuletos, forja, rotura, mochila ampliable, auto-fundir, bloqueo. |
-| 2026-08-18 | UI | 💅 Modal equipo: sticky ✖ · columnas scroll · tooltips · orden mochila. |
-| 2026-08-18 | README | 📝 Actualizado al estado Lote 14 + UI final. |
+| 2026-08-17 | L7 | 🎬 sets completos Elara/Kael · muertes 3-4. |
+| 2026-08-17 | L8 | 👑 Rey Bestia v2 + bossRoar + TARGET_H 130 → arte 33/33. |
+| 2026-08-18 | L9 | 🔧 fallbacks phaser-setup (sheet faltante → hermano). |
+| 2026-08-18 | L10 | 🔧 nombres boss_* + MERGE_GAP fix avispa + CORS. |
+| 2026-08-18 | L11 | 🗺️ Mapa + rangos S/A/B/C/R + travelToStage. |
+| 2026-08-18 | L12 | ⚡ skipToRecord + sync indicator + stats capítulo + bonus rangos. |
+| 2026-08-18 | L13 | 🎁 Semanales server-auth + milestones Torre. |
+| 2026-08-18 | L14 | 🎒 Equipo 2.0 (esencia/amuletos/forja/rotura/mochila/auto-fundir/🔒). |
+| 2026-08-18 | UI | 💅 Equipo: sticky ✖ · tooltips · orden · filas compactas · confirm plain-text fix. |
+| 2026-08-19 | L15 | 📱 Mobile HUD v3: topbar mínima + 📱 HUB categorizado (grilla, dots agregados, sin lógica duplicada) + mejoras en grilla 5 · 🖥️ Desktop: glass/pills/hover/vignette/bossShine · style.css unificado y limpio. |
+| 2026-08-19 | README | 📝 Actualizado a v3.5.0. |
 
 ---
 
