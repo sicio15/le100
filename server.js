@@ -1,8 +1,5 @@
 'use strict';
 // ===== le100.io — orquestador (Express + Socket.IO) =====
-// Módulos en server/: storage · sanitize · power · ranking · arena · colonies
-// LOTE 2C (deuda #8): sesión persistente con token (hash SHA-256 en el doc,
-// token se rota en login/register manual y se reutiliza en loginToken).
 const express = require('express');
 const http = require('http');
 const crypto = require('crypto');
@@ -14,21 +11,24 @@ const { sanitizeSave } = require('./server/sanitize');
 const { makeRanking } = require('./server/ranking');
 const { registerArena } = require('./server/arena');
 const { registerColonies } = require('./server/colonies');
+const { registerWeekly } = require('./server/weekly');
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' } });
+const io = new Server(server, {
+  cors: {
+    origin: ['http://localhost:5500', 'http://127.0.0.1:5500', 'http://localhost:3000', 'http://127.0.0.1:3000'],
+    methods: ['GET', 'POST']
+  }
+});
 const { pushScore } = makeRanking(io);
 const newToken = () => crypto.randomBytes(16).toString('hex');
 const hashToken = t => crypto.createHash('sha256').update(String(t || '')).digest('hex');
-// ===== MODO DEV (node dev.js): no-cache + live-reload =====
 const DEV = process.env.DEV === '1';
 const PUB_DIR = path.join(__dirname, 'public');
-// Si no existe public/ (prueba local sin deploy), sirve la raíz del proyecto
 const STATIC_ROOT = fs.existsSync(PUB_DIR) ? PUB_DIR : __dirname;
 if (DEV) {
   const lr = new Set();
   const INJECT = '<script>(function(){try{var s=new EventSource("/__lr");s.onmessage=function(){location.reload();};}catch(e){}})();</script>';
-  // index.html con el script de reload inyectado (antes que el static)
   app.get(['/', '/index.html'], (req, res) => {
     fs.readFile(path.join(STATIC_ROOT, 'index.html'), 'utf8', (e, html) => {
       if (e) return res.status(404).end();
@@ -61,7 +61,6 @@ app.use(express.static(STATIC_ROOT, DEV ? {
   setHeaders: res => res.setHeader('Cache-Control', 'no-store')
 } : {}));
 initStorage();
-// ===== SOCKET =====
 io.on('connection', s => {
   s.user = null;
   s.on('register', async (d, cb) => {
@@ -86,13 +85,12 @@ io.on('connection', s => {
       const doc = await U.get(key);
       if (!doc) return cb({ ok: false, err: 'La cuenta no existe' });
       if (crypto.scryptSync(String(d.pass || ''), doc.salt, 32).toString('hex') !== doc.hash) return cb({ ok: false, err: 'Contraseña incorrecta' });
-      const token = newToken(); // rotación en login manual
+      const token = newToken();
       await U.patch(key, { tokenHash: hashToken(token) });
       s.user = key; pushScore(doc.name, doc.save.best);
       cb({ ok: true, name: doc.name, save: doc.save, token });
     } catch (e) { cb({ ok: false, err: 'Error del servidor' }); }
   });
-  // LOTE 2C: auto-login silencioso con token persistente
   s.on('loginToken', async (token, cb) => {
     try {
       const doc = await U.findByTokenHash(hashToken(token));
@@ -111,6 +109,7 @@ io.on('connection', s => {
   s.on('score', d => { if (d && d.name) pushScore(String(d.name).slice(0, 14), Math.min(9999, +d.stage || 1)); });
   registerArena(s);
   registerColonies(s);
+  registerWeekly(s, U);
 });
 const PORT = process.env.PORT || 3000;
 function start() {
