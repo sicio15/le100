@@ -1,10 +1,9 @@
 'use strict';
-// QoL: auto-equipar lo mejor (botón inyectado en el modal de equipo)
-// LOTE 2A (deuda #9): inyección vía hook onGearOpen() — sin setTimeout(0),
-// sin depender del orden de listeners del click de btnGear.
+// QoL: auto-equipar lo mejor (ignora items bloqueados 🔒)
+// El botón ahora vive en la barra sticky del modal (#autoEqBtn en index.html).
 function autoEquip() {
   Object.keys(SLOT_DEFS).forEach(sl => {
-    const candidates = S.gear.inv.filter(i => i.slot === sl);
+    const candidates = S.gear.inv.filter(i => i.slot === sl && !i.locked);
     if (S.gear.equipped[sl]) candidates.push(S.gear.equipped[sl]);
     if (!candidates.length) return;
     const best = candidates.slice().sort((a, b) => itemPower(b) - itemPower(a))[0];
@@ -17,12 +16,18 @@ function autoEquip() {
   persist(); renderGear(); Audio.SFX.buy();
   toast('⚡ Equipo optimizado');
 }
-onGearOpen(() => {
-  const h = $('mGear') && $('mGear').querySelector('h2');
-  if (h && !$('autoEqBtn')) {
-    const b = document.createElement('button');
-    b.id = 'autoEqBtn'; b.className = 'mbtn'; b.textContent = '⚡ AUTO-EQUIPAR';
-    b.onclick = autoEquip;
-    h.after(b);
+(function initAutoEquip() {
+  const b = $('autoEqBtn');
+  if (b) b.onclick = autoEquip; // botón nuevo en gearTop
+  if (typeof onGearOpen === 'function') {
+    onGearOpen(() => { // fallback si el HTML viejo no lo tiene
+      const h = $('mGear') && $('mGear').querySelector('h2');
+      if (h && !$('autoEqBtn')) {
+        const nb = document.createElement('button');
+        nb.id = 'autoEqBtn'; nb.className = 'mbtn'; nb.textContent = '⚡ AUTO-EQUIPAR';
+        nb.onclick = autoEquip;
+        h.after(nb);
+      }
+    });
   }
-});
+})();
