@@ -25,6 +25,7 @@
       <button class="tbtn" id="btnEvent" title="Evento semanal">✨</button>
       <button class="tbtn" id="speedBtn">⏩ x1</button>
       <button class="tbtn" id="btnSettings" title="Ajustes">⚙️</button>
+      <button class="tbtn" id="btnWeekly" title="Recompensas semanales">🎁<span class="dot" id="weekDot"></span></button>
       <button class="tbtn" id="btnAch" title="Logros">🏅<span class="dot" id="achDot"></span></button>
       <button class="tbtn" id="btnLb" title="Ranking">🏆</button>
       <button class="tbtn" id="btnStats" title="Estadísticas">📊</button>
@@ -175,6 +176,11 @@
   <div id="mapBody" style="max-height: 60vh; overflow-y: auto; padding-right: 5px;"></div>
   <button class="mbtn gray" id="mapClose">CERRAR</button>
 </div></div>
+<div class="modal" id="mWeekly"><div class="mcard">
+  <h2>🎁 RECOMPENSAS SEMANALES</h2>
+  <div id="weeklyBody"></div>
+  <button class="mbtn gray" id="weeklyClose">CERRAR</button>
+</div></div>
 
 <!-- ===== SCRIPTS: orden validado (globals clásicos) =====
      net antes que store (persist usa netSendSave) · ui-shop/ui-look patchean
@@ -205,6 +211,7 @@
 <script src="js/modes/tower.js"></script>
 <script src="js/modes/rogue.js"></script>
 <script src="js/social/social.js"></script>
+<script src="js/ui/ui-weekly.js"></script>
 <script src="js/ui/ui-auth.js"></script>
 <script src="js/game/main.js"></script>
 </body>
