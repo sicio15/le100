@@ -355,3 +355,40 @@ html, body { position: fixed; inset: 0; overflow: hidden; background: #0d0a1a;
   .nodeStage { font-size: 8px; }
   .nodeRank { font-size: 9px; }
 }
+
+/* ===== Desktop: hub oculto ===== */
+#btnHub { display: none; }
+
+/* =========================================================
+   MOBILE HUD v3 — topbar mínima + hub categorizado
+   ========================================================= */
+@media (orientation: portrait), (max-width: 700px) {
+  /* Topbar: 1 fila sin scroll */
+  #topbar { flex-wrap: nowrap; justify-content: space-between; }
+  .tb-mid { display: flex; gap: 5px; }
+  .tb-right { width: auto; overflow: visible; }
+  .tb-right .tbtn:not(.hubBtn) { display: none; }  /* todo vive en el HUB */
+  #btnHub { display: block; width: 34px; height: 34px; font-size: 15px;
+    border-color: rgba(255,215,0,.5); box-shadow: 0 0 10px rgba(255,215,0,.25); }
+
+  /* HUB: grilla 4-5 columnas, todo visible sin deslizar */
+  .hubGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+  .hubItem {
+    position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px;
+    background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+    border: 1px solid rgba(255,255,255,.14); border-radius: 12px;
+    padding: 10px 2px 8px; color: #e8ecff; cursor: pointer;
+  }
+  .hubItem:active { transform: scale(.93); }
+  .hubItem .hi { font-size: 19px; line-height: 1; }
+  .hubItem .hn { font-size: 7.5px; color: #9fb0d8; white-space: nowrap; }
+  .hubItem .hd { position: absolute; top: 5px; right: 5px; width: 7px; height: 7px;
+    border-radius: 50%; background: #ff4757; box-shadow: 0 0 6px #ff4757; }
+
+  /* Mejoras: las 5 visibles SIN deslizar */
+  #ups { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; overflow: visible; padding: 3px 0 4px; }
+  .ucard { flex: none; min-width: 0; padding: 4px 3px; }
+  .un { font-size: 6.5px; }
+  .ul { font-size: 6px; }
+  .ubuy { font-size: 6.5px; padding: 5px 1px; }
+}

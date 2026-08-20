@@ -12,35 +12,38 @@
 <div id="app">
   <!-- ===== TOPBAR ===== -->
   <div id="topbar">
-    <div class="tb-left">
-      <div class="panel">⚔️ <b id="stageTxt">1</b>
-        <div id="stageProg"><div id="stageProgFill"></div><div id="stageProgTxt">0/8</div></div>
-      </div>
-      <div class="panel hidden" id="bossTag">👑</div>
+  <div class="tb-left">
+    <div class="panel">⚔️ <b id="stageTxt">1</b>
+      <div id="stageProg"><div id="stageProgFill"></div><div id="stageProgTxt">0/8</div></div>
     </div>
-    <div class="tb-right">
-      <div class="panel">🪙 <b id="goldTxt">0</b></div>
-      <div class="panel">🧬 <b id="adnTxt">0</b></div>
-      <button class="tbtn" id="btnMap" title="Mapa">🗺️</button>
-      <button class="tbtn" id="btnEvent" title="Evento semanal">✨</button>
-      <button class="tbtn" id="speedBtn">⏩ x1</button>
-      <button class="tbtn" id="btnSettings" title="Ajustes">⚙️</button>
-      <button class="tbtn" id="btnWeekly" title="Recompensas semanales">🎁<span class="dot" id="weekDot"></span></button>
-      <button class="tbtn" id="btnAch" title="Logros">🏅<span class="dot" id="achDot"></span></button>
-      <button class="tbtn" id="btnLb" title="Ranking">🏆</button>
-      <button class="tbtn" id="btnStats" title="Estadísticas">📊</button>
-      <button class="tbtn" id="btnPrestige" title="Prestigio">🧬<span class="dot" id="prDot"></span></button>
-      <button class="tbtn" id="btnShop" title="Tienda de ADN">🛒</button>
-      <button class="tbtn" id="btnLook" title="Vestidor">🎩</button>
-      <button class="tbtn" id="btnGear" title="Equipo">🎒<span class="dot" id="gearDot"></span></button>
-      <button class="tbtn" id="btnDaily" title="Jefe Diario">🎯<span class="dot" id="dailyDot"></span></button>
-      <button class="tbtn" id="btnTower" title="Torre Infinita">🗼</button>
-      <button class="tbtn" id="btnRogue" title="Sotobosque">🌀</button>
-      <button class="tbtn" id="btnArena" title="Arena PvP">⚔️</button>
-      <button class="tbtn" id="btnColony" title="Colonias">🐜</button>
-      <button class="tbtn" id="btnMissions" title="Misiones">📜<span class="dot" id="misDot"></span></button>
-    </div>
+    <div class="panel hidden" id="bossTag">👑</div>
   </div>
+  <div class="tb-mid">
+    <div class="panel">🪙 <b id="goldTxt">0</b></div>
+    <div class="panel">🧬 <b id="adnTxt">0</b></div>
+  </div>
+  <div class="tb-right">
+    <button class="tbtn" id="btnEvent" title="Evento semanal">✨</button>
+    <button class="tbtn" id="speedBtn">⏩ x1</button>
+    <button class="tbtn" id="btnSettings" title="Ajustes">⚙️</button>
+    <button class="tbtn" id="btnAch" title="Logros">🏅<span class="dot" id="achDot"></span></button>
+    <button class="tbtn" id="btnLb" title="Ranking">🏆</button>
+    <button class="tbtn" id="btnStats" title="Estadísticas">📊</button>
+    <button class="tbtn" id="btnPrestige" title="Prestigio">🧬<span class="dot" id="prDot"></span></button>
+    <button class="tbtn" id="btnShop" title="Tienda de ADN">🛒</button>
+    <button class="tbtn" id="btnLook" title="Vestidor">🎩</button>
+    <button class="tbtn" id="btnGear" title="Equipo">🎒<span class="dot" id="gearDot"></span></button>
+    <button class="tbtn" id="btnDaily" title="Jefe Diario">🎯<span class="dot" id="dailyDot"></span></button>
+    <button class="tbtn" id="btnTower" title="Torre Infinita">🗼</button>
+    <button class="tbtn" id="btnRogue" title="Sotobosque">🌀</button>
+    <button class="tbtn" id="btnArena" title="Arena PvP">⚔️</button>
+    <button class="tbtn" id="btnColony" title="Colonias">🐜</button>
+    <button class="tbtn" id="btnMissions" title="Misiones">📜<span class="dot" id="misDot"></span></button>
+    <button class="tbtn" id="btnMap" title="Mapa">🗺️</button>
+    <button class="tbtn" id="btnWeekly" title="Recompensas semanales">🎁<span class="dot" id="weekDot"></span></button>
+    <button class="tbtn hubBtn" id="btnHub" title="Menú">📱<span class="dot" id="hubDot"></span></button>
+  </div>
+</div>
   <!-- ===== BATALLA ===== -->
   <div id="battleWrap">
     <div id="bossBar" class="hidden"><div id="bossFill"></div><div id="bossTime">30s</div></div>
@@ -108,6 +111,13 @@
   <label class="setRow"><span>✨ Reducir efectos</span><input type="checkbox" id="setReduce"></label>
   <button class="mbtn gray" id="setLogout">🚪 Cerrar sesión</button>
   <button class="mbtn gray" id="setClose">CERRAR</button>
+</div></div>
+<div class="modal" id="mHub"><div class="mcard">
+  <div class="gearTop">
+    <h2 style="margin:0">📱 MENÚ</h2>
+    <button class="gearX" id="hubClose" title="Cerrar">✖</button>
+  </div>
+  <div id="hubBody"></div>
 </div></div>
 
 <div class="modal" id="mGear"><div class="mcard wide">
@@ -219,6 +229,7 @@
 <script src="js/modes/rogue.js"></script>
 <script src="js/social/social.js"></script>
 <script src="js/ui/ui-weekly.js"></script>
+<script src="js/ui/ui-hub.js"></script>
 <script src="js/ui/ui-auth.js"></script>
 <script src="js/game/main.js"></script>
 </body>
