@@ -168,3 +168,61 @@ function uiTick() {
     if (EL.gearDot) EL.gearDot.style.display = hasBetterGear() ? 'block' : 'none';
   }
 }
+// ===== INDICADOR DE SINCRONIZACIÓN CLOUD-SAVE =====
+let syncIndicator = null;
+let lastSyncTime = 0;
+
+function initSyncIndicator() {
+  if (syncIndicator) return;
+  syncIndicator = document.createElement('div');
+  syncIndicator.id = 'syncIndicator';
+  syncIndicator.style.cssText = `
+    position: fixed;
+    top: 70px;
+    right: 10px;
+    background: rgba(0,0,0,.7);
+    border: 1px solid rgba(255,255,255,.2);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 10px;
+    color: #8fa3c8;
+    z-index: 99;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  `;
+  document.body.appendChild(syncIndicator);
+}
+
+function showSyncStatus(status, message) {
+  initSyncIndicator();
+  const colors = {
+    saving: '#ffd700',
+    saved: '#7bed9f',
+    error: '#ff4757'
+  };
+  syncIndicator.style.color = colors[status] || '#8fa3c8';
+  syncIndicator.textContent = message;
+  syncIndicator.style.opacity = '1';
+  
+  if (status === 'saved') {
+    setTimeout(() => { syncIndicator.style.opacity = '0'; }, 2000);
+  }
+}
+
+// Hook en persist() para mostrar estado de sync
+const _persist = persist;
+persist = function() {
+  if (authed && socket && socket.connected) {
+    showSyncStatus('saving', '💾 Guardando...');
+    lastSyncTime = Date.now();
+  }
+  _persist();
+  if (authed && socket && socket.connected) {
+    setTimeout(() => {
+      if (Date.now() - lastSyncTime < 3000) {
+        showSyncStatus('saved', '✅ Sincronizado');
+      }
+    }, 500);
+  }
+};

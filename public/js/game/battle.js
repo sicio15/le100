@@ -6,6 +6,8 @@ let squad = [];
 let enemies = [];
 let spawnT = 1, bossT = 0, shake = 0, time = 0, stageFlash = 0, dustT = 0, lastChapter = -1;
 let healT = 2, venT = 3, petCastT = 0;
+let stageStartTime = Date.now();
+let stageHadDeaths = false;
 // AVANCE: el escuadrón camina hacia la derecha buscando enemigos
 let advance = 0;
 const notify = t => { if (typeof toast !== 'undefined') toast(t); };
@@ -160,7 +162,16 @@ function killEnemy(e) {
   else if (S.ks >= killsNeed()) nextStage();
 }
 function nextStage() {
+   // --- EVALUAR RANGO DE LA ETAPA ACTUAL ---
+  const timeSec = (Date.now() - stageStartTime) / 1000;
+  const rank = getStageRank(timeSec, stageHadDeaths, isBossStage());
+  if (!S.stageRanks) S.stageRanks = {};
+  S.stageRanks[S.stage] = rank;
+  
+  if (rank === 'S') toast('🌟 ¡RANGO S EN ETAPA ' + S.stage + '!');
   S.stage++; S.best = Math.max(S.best, S.stage); S.ks = 0;
+  stageStartTime = Date.now(); // Reset timer
+  stageHadDeaths = false;      // Reset deaths
   resetSquad(); initSquad();
   reEnter(); // aparece al inicio de la pantalla en cada etapa
   enemies = []; spawnT = 0.6;
@@ -281,6 +292,7 @@ function update(rawDt) {
           gainEnergy(m, 6);
           if (m.hp <= 0) {
             m.alive = false;
+            stageHadDeaths = true;
             notify('💀 ' + m.def.name + ' cayó');
             Audio.SFX.death();
             if (!aliveByPriority()) {

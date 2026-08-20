@@ -143,3 +143,46 @@ html, body { position: fixed; inset: 0; overflow: hidden; background: #0d0a1a;
   #heroHpWrap { bottom: 8px; left: 8px; }
   #ups { padding-bottom: 4px; }
 }
+/* ===== MAPA ===== */
+#mapBody { text-align: left; }
+.mapChapter { margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,.1); padding-bottom: 10px; }
+.mapChapter h3 { font-family: 'Press Start 2P', monospace; font-size: 10px; color: #ffd700; margin-bottom: 12px; }
+.mapGrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.mapNode { 
+  background: rgba(255,255,255,.05); border: 2px solid rgba(255,255,255,.1); 
+  border-radius: 12px; padding: 10px 0; display: flex; flex-direction: column; 
+  align-items: center; gap: 4px; cursor: pointer; transition: all .2s;
+}
+.mapNode.unlocked:hover { background: rgba(255,215,0,.15); border-color: #ffd700; transform: translateY(-2px); }
+.mapNode.current { border-color: #7efcff; background: rgba(126,252,252,.1); box-shadow: 0 0 10px rgba(126,252,252,.3); }
+.mapNode.locked { opacity: .3; cursor: not-allowed; filter: grayscale(1); }
+.nodeStage { font-family: 'Press Start 2P', monospace; font-size: 10px; color: #fff; }
+.nodeRank { font-family: 'Press Start 2P', monospace; font-size: 12px; font-weight: bold; }
+
+@media (orientation: portrait) {
+  .mapGrid { grid-template-columns: repeat(4, 1fr); }
+}
+/* ===== INDICADOR DE SINCRONIZACIÓN ===== */
+#syncIndicator {
+  position: fixed;
+  top: 70px;
+  right: 10px;
+  background: rgba(0,0,0,.7);
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 10px;
+  color: #8fa3c8;
+  z-index: 99;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+
+@media (orientation: portrait) {
+  #syncIndicator {
+    top: auto;
+    bottom: 120px;
+    right: 10px;
+  }
+}

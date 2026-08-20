@@ -21,6 +21,7 @@
     <div class="tb-right">
       <div class="panel">🪙 <b id="goldTxt">0</b></div>
       <div class="panel">🧬 <b id="adnTxt">0</b></div>
+      <button class="tbtn" id="btnMap" title="Mapa">🗺️</button>
       <button class="tbtn" id="btnEvent" title="Evento semanal">✨</button>
       <button class="tbtn" id="speedBtn">⏩ x1</button>
       <button class="tbtn" id="btnSettings" title="Ajustes">⚙️</button>
@@ -168,6 +169,12 @@
   <h2>🎩 VESTIDOR</h2><div id="lookBody"></div>
   <button class="mbtn gray" id="lookClose">CERRAR</button>
 </div></div>
+<div class="modal" id="mMap"><div class="mcard wide">
+  <h2>🗺️ MAPA DE ETAPAS</h2>
+  <p style="color:#8fa3c8;font-size:11px;margin-bottom:15px;">Viajá a etapas anteriores para farmear. ¡Buscá el rango S!</p>
+  <div id="mapBody" style="max-height: 60vh; overflow-y: auto; padding-right: 5px;"></div>
+  <button class="mbtn gray" id="mapClose">CERRAR</button>
+</div></div>
 
 <!-- ===== SCRIPTS: orden validado (globals clásicos) =====
      net antes que store (persist usa netSendSave) · ui-shop/ui-look patchean
@@ -185,6 +192,7 @@
 <script src="js/game/phaser-setup.js"></script>
 <script src="js/game/battle-scene.js"></script>
 <script src="js/ui/ui-hud.js"></script>
+<script src="js/ui/ui-map.js"></script>
 <script src="js/ui/ui-gear.js"></script>
 <script src="js/ui/autoequip.js"></script>
 <script src="js/ui/ui-shop.js"></script>
