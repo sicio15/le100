@@ -1,5 +1,6 @@
 'use strict';
 // ===== SAVE SANITIZER: el cliente NUNCA decide sus números =====
+// LOTE 14: +essence/amulets/bagSize/autoSalvage + item.locked
 const DEF_SAVE = { gold: 0, adn: 0, stage: 1, best: 1, kills: 0, prestiges: 0, prBase: 1,
   ups: { dmg: 0, vit: 0, regen: 0, venom: 0, fortune: 0 }, ach: {}, last: Date.now(),
   gear: { equipped: { fang: null, shell: null, antenna: null, charm: null }, inv: [] },
@@ -8,7 +9,8 @@ const DEF_SAVE = { gold: 0, adn: 0, stage: 1, best: 1, kills: 0, prestiges: 0, p
   mDate: '', mBase: { kills: 0, tower: 1, prestiges: 0 }, mClaimed: {},
   shop: { lv: {}, skins: [], skin: '' },
   look: { form: 'cienpies', hair: 'a', crown: false },
-  stageRanks: {}, weekTower: 1, weekClaimedKey: 0, milestones: {} };
+  stageRanks: {}, weekTower: 1, weekClaimedKey: 0, milestones: {},
+  essence: 0, amulets: 0, bagSize: 30, autoSalvage: -1 };
 const SHOP_MAX = { fury: 10, vita: 10, fort: 10, regen: 10, crit: 5 };
 const SKIN_IDS = ['oro', 'hielo', 'sombra'];
 const HAIR_IDS = ['a', 'b', 'c'];
@@ -31,11 +33,12 @@ function sanitizeSave(s) {
         slot: ['fang', 'shell', 'antenna', 'charm'].includes(it.slot) ? it.slot : 'fang',
         rarity: Math.max(0, Math.min(4, +it.rarity || 0)), lvl: Math.max(0, Math.min(99, +it.lvl || 0)),
         stat: String(it.stat || 'atk').slice(0, 8), val: Math.max(0, Math.min(999, +it.val || 0)),
+        locked: !!it.locked,
         subs: Array.isArray(it.subs) ? it.subs.slice(0, 2).map(x => ({ stat: String(x.stat || 'atk').slice(0, 8), val: Math.max(0, Math.min(999, +x.val || 0)) })) : [] };
     };
     const g = { equipped: { fang: null, shell: null, antenna: null, charm: null }, inv: [] };
     Object.keys(g.equipped).forEach(k => { g.equipped[k] = cleanItem((s.gear.equipped || {})[k]); });
-    g.inv = Array.isArray(s.gear.inv) ? s.gear.inv.slice(0, 30).map(cleanItem).filter(Boolean) : [];
+    g.inv = Array.isArray(s.gear.inv) ? s.gear.inv.slice(0, 100).map(cleanItem).filter(Boolean) : [];
     o.gear = g;
   }
   o.tickets = Number.isFinite(+s.tickets) ? Math.max(0, Math.min(3, +s.tickets)) : 3;
@@ -77,7 +80,6 @@ function sanitizeSave(s) {
     });
     o.stageRanks = ranks;
   }
-  // Semanales: weekTower con tope, weekClaimedKey solo semana actual o 0, milestones whitelist
   o.weekTower = Math.max(1, num(s.weekTower, 9999));
   o.weekClaimedKey = Number.isFinite(+s.weekClaimedKey) ? +s.weekClaimedKey : 0;
   if (s.milestones && typeof s.milestones === 'object') {
@@ -85,6 +87,11 @@ function sanitizeSave(s) {
     Object.entries(s.milestones).forEach(([k, v]) => { if (MILESTONE_IDS.includes(k) && v) ms[k] = 1; });
     o.milestones = ms;
   }
+  // Equipo 2.0
+  o.essence = num(s.essence, 1e9);
+  o.amulets = num(s.amulets, 9999);
+  o.bagSize = Math.max(30, Math.min(100, num(s.bagSize, 100) || 30));
+  o.autoSalvage = Math.max(-1, Math.min(3, Number.isFinite(+s.autoSalvage) ? +s.autoSalvage : -1));
   o.last = Number(s.last) || Date.now();
   return o;
 }
