@@ -46,7 +46,7 @@
       <button class="tbtn" id="btnTower" title="Torre Infinita">🗼</button>
       <button class="tbtn" id="btnRogue" title="Sotobosque">🌀</button>
       <button class="tbtn" id="btnArena" title="Arena PvP">⚔️</button>
-      <button class="tbtn" id="btnColony" title="Colonias">🐜</button>
+      <button class="tbtn" id="btnGuild" title="Gremio">🛡️<span class="dot" id="guildDot"></span></button>
       <button class="tbtn" id="btnMissions" title="Misiones">📜<span class="dot" id="misDot"></span></button>
       <button class="tbtn" id="btnMap" title="Mapa">🗺️</button>
       <button class="tbtn" id="btnWeekly" title="Recompensas semanales">🎁<span class="dot" id="weekDot"></span></button>
@@ -132,6 +132,11 @@
   <div id="gearBody"></div>
   <button class="mbtn gray" id="gearClose">CERRAR</button>
 </div></div>
+<div class="modal" id="mGuild"><div class="mcard">
+  <h2>🛡️ GREMIO</h2>
+  <div id="guildBody"></div>
+  <button class="mbtn gray" id="guildClose">CERRAR</button>
+</div></div>
 
 <div class="modal" id="mShop"><div class="mcard">
   <h2>🛒 TIENDA DE ADN</h2>
@@ -169,11 +174,6 @@
   <button class="mbtn gray" id="arenaClose">CERRAR</button>
 </div></div>
 
-<div class="modal" id="mColony"><div class="mcard">
-  <h2>🐜 COLONIAS</h2>
-  <div id="colonyBody"></div>
-  <button class="mbtn gray" id="colonyClose">CERRAR</button>
-</div></div>
 
 <div class="modal" id="mMissions"><div class="mcard">
   <h2>📜 MISIONES DIARIAS</h2>
@@ -265,6 +265,7 @@
 
 <!-- ===== SOCIAL ===== -->
 <script src="js/social/social.js"></script>
+<script src="js/social/guilds-ui.js"></script>
 
 <!-- ===== AUTH + MAIN (main.js carga icons.js dinámicamente) ===== -->
 <script src="js/ui/system/ui-auth.js"></script>

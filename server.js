@@ -1,6 +1,5 @@
 'use strict';
 // ===== le100.io — orquestador (Express + Socket.IO) =====
-// LOTE 23: server modular (auth extraída) + rutas de la nueva estructura de carpetas.
 const express = require('express');
 const http = require('http');
 const path = require('path');
@@ -13,6 +12,7 @@ const { registerAuth } = require('./server/auth/auth');
 const { registerArena } = require('./server/economy/arena');
 const { registerWeekly } = require('./server/economy/weekly');
 const { registerColonies } = require('./server/social/colonies');
+const { registerGuilds } = require('./server/social/guilds');
 
 const app = express();
 const server = http.createServer(app);
@@ -24,7 +24,6 @@ const io = new Server(server, {
 });
 const { pushScore } = makeRanking(io);
 
-// ===== MODO DEV (node dev.js): no-cache + live-reload =====
 const DEV = process.env.DEV === '1';
 const PUB_DIR = path.join(__dirname, 'public');
 const STATIC_ROOT = fs.existsSync(PUB_DIR) ? PUB_DIR : __dirname;
@@ -64,13 +63,13 @@ app.use(express.static(STATIC_ROOT, DEV ? {
 } : {}));
 initStorage();
 
-// ===== SOCKET =====
 io.on('connection', s => {
   s.user = null;
   registerAuth(s, { U, sanitizeSave, pushScore });
   registerArena(s);
   registerColonies(s);
   registerWeekly(s, U);
+  registerGuilds(s, U, io);
 });
 
 const PORT = process.env.PORT || 3000;
