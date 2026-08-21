@@ -1,17 +1,19 @@
 'use strict';
 // ===== le100.io — orquestador (Express + Socket.IO) =====
+// LOTE 23: server modular (auth extraída) + rutas de la nueva estructura de carpetas.
 const express = require('express');
 const http = require('http');
-const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
 const { Server } = require('socket.io');
-const { initStorage, U } = require('./server/storage');
-const { sanitizeSave } = require('./server/sanitize');
-const { makeRanking } = require('./server/ranking');
-const { registerArena } = require('./server/arena');
-const { registerColonies } = require('./server/colonies');
-const { registerWeekly } = require('./server/weekly');
+const { initStorage, U } = require('./server/data/storage');
+const { sanitizeSave } = require('./server/data/sanitize');
+const { makeRanking } = require('./server/auth/ranking');
+const { registerAuth } = require('./server/auth/auth');
+const { registerArena } = require('./server/economy/arena');
+const { registerWeekly } = require('./server/economy/weekly');
+const { registerColonies } = require('./server/social/colonies');
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -21,8 +23,8 @@ const io = new Server(server, {
   }
 });
 const { pushScore } = makeRanking(io);
-const newToken = () => crypto.randomBytes(16).toString('hex');
-const hashToken = t => crypto.createHash('sha256').update(String(t || '')).digest('hex');
+
+// ===== MODO DEV (node dev.js): no-cache + live-reload =====
 const DEV = process.env.DEV === '1';
 const PUB_DIR = path.join(__dirname, 'public');
 const STATIC_ROOT = fs.existsSync(PUB_DIR) ? PUB_DIR : __dirname;
@@ -61,56 +63,16 @@ app.use(express.static(STATIC_ROOT, DEV ? {
   setHeaders: res => res.setHeader('Cache-Control', 'no-store')
 } : {}));
 initStorage();
+
+// ===== SOCKET =====
 io.on('connection', s => {
   s.user = null;
-  s.on('register', async (d, cb) => {
-    try {
-      const name = String(d.name || '').trim();
-      const pass = String(d.pass || '');
-      if (name.length < 3 || name.length > 14) return cb({ ok: false, err: 'Nombre de 3 a 14 caracteres' });
-      if (pass.length < 4) return cb({ ok: false, err: 'Contraseña de 4+ caracteres' });
-      const key = name.toLowerCase();
-      if (await U.get(key)) return cb({ ok: false, err: 'Ese nombre ya existe' });
-      const salt = crypto.randomBytes(8).toString('hex');
-      const token = newToken();
-      const save = sanitizeSave(null); save.last = Date.now();
-      await U.create(key, { name, salt, hash: crypto.scryptSync(pass, salt, 32).toString('hex'), tokenHash: hashToken(token), save });
-      s.user = key; pushScore(name, save.best);
-      cb({ ok: true, name, save, token });
-    } catch (e) { cb({ ok: false, err: 'Error del servidor' }); }
-  });
-  s.on('login', async (d, cb) => {
-    try {
-      const key = String(d.name || '').trim().toLowerCase();
-      const doc = await U.get(key);
-      if (!doc) return cb({ ok: false, err: 'La cuenta no existe' });
-      if (crypto.scryptSync(String(d.pass || ''), doc.salt, 32).toString('hex') !== doc.hash) return cb({ ok: false, err: 'Contraseña incorrecta' });
-      const token = newToken();
-      await U.patch(key, { tokenHash: hashToken(token) });
-      s.user = key; pushScore(doc.name, doc.save.best);
-      cb({ ok: true, name: doc.name, save: doc.save, token });
-    } catch (e) { cb({ ok: false, err: 'Error del servidor' }); }
-  });
-  s.on('loginToken', async (token, cb) => {
-    try {
-      const doc = await U.findByTokenHash(hashToken(token));
-      if (!doc || !doc.save) return cb({ ok: false });
-      s.user = doc._id; pushScore(doc.name, doc.save.best);
-      cb({ ok: true, name: doc.name, save: doc.save, token });
-    } catch (e) { cb({ ok: false, err: 'Error del servidor' }); }
-  });
-  s.on('saveGame', d => {
-    if (!s.user) return;
-    const now = Date.now();
-    if (now - (s.lastSaveAt || 0) < 2000) return;
-    s.lastSaveAt = now;
-    U.save(s.user, sanitizeSave(d));
-  });
-  s.on('score', d => { if (d && d.name) pushScore(String(d.name).slice(0, 14), Math.min(9999, +d.stage || 1)); });
+  registerAuth(s, { U, sanitizeSave, pushScore });
   registerArena(s);
   registerColonies(s);
   registerWeekly(s, U);
 });
+
 const PORT = process.env.PORT || 3000;
 function start() {
   server.listen(PORT, () => console.log('🚀 le100.io corriendo en ' + PORT + (DEV ? ' (DEV + live-reload)' : '')));

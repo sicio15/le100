@@ -4,12 +4,12 @@ Juego **idle AFK** pixel-art, web + mobile (portrait incluido), con cuentas onli
 ranking en vivo, Arena PvP, colonias cooperativas, escuadrón de compañeros,
 mascota, progreso por prestigio (ADN), mapa con rangos, **3 capas de eventos**
 (diario + semanal + relámpago), **Battle Pass por temporadas**, equipo profundo,
-**core y game modulares (SRP)** y HUD adaptativo con HUB mobile.
+**arquitectura modular (SRP)** y HUD adaptativo con HUB mobile.
 
-- **Versión:** 4.1.0 (`package.json`)
+- **Versión:** 4.2.0 (`package.json`)
 - **Stack server:** Node + Express + Socket.IO (+ MongoDB opcional, fallback memoria)
 - **Stack client:** JS vanilla (scripts clásicos, globals compartidos) + **Phaser 3** + WebAudio procedural
-- **Estado:** jugable de punta a punta · **Arte 33/33** · **Core modular ✅** · **Game modular ✅** · **Deudas #1–#13 ✅**
+- **Estado:** jugable de punta a punta · **Arte 33/33** · **Core modular ✅** · **Game modular ✅** · **Carpetas reorganizadas ✅** · **Deudas #1–#14 ✅**
 
 > 📌 **Convención:** todo cambio → **archivo completo** · revisión previa de
 > optimizaciones · **divide y vencerás** · registro en §CHANGELOG.
@@ -18,6 +18,7 @@ mascota, progreso por prestigio (ADN), mapa con rangos, **3 capas de eventos**
 > - Lógica nueva → módulo propio (máx ~150 líneas)
 > - Nunca re-declarar consts entre módulos (causa TDZ/redeclaration)
 > - Scripts que tocan DOM → guardias `if (!el) return;`
+> - Socket.IO con autodetección de entorno (Live Server 5500 → backend 3000)
 
 ---
 
@@ -25,30 +26,43 @@ mascota, progreso por prestigio (ADN), mapa con rangos, **3 capas de eventos**
 
 ```bash
 npm install
+
+# Opción A: servidor Node único (recomendado)
 node dev.js        # DEV: live-reload + no-cache → http://localhost:3000
 node server.js     # PROD
-# Live Server (5500): correr además `node server.js` (CORS ya configurado)
+
+# Opción B: Live Server + backend Node (2 terminales)
+# Terminal 1:
+node dev.js        # backend en puerto 3000
+# Terminal 2: Live Server de VS Code → http://127.0.0.1:5500
+# (net.js autodetecta y apunta Socket.IO al backend)
+
 MONGO_URI=mongodb://... node server.js   # persistencia real (sin esto: memoria)
 ```
 
 ---
 
-## 📁 Árbol de carpetas
+## 📁 Árbol de carpetas (reorganizado L23)
 
 ```
 le100/
 ├── server.js            # Express + Socket.IO + DEV live-reload + CORS + tokens
 ├── dev.js               # node dev.js → DEV=1
-├── package.json         # v4.1.0
+├── package.json         # v4.2.0
 ├── README.md
 ├── server/
-│   ├── storage.js       # U/C: Mongo o memoria · setColonyLevel (bulk) · patch · findByTokenHash
-│   ├── sanitize.js      # DEF_SAVE + sanitizeSave() (espejo del cliente, con topes)
-│   ├── power.js         # powerOf()/bossMax()
-│   ├── ranking.js       # Top 10 etapas en memoria + broadcast 'top'
-│   ├── arena.js         # arenaInfo (1 lectura) / arenaFight
-│   ├── colonies.js      # single-get + ensureBossDay + donate bulk
-│   └── weekly.js        # weeklyInfo / weeklyClaim (server-authoritative)
+│   ├── data/            # NUEVO: persistencia pura
+│   │   ├── storage.js       # U/C: Mongo o memoria · setColonyLevel (bulk) · patch · findByTokenHash
+│   │   ├── sanitize.js      # DEF_SAVE + sanitizeSave() (espejo del cliente, con topes)
+│   │   └── power.js         # powerOf()/bossMax()
+│   ├── auth/            # NUEVO: autenticación
+│   │   ├── auth.js          # NUEVO: register/login/loginToken (extraído de server.js)
+│   │   └── ranking.js       # Top 10 etapas en memoria + broadcast 'top'
+│   ├── economy/         # NUEVO: sistemas de economía
+│   │   ├── arena.js         # arenaInfo (1 lectura) / arenaFight
+│   │   └── weekly.js        # weeklyInfo / weeklyClaim (server-authoritative)
+│   └── social/          # NUEVO: sistemas sociales
+│       └── colonies.js      # single-get + ensureBossDay + donate bulk
 └── public/
     ├── index.html       # head: 5 CSS + theme-color + viewport-fit + favicon · topbar + 📱 HUB
     ├── css/             # MODULAR (5 archivos)
@@ -68,7 +82,7 @@ le100/
         │   ├── season.js     # Battle Pass (XP, reclamos, premium)
         │   ├── progression.js# rangos S/A/B/C/R, mapa, travel, milestones
         │   ├── formulas.js   # dps/maxHP/goldKill/cost/eHP/eDmg/prestigio
-        │   ├── net.js        # socket CDN + autodetección backend + token de sesión
+        │   ├── net.js        # socket CDN + autodetección backend (Live Server 5500 → 3000) + token de sesión
         │   ├── assets.js     # chroma + analyze (MERGE_GAP) + Promise.all
         │   └── audio.js      # Chiptune WebAudio procedural + SFX 8-bit
         ├── game/        # ⚡ 8 MÓDULOS SRP (Lote 22)
@@ -83,20 +97,22 @@ le100/
         │   ├── icons.js      # íconos pixel (cargado dinámicamente por main.js)
         │   └── main.js       # arranque Phaser (carga icons + prepareAll)
         ├── ui/
-        │   ├── ui.js           # toast (tope 4), wire, EL, UI_HOOKS
-        │   ├── ui-auth.js      # login/registro + auto-login token + offline + tutorial
-        │   ├── ui-hud.js       # mejoras (x1/x10/MAX + mantenido), atajos, settings, sync
-        │   ├── ui-hub.js       # HUB mobile categorizado
-        │   ├── ui-gear.js      # Equipo 2.0 UI
-        │   ├── autoequip.js    # QoL autoequipar mejor
-        │   ├── ui-shop.js      # Tienda ADN + skins
-        │   ├── ui-look.js      # Vestidor: mascota + corona
-        │   ├── ui-map.js       # Mapa capítulos + rangos + skipToRecord
-        │   ├── ui-weekly.js    # Recompensas semanales
-        │   ├── ui-battlepass.js# Battle Pass UI + dot
-        │   ├── ui-events.js    # Calendario diario + semanal + relámpago + badge
-        │   ├── ui-stats.js     # panel de multiplicadores
-        │   └── ui-missions.js  # misiones diarias (+ season XP)
+        │   ├── system/    # NUEVO: UI de sistema
+        │   │   ├── ui.js           # toast (tope 4), wire, EL, UI_HOOKS
+        │   │   ├── ui-auth.js      # login/registro + auto-login token + offline + tutorial
+        │   │   ├── ui-hud.js       # mejoras (x1/x10/MAX + mantenido), atajos, settings, sync
+        │   │   ├── ui-hub.js       # HUB mobile categorizado
+        │   │   └── ui-stats.js     # panel de multiplicadores
+        │   └── panels/    # NUEVO: modales pesados
+        │       ├── ui-gear.js      # Equipo 2.0 UI
+        │       ├── autoequip.js    # QoL autoequipar mejor
+        │       ├── ui-shop.js      # Tienda ADN + skins
+        │       ├── ui-look.js      # Vestidor: mascota + corona
+        │       ├── ui-map.js       # Mapa capítulos + rangos + skipToRecord
+        │       ├── ui-weekly.js    # Recompensas semanales
+        │       ├── ui-battlepass.js# Battle Pass UI + dot
+        │       ├── ui-events.js    # Calendario diario + semanal + relámpago + badge
+        │       └── ui-missions.js  # misiones diarias (+ season XP)
         ├── modes/       # Modos de juego (con guardias anti-crash)
         │   ├── sim.js          # fightChance / rollFight compartida
         │   ├── daily.js        # Jefe Diario (3🎟️ + bonus miércoles)
@@ -123,24 +139,28 @@ socket.io CDN → phaser
 core/config → core/data → core/assets → core/audio → core/net → core/store
 core/gear → core/events → core/season → core/progression → core/formulas
 
-ui/ui
+ui/system/ui
 
 game/anims → game/boot-scene → game/vfx → game/battle-state
 game/squad → game/enemies → game/battle-update → game/battle-scene
 # ⚠️ game/icons.js NO se carga acá (main.js lo carga dinámicamente)
 
-ui/ui-hud → ui/ui-gear → ui/autoequip → ui/ui-shop → ui/ui-look
-ui/ui-map → ui/ui-weekly → ui/ui-battlepass → ui/ui-events
-ui/ui-hub → ui/ui-stats → ui/ui-missions
+ui/system/ui-hud
+ui/panels/ui-gear → ui/panels/autoequip → ui/panels/ui-shop → ui/panels/ui-look
+ui/panels/ui-map → ui/panels/ui-weekly → ui/panels/ui-battlepass → ui/panels/ui-events
+ui/system/ui-hub → ui/system/ui-stats → ui/panels/ui-missions
 
 modes/sim → modes/daily → modes/tower → modes/rogue
 social/social
 
-ui/ui-auth → game/main  (main.js carga icons.js dinámicamente)
+ui/system/ui-auth → game/main  (main.js carga icons.js dinámicamente)
 ```
 **Regla TDZ:** `data.js` (consts puras) carga antes de `store.js` (que clampa con
 `SEASON_MAX_LEVEL` en `loadCache()`). El resto son funciones usadas solo en
 tiempo de llamada → orden flexible.
+
+**Net.js autodetección:** si `window.location.port === '5500'` (Live Server),
+apunta Socket.IO a `http://127.0.0.1:3000`; si no, usa mismo host.
 
 ### Estado global (quién define qué)
 
@@ -304,6 +324,7 @@ Rey Bestia (rojo #A81C1C, corona black-gold, garras serradas) · Mascota (cienpi
 | 12 | CSS monolítico | ✅ 5 archivos + variables (L16) |
 | 13 | store.js monolito (400 líneas) | ✅ 7 módulos SRP (L21) |
 | 14 | battle.js/phaser-setup.js monolitos | ✅ 8 módulos SRP (L22) |
+| 15 | Carpetas ui/ y server/ planas | ✅ Reorganizadas por dominio (L23) |
 
 ---
 
@@ -312,8 +333,9 @@ Rey Bestia (rojo #A81C1C, corona black-gold, garras serradas) · Mascota (cienpi
 2. ✅ Profundización (mapa+rangos, semanales, milestones, equipo 2.0).
 3. ✅ UI/UX (desktop + mobile HUD v3 + CSS modular).
 4. ✅ Expansión fase 1 (eventos 3 capas + Battle Pass + **core y game modulares**).
-5. **Expansión fase 2 (orden decidido):**
-   1. 🐜 **Guildas/clanes grandes** (evolución de colonias).
+5. ✅ **Arquitectura (L23):** reorganización de carpetas (ui/system + ui/panels + server/data + server/auth + server/economy + server/social) + auth extraída a módulo + net.js con autodetección.
+6. **Expansión fase 2 (orden decidido):**
+   1. 🐜 **Guildas/clanes grandes** (evolución de colonias) → `server/social/guilds.js` + `public/js/social/guilds.js`.
    2. 🎮 Prototipo Godot de 1 escena.
    3. 🦸 **Más compañeros + overlays de armadura** ← **ÚLTIMO** (requiere Biblia v5 + arte).
 
@@ -332,7 +354,8 @@ Rey Bestia (rojo #A81C1C, corona black-gold, garras serradas) · Mascota (cienpi
 | 2026-08-21 | L20 | 🐛 Fix `look` por héroe (sprites distintos) + `TAU`/`W`/`H` en config. |
 | 2026-08-21 | L21 | 🔧 **Refactor core:** store.js → `data/store/gear/events/season/progression/formulas` (SRP, sin TDZ). |
 | 2026-08-21 | L22 | 🔧 **Refactor game:** `battle.js` + `phaser-setup.js` → 8 módulos SRP (`anims/boot-scene/vfx/battle-state/squad/enemies/battle-update/battle-scene`) + fondos por capítulo + bossRoar implementado + ANIM_KINDS limpio + modes con guardias anti-crash. |
-| 2026-08-21 | README | 📝 v4.1.0 con arquitectura completa modular asentada. |
+| 2026-08-21 | L23 | 🗂️ **Reorganización de carpetas:** ui/ → `system/` + `panels/` · server/ → `data/` + `auth/` + `economy/` + `social/` · auth extraída a `server/auth/auth.js` · net.js con autodetección Live Server (5500 → 3000). |
+| 2026-08-21 | README | 📝 v4.2.0 con arquitectura completa modular + carpetas reorganizadas asentada. |
 
 ---
 
@@ -341,6 +364,9 @@ Rey Bestia (rojo #A81C1C, corona black-gold, garras serradas) · Mascota (cienpi
   cada cambio → **§CHANGELOG** + secciones afectadas.
 - **Core:** datos de balance → `data.js` · datos estáticos → `config.js` · lógica nueva → módulo propio.
 - **Game:** datos de anims → `anims.js` · render puro → `battle-scene.js` · lógica pura → `battle-update.js` · estado compartido → `battle-state.js`.
+- **UI:** sistema base → `ui/system/` · modales pesados → `ui/panels/`.
+- **Server:** persistencia → `server/data/` · auth → `server/auth/` · economía → `server/economy/` · social → `server/social/`.
 - **DOM touchers:** siempre guardias `if (!el) return;` al inicio (ver modes/daily+tower+rogue).
 - **Nunca re-declarar** consts entre módulos (causa TDZ/redeclaration — ver L21).
 - **`icons.js`:** se carga dinámicamente en `main.js` antes de Phaser (NO estático en HTML).
+- **Socket.IO:** autodetección de entorno en `net.js` (Live Server 5500 → backend 3000).
