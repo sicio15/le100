@@ -1,11 +1,29 @@
 'use strict';
-// ===== EVENTOS: calendario semanal + relámpago con countdown (LOTE 17) =====
+// ===== EVENTOS: calendario diario + semanal + relámpago (LOTE 19) =====
 wire('btnEvent', 'click', () => { renderEvents(); $('mEvents').style.display = 'flex'; Audio.SFX.click(); });
 wire('evClose', 'click', () => { $('mEvents').style.display = 'none'; });
 const fmtMMSS = ms => {
   const s = Math.max(0, Math.ceil(ms / 1000));
   return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
 };
+function renderCalendar() {
+  const today = new Date().getDay();
+  const order = [1, 2, 3, 4, 5, 6, 0];
+  const names = ['DO', 'LU', 'MA', 'MI', 'JU', 'VI', 'SA'];
+  let html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin:8px 0;">';
+  order.forEach(d => {
+    const ev = DAY_EVENTS.find(x => x.d === d);
+    const isToday = d === today;
+    html += '<div style="text-align:center;padding:6px 2px;border-radius:8px;font-size:9px;' +
+      (isToday ? 'border:2px solid #ffd700;background:rgba(255,215,0,.12);' : 'border:1px solid rgba(255,255,255,.1);') + '">' +
+      '<div style="font-size:14px;">' + ev.n.split(' ')[0] + '</div>' +
+      '<div style="color:' + (isToday ? '#ffd700' : '#8fa3c8') + ';font-weight:800;">' + names[d] + '</div></div>';
+  });
+  html += '</div>';
+  const de = dayEvent();
+  html += '<div class="mrow" style="border:1px solid #ffd700;"><span><b>HOY: ' + de.n + '</b><br><small style="color:#8fa3c8">' + de.desc + '</small></span><span>🔥</span></div>';
+  return html;
+}
 function renderEvents() {
   const m = $('mEvents'); if (!m) return;
   let box = $('evBody');
@@ -16,9 +34,10 @@ function renderEvents() {
     card.appendChild(box);
   }
   const ev = weekEvent(), next = weekEventAt(weekNow() + 1);
-  let html = '<h3 style="color:#ffd700;font-size:12px;margin:8px 0">📅 EVENTO SEMANAL</h3>' +
-    '<div class="mrow"><span><b>' + ev.n + '</b><br><small style="color:#8fa3c8">' + ev.d + ' · termina en ' +
-    Math.ceil((weekNow() + 1) * 604800000 - Date.now()) / 86400000 | 0 + 'd</small></span><span>✅</span></div>' +
+  let html = '<h3 style="color:#ffd700;font-size:12px;margin:8px 0">📆 CALENDARIO DIARIO</h3>' +
+    renderCalendar() +
+    '<h3 style="color:#ffd700;font-size:12px;margin:8px 0">📅 EVENTO SEMANAL</h3>' +
+    '<div class="mrow"><span><b>' + ev.n + '</b><br><small style="color:#8fa3c8">' + ev.d + '</small></span><span>✅</span></div>' +
     '<div class="mrow"><span>Próxima semana: <b>' + next.n + '</b><br><small style="color:#8fa3c8">' + next.d + '</small></span><span>⏳</span></div>';
   const f = flashInfo();
   if (flashActive() && f) {
@@ -31,7 +50,6 @@ function renderEvents() {
   }
   box.innerHTML = html;
 }
-// Badge flotante con countdown + dot + tick de spawn
 let flashBadge = null;
 function getBadge() {
   if (flashBadge) return flashBadge;

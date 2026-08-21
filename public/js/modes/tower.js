@@ -1,14 +1,15 @@
 'use strict';
-// ===== TORRE INFINITA + tracking semanal + hitos =====
+// ===== TORRE INFINITA + semanal + hitos + día de torre (LOTE 19) =====
 wire('btnTower', 'click', () => { renderTower(); $('mTower').style.display = 'flex'; Audio.SFX.click(); });
 wire('towerClose', 'click', () => { $('mTower').style.display = 'none'; });
 wire('towerFight', 'click', towerFight);
 const towerPower = f => ({ hp: eHP(S.best + f) * (6 + f * 0.5), atk: eDmg(S.best + f) * (1.5 + f * 0.08) });
 function renderTower() {
   const f = S.tower, p = towerPower(f);
+  const dayBonus = (typeof dayHas === 'function' && dayHas('torre')) ? ' · 🗼 HOY x2' : '';
   $('towerInfo').innerHTML = '🗼 Piso ' + f + ' <small>(récord ' + S.towerBest + ' · semana ' + (S.weekTower || 1) + ')</small> <br>' +
     '<small>❤️ ' + fmt(p.hp) + ' · ⚔️ ' + fmt(p.atk) + '/s</small> <br>' +
-    '<small style="color:#8fa3c8">Cada piso: oro · cada 3: 🎒 · cada 10: +1🧬 · Hitos: 10/25/50/100</small>';
+    '<small style="color:#8fa3c8">Cada piso: oro · cada 3: 🎒 · cada 10: +1🧬 · Hitos: 10/25/50/100' + dayBonus + '</small>';
   $('towerFight').disabled = false;
 }
 function towerFight() {
@@ -18,18 +19,19 @@ function towerFight() {
   const aguante = maxHP() / (p.atk * 0.5);
   const ratio = our / p.hp;
   const win = Math.random() < Math.max(0.05, Math.min(0.95, ratio * (aguante >= 20 ? 1 : 0.5)));
-  const g = goldKill(S.best + f) * (win ? 12 : 3);
+  const mult = (typeof dayHas === 'function' && dayHas('torre')) ? 2 : 1; // LOTE 19
+  const g = goldKill(S.best + f) * (win ? 12 : 3) * mult;
   S.gold += g;
   let msg;
   if (win) {
     S.tower++;
     S.towerBest = Math.max(S.towerBest, S.tower);
-    S.weekTower = Math.max(S.weekTower || 1, S.tower); // tracking semanal
+    S.weekTower = Math.max(S.weekTower || 1, S.tower);
     msg = '✅ Piso ' + f + ' superado! +' + fmt(g) + ' 🪙';
     if (f % 3 === 2) { dropItem(1 + Math.floor(f / 10)); msg += ' +🎒'; }
-    if (f % 10 === 9) { S.adn++; msg += ' +1🧬'; }
+    if (f % 10 === 9) { const adn = 1 * mult; S.adn += adn; msg += ' +' + adn + '🧬'; }
     Audio.SFX.levelup();
-    checkMilestones(); // hitos permanentes
+    checkMilestones();
   } else {
     msg = '💀 El piso ' + f + ' te frenó. +' + fmt(g) + ' 🪙';
     Audio.SFX.death();

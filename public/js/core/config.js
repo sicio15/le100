@@ -1,96 +1,67 @@
 'use strict';
-// ===== CONFIG: helpers globales + tablas de diseño =====
+const TAU = Math.PI * 2; // rotación completa (2π), usada por Phaser
+let W = 0, H = 0; // viewport, mutado por BattleScene
+// ===== CONFIG: constantes globales compartidas =====
 const $ = id => document.getElementById(id);
-const TAU = Math.PI * 2;
-let W = 0, H = 0; // tamaño del viewport de batalla (lo actualiza Phaser)
-const fmt = n => { n = Math.floor(n); if (n < 1e3) return '' + n; if (n < 1e6) return (n / 1e3).toFixed(1) + 'K'; if (n < 1e9) return (n / 1e6).toFixed(1) + 'M'; return (n / 1e9).toFixed(1) + 'B'; };
-const COSTS = { dmg: [15, 1.5], vit: [12, 1.5], regen: [20, 1.6], venom: [30, 1.6], fortune: [25, 1.6] };
-// pic = ícono pixel (icons.js) · icon = emoji fallback / toasts
+const fmt = n => {
+  if (n >= 1e9) return (n/1e9).toFixed(1)+'B';
+  if (n >= 1e6) return (n/1e6).toFixed(1)+'M';
+  if (n >= 1e4) return (n/1e3).toFixed(1)+'K';
+  return String(Math.floor(n));
+};
+const COSTS = {
+  dmg:     [10,  1.18],
+  vit:     [12,  1.20],
+  regen:   [20,  1.28],
+  venom:   [80,  1.45],
+  fortune: [25,  1.32]
+};
 const UPDEF = {
-  dmg:     { icon: '⚔️', pic: 'sword',  name: 'Daño' },
-  vit:     { icon: '❤️', pic: 'heart',  name: 'Vitalidad' },
-  regen:   { icon: '💚', pic: 'potion', name: 'Regeneración' },
-  venom:   { icon: '☠️', pic: 'venom',  name: 'Veneno' },
-  fortune: { icon: '🪙', pic: 'coin',   name: 'Fortuna' }
+  dmg:     { name:'Daño',       icon:'⚔️', pic:'up_dmg' },
+  vit:     { name:'Vitalidad',  icon:'❤️', pic:'up_vit' },
+  regen:   { name:'Regen',      icon:'💚', pic:'up_reg' },
+  venom:   { name:'Veneno',     icon:'☠️', pic:'up_ven' },
+  fortune: { name:'Fortuna',    icon:'🍀', pic:'up_fort' }
 };
 const ACH = [
-  { id: 'k100',  d: 'Eliminá 100 enemigos',           r: { g: 300 },  c: () => S.kills >= 100 },
-  { id: 'k1000', d: 'Eliminá 1.000 enemigos',         r: { g: 3000 }, c: () => S.kills >= 1000 },
-  { id: 's10',   d: 'Llegá a etapa 10',               r: { a: 1 },    c: () => S.best >= 10 },
-  { id: 's25',   d: 'Llegá a etapa 25',               r: { a: 2 },    c: () => S.best >= 25 },
-  { id: 's50',   d: 'Llegá a etapa 50',               r: { a: 3 },    c: () => S.best >= 50 },
-  { id: 'p1',    d: 'Hacé tu primer prestigio',       r: { a: 3 },    c: () => S.prestiges >= 1 },
-  { id: 'd10',   d: 'Daño nivel 10',                  r: { g: 2000 }, c: () => S.ups.dmg >= 10 },
-  { id: 'v5',    d: 'Veneno nivel 5',                 r: { g: 2500 }, c: () => S.ups.venom >= 5 },
-  { id: 't10',   d: '🗼 Torre: piso 10',              r: { g: 5000 }, c: () => S.towerBest >= 10 },
-  { id: 't25',   d: '🗼 Torre: piso 25',              r: { a: 2 },    c: () => S.towerBest >= 25 },
-  { id: 'a100',  d: '⚔️ Arena: llegá a 100 pts',      r: { g: 4000 }, c: () => S.arenaPts >= 100 },
-  { id: 'sh5',   d: '🛒 Tienda: 5 niveles comprados', r: { g: 3000 }, c: () => Object.values((S.shop && S.shop.lv) || {}).reduce((a, b) => a + b, 0) >= 5 },
-  { id: 'sk1',   d: '🎨 Coleccioná una skin',         r: { a: 2 },    c: () => ((S.shop && S.shop.skins) || []).length >= 1 }
+  { id:'kill100',   d:'100 kills',    r:{g:500},  c:()=>S.kills>=100 },
+  { id:'kill1k',    d:'1.000 kills',  r:{g:2500}, c:()=>S.kills>=1000 },
+  { id:'kill10k',   d:'10.000 kills', r:{g:10000},c:()=>S.kills>=10000 },
+  { id:'stage10',   d:'Etapa 10',     r:{a:2},    c:()=>S.best>=10 },
+  { id:'stage50',   d:'Etapa 50',     r:{a:10},   c:()=>S.best>=50 },
+  { id:'stage100',  d:'Etapa 100',    r:{a:30},   c:()=>S.best>=100 },
+  { id:'prestige1', d:'Primer Prestigio', r:{a:20}, c:()=>S.prestiges>=1 },
+  { id:'prestige5', d:'5 Prestigios',     r:{a:50}, c:()=>S.prestiges>=5 },
+  { id:'adn50',     d:'Acumular 50 ADN', r:{g:2000}, c:()=>S.adn>=50 },
+  { id:'adn500',    d:'Acumular 500 ADN', r:{g:10000},c:()=>S.adn>=500 }
 ];
-// ===== Settings persistentes =====
-const SETTINGS_KEY = 'le100_settings_v1';
-const DEFAULT_SETTINGS = { audio: true, musicVol: 0.5, sfxVol: 0.7, speed: 1, reduceFx: false, tutorialDone: false };
-let SETTINGS = loadSettings();
-function loadSettings() {
-  try { const s = JSON.parse(localStorage.getItem(SETTINGS_KEY)); if (s) return Object.assign({}, DEFAULT_SETTINGS, s); } catch (e) {}
-  return Object.assign({}, DEFAULT_SETTINGS);
-}
-function saveSettings() { localStorage.setItem(SETTINGS_KEY, JSON.stringify(SETTINGS)); }
-// ===== Capítulos temáticos (cambian fondo/paleta cada 10 etapas) =====
-const CHAPTERS = [
-  { name: 'Bosque Nocturno', bg: 'img/bg.png' },
-  { name: 'Cueva Cristal',   bg: 'img/bg_cave.png' },
-  { name: 'Pantano Tóxico',  bg: 'img/bg_swamp.png' }
-];
-const chapterOf = stage => CHAPTERS[Math.min(CHAPTERS.length - 1, Math.floor((stage - 1) / 10))];
-// ===== Escuadrón: héroe principal + compañeros (LOTE 4/5) =====
-// look = sheet fijo de cada personaje. El cienpies YA NO es forma del héroe:
-// es la MASCOTA del escuadrón (S.look.pet) y escupe el veneno (hero_cast).
-// roles: dps (melee) · archer (rango, AoE) · mage (AoE + cura).
-const HEROES = [
-  { id: 'sting', name: 'Aguijón', role: 'dps',    look: 'human_a', color: '#6ee87e', tint: null, unlock: 1,  ult: 'Tajo Triple' },
-  { id: 'leaf',  name: 'Elara',   role: 'archer', look: 'human_b', color: '#7efcff', tint: null, unlock: 5,  ult: 'Lluvia de Flechas' },
-  { id: 'shell', name: 'Kael',    role: 'mage',   look: 'human_c', color: '#c86bfa', tint: null, unlock: 10, ult: 'Nova Arcana' }
-];
-// ===== Equipo =====
-const RAR_NAMES  = ['Común', 'Raro', 'Épico', 'Legendario', 'Mítico'];
-const RAR_COLORS = ['#cfcfcf', '#4fc3f7', '#c86bfa', '#ffa726', '#ff5252'];
-const SLOT_DEFS = {
-  fang:    { name: 'Colmillo',  stat: 'atk',   icon: '🗡️', pic: 'sword' },
-  shell:   { name: 'Caparazón', stat: 'hp',    icon: '🛡️', pic: 'shell' },
-  antenna: { name: 'Antena',    stat: 'crit',  icon: '📡', pic: 'bolt'  },
-  charm:   { name: 'Dije',      stat: 'regen', icon: '🍀', pic: 'leaf'  }
+const SETTINGS = {
+  audio: true, musicVol: 0.5, sfxVol: 0.7, speed: 1,
+  reduceFx: false, tutorialDone: false, buyQty: 1
 };
-const STAT_NAMES = { atk: 'Daño%', hp: 'Vida%', crit: 'Crítico%', critd: 'DañoCrit%', regen: 'Regen%' };
-const SUB_POOL = ['atk', 'hp', 'crit', 'critd', 'regen'];
-// ===== BATTLE PASS / TEMPORADAS (LOTE 18) =====
-const SEASON_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 días
-const SEASON_XP_PER_KILL = 1;
-const SEASON_XP_PER_STAGE = 10;
-const SEASON_XP_PER_BOSS = 50;
-const SEASON_XP_PER_MISSION = 100;
-const SEASON_MAX_LEVEL = 50;
-const PREMIUM_PASS_COST = 50; // ADN
-
-// Recompensas por nivel (gratis + premium)
-const SEASON_REWARDS = [];
-for (let lvl = 1; lvl <= SEASON_MAX_LEVEL; lvl++) {
-  const free = {};
-  const premium = {};
-  
-  // Gratis: oro cada 2 niveles, ADN cada 10, equipo cada 5
-  if (lvl % 2 === 0) free.gold = 500 * lvl;
-  if (lvl % 10 === 0) free.adn = 5;
-  if (lvl % 5 === 0) free.item = { rarity: Math.min(4, Math.floor(lvl / 10)) };
-  
-  // Premium: más oro, más ADN, skins exclusivas, títulos
-  premium.gold = 1000 * lvl;
-  if (lvl % 5 === 0) premium.adn = 3;
-  if (lvl === 10) premium.skin = 'bronce';
-  if (lvl === 25) premium.skin = 'plata';
-  if (lvl === 50) premium.skin = 'oro';
-  if (lvl === 50) premium.title = 'Conquistador de Temporada';
-  
-  SEASON_REWARDS.push({ lvl, free, premium });
-}
+const saveSettings = () => localStorage.setItem('le100_settings', JSON.stringify(SETTINGS));
+try { Object.assign(SETTINGS, JSON.parse(localStorage.getItem('le100_settings')) || {}); } catch(e) {}
+const CHAPTERS = [
+  { name:'Bosque de los Inicios' },
+  { name:'Cuevas del Eco' },
+  { name:'Pantano de Niebla' },
+  { name:'Torre del Rey Bestia' },
+  { name:'Más allá del Mapa' }
+];
+const chapterOf = stage => CHAPTERS[Math.min(CHAPTERS.length-1, Math.floor((stage-1)/10))];
+// FIX LOTE 20: campo `look` restaurado — es el que usa battle-scene para el sprite de cada héroe
+const HEROES = [
+  { id:'hero_a', name:'Aguijón', role:'dps',    icon:'🗡️', color:'#ff6b81', look:'human_a', pic:'hero_human_a', unlock:1,  ult:'Tajo Triple' },
+  { id:'hero_b', name:'Elara',   role:'archer', icon:'🏹', color:'#7efcff', look:'human_b', pic:'hero_human_b', unlock:5,  ult:'Lluvia de Flechas' },
+  { id:'hero_c', name:'Kael',    role:'mage',   icon:'🔮', color:'#c86bfa', look:'human_c', pic:'hero_human_c', unlock:10, ult:'Nova Arcana' }
+];
+const SLOT_DEFS = {
+  fang:    { name:'Colmillo', icon:'🗡️', stat:'atk',   pic:'gear_fang' },
+  shell:   { name:'Caparazón',icon:'🛡️', stat:'hp',    pic:'gear_shell' },
+  antenna: { name:'Antena',   icon:'📡', stat:'crit',  pic:'gear_antenna' },
+  charm:   { name:'Amuleto',  icon:'✨', stat:'critd', pic:'gear_charm' }
+};
+const STAT_NAMES = { atk:'Ataque', hp:'Vida', crit:'Crítico', critd:'Daño Crítico', regen:'Regen' };
+const SUB_POOL = ['atk','hp','crit','critd','regen'];
+const RAR_NAMES = ['Común','Poco Común','Raro','Épico','Mítico'];
+const RAR_COLORS = ['#cfcfcf','#7bed9f','#7efcff','#c86bfa','#ffd700'];

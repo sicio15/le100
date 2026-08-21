@@ -1,57 +1,55 @@
 'use strict';
-// ===== MISIONES DIARIAS: progreso derivado de stats existentes (cero hooks en otros archivos) =====
-// LOTE 2A (deuda #4): el reset diario vive en store.checkDailyResets();
-// checkMissions queda como alias (idempotente) para no tocar los call-sites.
-const MISSIONS = [
-  { id: 'mKills', n: '🗡️ Cazador',    d: 'Eliminá 250 enemigos',         g: 250, goal: 250, p: () => S.kills - (S.mBase.kills || 0) },
-  { id: 'mTower', n: '🗼 Escalador',  d: 'Subí 3 pisos de la Torre',     g: 3,   goal: 3,   p: () => S.tower - (S.mBase.tower || 1) },
-  { id: 'mRogue', n: '🌀 Explorador', d: 'Entrá al Sotobosque 1 vez',    g: 1,   goal: 1,   p: () => 2 - S.rlTickets },
-  { id: 'mArena', n: '⚔️ Gladiador',  d: 'Peleá 3 veces en la Arena',    g: 3,   goal: 3,   p: () => 5 - S.arenaTickets },
-  { id: 'mDaily', n: '🎯 Retador',    d: 'Usá 1 ticket del Jefe Diario', g: 1,   goal: 1,   p: () => 3 - S.tickets },
-  { id: 'mPrest', n: '🧬 Renacido',   d: 'Hacé 1 prestigio',             g: 1,   goal: 1,   p: () => S.prestiges - (S.mBase.prestiges || 0) }
-];
-const checkMissions = checkDailyResets;
-const mDone = m => m.p() >= m.goal;
-const mReward = m => goldKill(S.best) * m.g;
-const mAllDone = () => MISSIONS.every(mDone);
-const mPending = () => MISSIONS.some(m => mDone(m) && !S.mClaimed[m.id]) || (mAllDone() && !S.mClaimed._perfect);
-wire('btnMissions', 'click', () => { checkMissions(); renderMissions(); $('mMissions').style.display = 'flex'; Audio.SFX.click(); });
-wire('misClose', 'click', () => { $('mMissions').style.display = 'none'; });
-wire('misAll', 'click', () => {
-  let got = 0;
-  MISSIONS.forEach(m => {
-    if (mDone(m) && !S.mClaimed[m.id]) { S.mClaimed[m.id] = 1; S.gold += mReward(m); got++; }
-  });
-  if (mAllDone() && !S.mClaimed._perfect) { S.mClaimed._perfect = 1; S.adn++; got++; toast('🧬 ¡Todas las misiones! +1 ADN'); }
-  if (got) { persist(); Audio.SFX.levelup(); }
+// ===== MISIONES DIARIAS =====
+wire('btnMissions', 'click', () => {
+  checkDailyResets();
   renderMissions();
+  $('mMissions').style.display = 'flex';
+  Audio.SFX.click();
 });
-addSeasonXp(SEASON_XP_PER_MISSION);
+wire('missionsClose', 'click', () => { $('mMissions').style.display = 'none'; });
+
+const MISSIONS = [
+  { id:'kills50',    d:'50 kills',    check:()=>(S.kills - (S.mBase?.kills||0)) >= 50,      r:{g:500},  xp:20 },
+  { id:'kills200',   d:'200 kills',   check:()=>(S.kills - (S.mBase?.kills||0)) >= 200,     r:{g:2000}, xp:50 },
+  { id:'tower3',     d:'Subir 3 pisos de Torre', check:()=>(S.tower - (S.mBase?.tower||1)) >= 3, r:{a:2}, xp:30 },
+  { id:'prestige',   d:'Hacer 1 prestigio', check:()=>(S.prestiges - (S.mBase?.prestiges||0)) >= 1, r:{a:10}, xp:100 }
+];
+
 function renderMissions() {
-  checkMissions();
-  const box = $('misList'); if (!box) return;
-  box.innerHTML = '';
+  const box = $('missionsBody');
+  if (!box) return;
+  box.innerHTML = '<p style="color:#8fa3c8;font-size:11px;margin-bottom:10px">📅 ' + S.mDate + ' · Se resetean mañana</p>';
   MISSIONS.forEach(m => {
-    const cur = Math.max(0, Math.min(m.p(), m.goal));
-    const done = mDone(m), claimed = !!S.mClaimed[m.id];
-    const row = document.createElement('div'); row.className = 'mrow';
-    row.innerHTML = '<span>' + m.n + ' ' + m.d + '<br><small style="color:#8fa3c8">' + cur + '/' + m.goal + ' · 🪙 ' + fmt(mReward(m)) + '</small></span>';
-    const b = document.createElement('button'); b.className = 'claim';
-    b.textContent = claimed ? 'OK' : 'RECLAMAR';
-    b.disabled = claimed || !done;
+    const done = !!S.mClaimed[m.id];
+    const can = !done && m.check();
+    const rew = m.r.g ? '🪙 '+m.r.g : '🧬 '+m.r.a;
+    const row = document.createElement('div');
+    row.className = 'mrow';
+    row.innerHTML = '<span>' + (done?'✅':can?'🔔':'🔒') + ' ' + m.d +
+      '<br><small style="color:#8fa3c8">Recompensa: ' + rew + ' + ' + m.xp + ' XP 🎫</small></span>';
+    const b = document.createElement('button');
+    b.className = 'claim';
+    b.textContent = done ? 'OK' : 'RECLAMAR';
+    b.disabled = !can;
     b.onclick = () => {
-      if (!done || claimed) return;
-      S.mClaimed[m.id] = 1; S.gold += mReward(m);
-      persist(); Audio.SFX.coin(); toast('📜 +' + fmt(mReward(m)) + ' 🪙');
+      S.mClaimed[m.id] = 1;
+      if (m.r.g) S.gold += m.r.g;
+      if (m.r.a) S.adn += m.r.a;
+      addSeasonXp(m.xp); // usa la constante global SEASON_XP_PER_MISSION
+      persist();
+      Audio.SFX.levelup();
+      toast('📜 ¡Misión completada!');
       renderMissions();
     };
-    row.appendChild(b); box.appendChild(row);
+    row.appendChild(b);
+    box.appendChild(row);
   });
-  const all = $('misAll');
-  if (all) all.disabled = !mPending();
 }
+
 setInterval(() => {
-  checkMissions();
-  const d = $('misDot');
-  if (d) d.style.display = mPending() ? 'block' : 'none';
+  const dot = $('misDot');
+  if (!dot) return;
+  checkDailyResets();
+  const has = MISSIONS.some(m => !S.mClaimed[m.id] && m.check());
+  dot.style.display = has ? 'block' : 'none';
 }, 2000);

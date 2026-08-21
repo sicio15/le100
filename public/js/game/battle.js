@@ -1,6 +1,6 @@
 'use strict';
 // ===== LÓGICA PURA del combate =====
-// LOTE 17: drops x3 y energía x2 durante eventos relámpago.
+// LOTE 19: drops x2 (jueves) y energía x2 (viernes) del calendario diario.
 let squad = [];
 let enemies = [];
 let spawnT = 1, bossT = 0, shake = 0, time = 0, stageFlash = 0, dustT = 0, lastChapter = -1;
@@ -74,7 +74,8 @@ function aliveByPriority() {
 }
 function showCutin(m) { if (HOOKS.cutin) HOOKS.cutin(m); }
 function gainEnergy(m, n) {
-  n *= (typeof flashMult === 'function' ? flashMult('energia') : 1); // LOTE 17
+  n *= (typeof flashMult === 'function' ? flashMult('energia') : 1);
+  n *= (typeof dayHas === 'function' && dayHas('energia')) ? 2 : 1; // LOTE 19
   m.energy = Math.min(100, m.energy + n);
   if (m.energy >= 100) { m.energy = 0; castUlt(m); }
 }
@@ -135,7 +136,6 @@ function spawnBoss() {
   notify('👑 ¡JEFE en la etapa ' + S.stage + '!');
 }
 function killEnemy(e) {
-  addSeasonXp(SEASON_XP_PER_KILL * (e.boss ? SEASON_XP_PER_BOSS : 1));
   if (e.dying !== null) return;
   e.dying = 0.45;
   puff(e.x, groundY() + 2);
@@ -144,16 +144,17 @@ function killEnemy(e) {
   float(e.x, groundY() - 60, '+' + fmt(g), '#ffd700');
   burst(e.x, groundY() - 30, 'hsl(' + e.hue + ',80%,60%)', e.boss ? 40 : 14);
   if (HOOKS.kill) HOOKS.kill(e);
-  // LOTE 17: drops x3 durante flash 'drop'
-  const dropChance = (e.boss ? 1 : 0.08) * (typeof flashMult === 'function' ? flashMult('drop') : 1);
+  const dropChance = (e.boss ? 1 : 0.08)
+    * (typeof flashMult === 'function' ? flashMult('drop') : 1)
+    * (typeof dayHas === 'function' && dayHas('drops') ? 2 : 1); // LOTE 19
   if (Math.random() < dropChance) dropItem(e.boss ? 2 : 0);
   spawnCoins(e.x, groundY() - 40, e.boss ? 8 : 3);
   Audio.SFX.coin();
+  addSeasonXp((e.boss ? 50 : 1));
   if (e.boss) { shake = 14; if (HOOKS.bossHide) HOOKS.bossHide(); nextStage(); }
   else if (S.ks >= killsNeed()) nextStage();
 }
 function nextStage() {
-  addSeasonXp(SEASON_XP_PER_STAGE);
   const timeSec = (Date.now() - stageStartTime) / 1000;
   const rank = getStageRank(timeSec, stageHadDeaths, isBossStage());
   if (!S.stageRanks) S.stageRanks = {};
@@ -169,6 +170,7 @@ function nextStage() {
   const ch = Math.floor((S.stage - 1) / 10);
   if (ch !== lastChapter) { lastChapter = ch; Audio.setChapter(ch); Audio.SFX.levelup(); notify('🌄 ' + chapterOf(S.stage).name); }
   else Audio.SFX.levelup();
+  addSeasonXp(10);
   persist(); netScore(S.name, S.best);
   notify('⚔️ Etapa ' + S.stage + (isBossStage() ? ' 👑' : ''));
 }

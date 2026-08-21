@@ -1,254 +1,228 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#0d0a1a">
-<title>le100.io - Idle Cienpies</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐛</text></svg>">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;700;800&family=Press+Start+2P&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/01-base.css">
-<link rel="stylesheet" href="css/02-layout.css">
-<link rel="stylesheet" href="css/03-components.css">
-<link rel="stylesheet" href="css/04-features.css">
-<link rel="stylesheet" href="css/05-mobile.css">
-<link rel="stylesheet" href="css/06-features.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+  <title>le100.io - Idle Cienpies</title>
+  <meta name="theme-color" content="#0d0a1a">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐛</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;700;800&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/01-base.css">
+  <link rel="stylesheet" href="css/02-layout.css">
+  <link rel="stylesheet" href="css/03-components.css">
+  <link rel="stylesheet" href="css/04-features.css">
+  <link rel="stylesheet" href="css/05-mobile.css">
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
 </head>
 <body>
-<div id="app">
-  <!-- ===== TOPBAR ===== -->
-  <div id="topbar">
-  <div class="tb-left">
-    <div class="panel">⚔️ <b id="stageTxt">1</b>
-      <div id="stageProg"><div id="stageProgFill"></div><div id="stageProgTxt">0/8</div></div>
+  <div id="app">
+    <div id="topbar">
+      <div class="tb-left">
+        <div class="panel">⚔️ <b id="stageTxt">1</b>
+          <div id="stageProg"><div id="stageProgFill"></div><div id="stageProgTxt">0/8</div></div>
+        </div>
+        <div class="panel hidden" id="bossTag">👑</div>
+      </div>
+      <div class="tb-mid">
+        <div class="panel">🪙 <b id="goldTxt">0</b></div>
+        <div class="panel">🧬 <b id="adnTxt">0</b></div>
+      </div>
+      <div class="tb-right">
+        <button class="tbtn" id="btnEvent" title="Eventos">✨<span class="dot" id="evDot"></span></button>
+        <button class="tbtn" id="speedBtn">⏩ x1</button>
+        <button class="tbtn" id="btnSettings" title="Ajustes">⚙️</button>
+        <button class="tbtn" id="btnAch" title="Logros">🏅<span class="dot" id="achDot"></span></button>
+        <button class="tbtn" id="btnLb" title="Ranking">🏆</button>
+        <button class="tbtn" id="btnStats" title="Estadísticas">📊</button>
+        <button class="tbtn" id="btnPrestige" title="Prestigio">🧬<span class="dot" id="prDot"></span></button>
+        <button class="tbtn" id="btnShop" title="Tienda de ADN">🛒</button>
+        <button class="tbtn" id="btnLook" title="Vestidor">🎩</button>
+        <button class="tbtn" id="btnGear" title="Equipo">🎒<span class="dot" id="gearDot"></span></button>
+        <button class="tbtn" id="btnDaily" title="Jefe Diario">🎯<span class="dot" id="dailyDot"></span></button>
+        <button class="tbtn" id="btnTower" title="Torre Infinita">🗼</button>
+        <button class="tbtn" id="btnRogue" title="Sotobosque">🌀</button>
+        <button class="tbtn" id="btnArena" title="Arena PvP">⚔️</button>
+        <button class="tbtn" id="btnColony" title="Colonias">🐜</button>
+        <button class="tbtn" id="btnMissions" title="Misiones">📜<span class="dot" id="misDot"></span></button>
+        <button class="tbtn" id="btnMap" title="Mapa">🗺️</button>
+        <button class="tbtn" id="btnWeekly" title="Recompensas semanales">🎁<span class="dot" id="weekDot"></span></button>
+        <button class="tbtn" id="btnBattlePass" title="Battle Pass">🎫<span class="dot" id="bpDot"></span></button>
+        <button class="tbtn hubBtn" id="btnHub" title="Menú">📱<span class="dot" id="hubDot"></span></button>
+      </div>
     </div>
-    <div class="panel hidden" id="bossTag">👑</div>
-  </div>
-  <div class="tb-mid">
-    <div class="panel">🪙 <b id="goldTxt">0</b></div>
-    <div class="panel">🧬 <b id="adnTxt">0</b></div>
-  </div>
-  <div class="tb-right">
-    <button class="tbtn" id="btnEvent" title="Eventos">✨<span class="dot" id="evDot"></span></button>
-    <button class="tbtn" id="speedBtn">⏩ x1</button>
-    <button class="tbtn" id="btnSettings" title="Ajustes">⚙️</button>
-    <button class="tbtn" id="btnBattlePass" title="Battle Pass">🎫<span class="dot" id="bpDot"></span></button>
-    <button class="tbtn" id="btnAch" title="Logros">🏅<span class="dot" id="achDot"></span></button>
-    <button class="tbtn" id="btnLb" title="Ranking">🏆</button>
-    <button class="tbtn" id="btnStats" title="Estadísticas">📊</button>
-    <button class="tbtn" id="btnPrestige" title="Prestigio">🧬<span class="dot" id="prDot"></span></button>
-    <button class="tbtn" id="btnShop" title="Tienda de ADN">🛒</button>
-    <button class="tbtn" id="btnLook" title="Vestidor">🎩</button>
-    <button class="tbtn" id="btnGear" title="Equipo">🎒<span class="dot" id="gearDot"></span></button>
-    <button class="tbtn" id="btnDaily" title="Jefe Diario">🎯<span class="dot" id="dailyDot"></span></button>
-    <button class="tbtn" id="btnTower" title="Torre Infinita">🗼</button>
-    <button class="tbtn" id="btnRogue" title="Sotobosque">🌀</button>
-    <button class="tbtn" id="btnArena" title="Arena PvP">⚔️</button>
-    <button class="tbtn" id="btnColony" title="Colonias">🐜</button>
-    <button class="tbtn" id="btnMissions" title="Misiones">📜<span class="dot" id="misDot"></span></button>
-    <button class="tbtn" id="btnMap" title="Mapa">🗺️</button>
-    <button class="tbtn" id="btnWeekly" title="Recompensas semanales">🎁<span class="dot" id="weekDot"></span></button>
-    <button class="tbtn hubBtn" id="btnHub" title="Menú">📱<span class="dot" id="hubDot"></span></button>
-  </div>
-</div>
-  <!-- ===== BATALLA ===== -->
-  <div id="battleWrap">
-    <div id="bossBar" class="hidden"><div id="bossFill"></div><div id="bossTime">30s</div></div>
-    <div id="heroHpWrap"><div id="heroHp"></div></div>
-    <div id="cutin"></div>
-  </div>
-  <!-- ===== BOTTOMBAR ===== -->
-  <div id="bottombar">
-    <div id="heroStats">
-      <div>❤️ <span id="hpTxt">100</span></div>
-      <div>⚔️ <span id="dpsTxt">5</span>/s</div>
+    <div id="battleWrap">
+      <canvas id="cv"></canvas>
+      <div id="heroHpWrap"><div id="heroHp"></div></div>
+      <div id="bossBar" class="hidden"><div id="bossFill"></div><div id="bossTime"></div></div>
     </div>
-    <div id="ups"></div>
+    <div id="bottombar">
+      <div id="heroStats">
+        <div>❤️ <b id="hpTxt">100/100</b></div>
+        <div>⚔️ <b id="dpsTxt">10</b>/s</div>
+      </div>
+      <div id="ups"></div>
+    </div>
   </div>
-</div>
-<div id="toasts"></div>
+  <div id="toasts"></div>
+  <div id="cutin"></div>
 
-<!-- ===== MODALES ===== -->
-<div class="modal" id="mAuth"><div class="mcard">
-  <img id="logoImg" alt="" style="width:120px;margin:0 auto 8px;display:block">
-  <h2>🐛 le100.io</h2>
-  <p style="color:#8fa3c8;font-size:12px">IDLE ARENA · tu cuenta, tu partida</p>
-  <div class="tabs">
-    <button class="tab sel" id="tabLogin">ENTRAR</button>
-    <button class="tab" id="tabReg">CREAR CUENTA</button>
-  </div>
-  <input class="minput" id="authName" placeholder="Nombre" maxlength="14">
-  <input class="minput" id="authPass" type="password" placeholder="Contraseña">
-  <button class="mbtn" id="authBtn">JUGAR</button>
-  <div class="err" id="authErr"></div>
-  <p class="hintTxt">Tu progreso se guarda en la cuenta y funciona en cualquier dispositivo.</p>
-</div></div>
+  <!-- Modales -->
+  <div class="modal" id="mSettings"><div class="mcard">
+    <h2>⚙️ AJUSTES</h2>
+    <label class="setRow"><span>🔊 Audio</span><input type="checkbox" id="setAudio"></label>
+    <label class="setRow"><span>🎵 Música</span><input type="range" id="setMusic" min="0" max="1" step="0.05" value="0.5"><span id="setMusicV">50</span></label>
+    <label class="setRow"><span>🔔 SFX</span><input type="range" id="setSfx" min="0" max="1" step="0.05" value="0.7"><span id="setSfxV">70</span></label>
+    <label class="setRow"><span>🎨 Reducir efectos</span><input type="checkbox" id="setReduce"></label>
+    <button class="mbtn" id="setClose">CERRAR</button>
+    <button class="mbtn gray" id="setLogout">CERRAR SESIÓN</button>
+  </div></div>
 
-<div class="modal" id="mOffline"><div class="mcard">
-  <h2>🌙 ¡Bienvenido de nuevo!</h2>
-  <p style="color:#8fa3c8">Tu cienpiés siguió luchando mientras no estabas:</p>
-  <div class="big" id="offlineAmt">🪙 0</div>
-  <button class="mbtn" id="offlineBtn">RECLAMAR</button>
-</div></div>
-<div class="modal" id="mBattlePass"><div class="mcard wide">
-  <h2>🎫 BATTLE PASS</h2>
-  <div id="bpBody"></div>
-  <button class="mbtn gray" id="bpClose">CERRAR</button>
-</div></div>
-<div class="modal" id="mPrestige"><div class="mcard">
-  <h2>🧬 PRESTIGIO</h2>
-  <p style="color:#8fa3c8;font-size:12px">Mudá de piel: reiniciás etapa, oro y mejoras, pero ganás ADN permanente.<br>
-  Cada 🧬 = +10% daño y oro. Solo ganás ADN por etapas que superen tu último prestigio.</p>
-  <div class="big" id="prGain">+0 🧬</div>
-  <button class="mbtn" id="prBtn">MUDAR DE PIEL</button>
-  <button class="mbtn gray" id="prClose">CERRAR</button>
-</div></div>
+  <div class="modal" id="mPrestige"><div class="mcard">
+    <h2>🧬 PRESTIGIO</h2>
+    <p>Alcanzaste la etapa <b id="prStage">10</b>. ¿Reiniciar para ganar <span id="prGain">+0</span> ADN?</p>
+    <p id="prInfo" style="color:#8fa3c8;font-size:11px;margin:8px 0;line-height:1.5;"></p>
+    <button class="mbtn" id="prBtn">PRESTIGIAR</button>
+    <button class="mbtn gray" id="prClose">CERRAR</button>
+  </div></div>
 
-<div class="modal" id="mAch"><div class="mcard">
-  <h2>🏅 LOGROS</h2><div id="achList"></div>
-  <button class="mbtn gray" id="achClose">CERRAR</button>
-</div></div>
+  <div class="modal" id="mAch"><div class="mcard">
+    <h2>🏅 LOGROS</h2>
+    <div id="achList"></div>
+    <button class="mbtn gray" id="achClose">CERRAR</button>
+  </div></div>
 
-<div class="modal" id="mLb"><div class="mcard">
-  <h2>🏆 RANKING ONLINE</h2><div id="lbList"></div>
-  <button class="mbtn gray" id="lbClose">CERRAR</button>
-</div></div>
+  <div class="modal" id="mLb"><div class="mcard">
+    <h2>🏆 RANKING</h2>
+    <div id="lbList"></div>
+    <button class="mbtn gray" id="lbClose">CERRAR</button>
+  </div></div>
 
-<div class="modal" id="mSettings"><div class="mcard">
-  <h2>⚙️ AJUSTES</h2>
-  <label class="setRow"><span>🔊 Audio</span><input type="checkbox" id="setAudio"></label>
-  <label class="setRow"><span>🎵 Música <b id="setMusicV">50</b>%</span><input type="range" id="setMusic" min="0" max="100"></label>
-  <label class="setRow"><span>💥 Efectos <b id="setSfxV">70</b>%</span><input type="range" id="setSfx" min="0" max="100"></label>
-  <label class="setRow"><span>✨ Reducir efectos</span><input type="checkbox" id="setReduce"></label>
-  <button class="mbtn gray" id="setLogout">🚪 Cerrar sesión</button>
-  <button class="mbtn gray" id="setClose">CERRAR</button>
-</div></div>
-<div class="modal" id="mHub"><div class="mcard">
-  <div class="gearTop">
-    <h2 style="margin:0">📱 MENÚ</h2>
-    <button class="gearX" id="hubClose" title="Cerrar">✖</button>
-  </div>
-  <div id="hubBody"></div>
-</div></div>
-
-<div class="modal" id="mGear"><div class="mcard wide">
-  <div class="gearTop">
-    <h2 style="margin:0">🎒 EQUIPO</h2>
-    <div class="gearTopBtns">
-      <button class="mbtn" id="autoEqBtn">⚡ AUTO-EQUIPAR</button>
+  <div class="modal" id="mGear"><div class="mcard wide">
+    <div class="gearTop">
+      <h2>🎒 EQUIPO</h2>
       <button class="gearX" id="gearCloseX" title="Cerrar">✖</button>
     </div>
-  </div>
-  <div class="gearWrap" id="gearBody"></div>
-  <button class="mbtn gray" id="gearClose">CERRAR</button>
-</div></div>
+    <div id="gearBody"></div>
+    <button class="mbtn gray" id="gearClose">CERRAR</button>
+  </div></div>
 
-<div class="modal" id="mDaily"><div class="mcard">
-  <h2>🎯 JEFE DIARIO</h2><div id="dailyInfo"></div>
-  <button class="mbtn" id="dailyBtn">🎟️ USAR TICKET</button>
-  <div id="dailyResult" style="min-height:20px;color:#8fa3c8"></div>
-  <button class="mbtn gray" id="dailyClose">CERRAR</button>
-</div></div>
+  <div class="modal" id="mShop"><div class="mcard">
+    <h2>🛒 TIENDA DE ADN</h2>
+    <div id="shopList"></div>
+    <button class="mbtn gray" id="shopClose">CERRAR</button>
+  </div></div>
 
-<div class="modal" id="mTower"><div class="mcard">
-  <h2>🗼 TORRE INFINITA</h2><div id="towerInfo"></div>
-  <button class="mbtn" id="towerFight">⚔️ PELEAR</button>
-  <div id="towerResult" style="min-height:20px;color:#8fa3c8"></div>
-  <button class="mbtn gray" id="towerClose">CERRAR</button>
-</div></div>
+  <div class="modal" id="mLook"><div class="mcard">
+    <h2>🎩 VESTIDOR</h2>
+    <div id="lookBody"></div>
+    <button class="mbtn gray" id="lookClose">CERRAR</button>
+  </div></div>
 
-<div class="modal" id="mRogue"><div class="mcard">
-  <h2>🌀 EL SOTOBOSQUE</h2><div id="rogueBody"></div>
-  <button class="mbtn" id="rogueStart">🌀 EMPEZAR</button>
-  <button class="mbtn gray" id="rogueClose">CERRAR</button>
-</div></div>
+  <div class="modal" id="mDaily"><div class="mcard">
+    <h2>🎯 JEFE DIARIO</h2>
+    <div id="dailyBody"></div>
+    <button class="mbtn gray" id="dailyClose">CERRAR</button>
+  </div></div>
 
-<div class="modal" id="mArena"><div class="mcard">
-  <h2>⚔️ ARENA PvP</h2><div id="arenaMe"></div>
-  <h3 style="color:#ffd700;margin-top:12px">RIVALES CERCANOS</h3><div id="arenaOps"></div>
-  <h3 style="color:#ffd700;margin-top:12px">TOP 10</h3><div id="arenaTop"></div>
-  <button class="mbtn gray" id="arenaClose">CERRAR</button>
-</div></div>
-<div class="modal" id="mEvents"><div class="mcard">
-  <h2>✨ EVENTOS</h2>
-  <div id="evBody"></div>
-  <button class="mbtn gray" id="evClose">CERRAR</button>
-</div></div>
-<div class="modal" id="mColony"><div class="mcard">
-  <h2>🐜 COLONIA</h2><div id="colonyBody"></div>
-  <button class="mbtn gray" id="colonyClose">CERRAR</button>
-</div></div>
+  <div class="modal" id="mTower"><div class="mcard">
+    <h2>🗼 TORRE INFINITA</h2>
+    <div id="towerBody"></div>
+    <button class="mbtn gray" id="towerClose">CERRAR</button>
+  </div></div>
 
-<div class="modal" id="mMissions"><div class="mcard">
-  <h2>📜 MISIONES DIARIAS</h2><div id="misList"></div>
-  <button class="mbtn" id="misAll">🎁 RECLAMAR TODO</button>
-  <button class="mbtn gray" id="misClose">CERRAR</button>
-</div></div>
+  <div class="modal" id="mRogue"><div class="mcard">
+    <h2>🌀 EL SOTOBOSQUE</h2>
+    <div id="rogueBody"></div>
+    <button class="mbtn gray" id="rogueClose">CERRAR</button>
+  </div></div>
 
-<div class="modal" id="mShop"><div class="mcard">
-  <h2>🧬 TIENDA DE ADN</h2>
-  <p style="color:#8fa3c8;font-size:11px">Mejoras PERMANENTES (no se pierden al prestigiar)</p>
-  <div id="shopList"></div>
-  <h3 style="color:#ffd700;margin-top:12px">🎨 SKINS DE ESCUADRÓN</h3><div id="skinList"></div>
-  <button class="mbtn gray" id="shopClose">CERRAR</button>
-</div></div>
+  <div class="modal" id="mArena"><div class="mcard">
+    <h2>⚔️ ARENA PVP</h2>
+    <div id="arenaBody"></div>
+    <button class="mbtn gray" id="arenaClose">CERRAR</button>
+  </div></div>
 
-<div class="modal" id="mStats"><div class="mcard">
-  <h2>📊 ESTADÍSTICAS</h2><div id="statsBody"></div>
-  <button class="mbtn gray" id="statsClose">CERRAR</button>
-</div></div>
+  <div class="modal" id="mColony"><div class="mcard">
+    <h2>🐜 COLONIAS</h2>
+    <div id="colonyBody"></div>
+    <button class="mbtn gray" id="colonyClose">CERRAR</button>
+  </div></div>
 
-<div class="modal" id="mLook"><div class="mcard">
-  <h2>🎩 VESTIDOR</h2><div id="lookBody"></div>
-  <button class="mbtn gray" id="lookClose">CERRAR</button>
-</div></div>
-<div class="modal" id="mMap"><div class="mcard wide">
-  <h2>🗺️ MAPA DE ETAPAS</h2>
-  <p style="color:#8fa3c8;font-size:11px;margin-bottom:15px;">Viajá a etapas anteriores para farmear. ¡Buscá el rango S!</p>
-  <div id="mapBody" style="max-height: 60vh; overflow-y: auto; padding-right: 5px;"></div>
-  <button class="mbtn gray" id="mapClose">CERRAR</button>
-</div></div>
-<div class="modal" id="mWeekly"><div class="mcard">
-  <h2>🎁 RECOMPENSAS SEMANALES</h2>
-  <div id="weeklyBody"></div>
-  <button class="mbtn gray" id="weeklyClose">CERRAR</button>
-</div></div>
+  <div class="modal" id="mMissions"><div class="mcard">
+    <h2>📜 MISIONES DIARIAS</h2>
+    <div id="missionsBody"></div>
+    <button class="mbtn gray" id="missionsClose">CERRAR</button>
+  </div></div>
 
-<!-- ===== SCRIPTS: orden validado (globals clásicos) =====
-     net antes que store (persist usa netSendSave) · ui-shop/ui-look patchean
-     applyServerSave antes de ui-auth · sim.js antes de los modos · main.js último.
-     icons.js NO va acá: lo carga main.js dinámico. -->
-<script src="/socket.io/socket.io.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
-<script src="js/core/config.js"></script>
-<script src="js/core/assets.js"></script>
-<script src="js/core/audio.js"></script>
-<script src="js/core/net.js"></script>
-<script src="js/core/store.js"></script>
-<script src="js/ui/ui.js"></script>
-<script src="js/game/battle.js"></script>
-<script src="js/game/phaser-setup.js"></script>
-<script src="js/game/battle-scene.js"></script>
-<script src="js/ui/ui-hud.js"></script>
-<script src="js/ui/ui-map.js"></script>
-<script src="js/ui/ui-gear.js"></script>
-<script src="js/ui/autoequip.js"></script>
-<script src="js/ui/ui-shop.js"></script>
-<script src="js/ui/ui-look.js"></script>
-<script src="js/ui/ui-stats.js"></script>
-<script src="js/ui/ui-events.js"></script>
-<script src="js/ui/ui-missions.js"></script>
-<script src="js/modes/sim.js"></script>
-<script src="js/modes/daily.js"></script>
-<script src="js/modes/tower.js"></script>
-<script src="js/modes/rogue.js"></script>
-<script src="js/social/social.js"></script>
-<script src="js/ui/ui-weekly.js"></script>
-<script src="js/ui/ui-hub.js"></script>
-<script src="js/ui/ui-battlepass.js"></script>
-<script src="js/ui/ui-auth.js"></script>
-<script src="js/game/main.js"></script>
+  <div class="modal" id="mMap"><div class="mcard wide">
+    <h2>🗺️ MAPA DE ETAPAS</h2>
+    <div id="mapBody"></div>
+    <button class="mbtn gray" id="mapClose">CERRAR</button>
+  </div></div>
+
+  <div class="modal" id="mWeekly"><div class="mcard">
+    <h2>🎁 RECOMPENSAS SEMANALES</h2>
+    <div id="weeklyBody"></div>
+    <button class="mbtn gray" id="weeklyClose">CERRAR</button>
+  </div></div>
+
+  <div class="modal" id="mBattlePass"><div class="mcard wide">
+    <h2>🎫 BATTLE PASS</h2>
+    <div id="bpBody"></div>
+    <button class="mbtn gray" id="bpClose">CERRAR</button>
+  </div></div>
+
+  <div class="modal" id="mEvents"><div class="mcard">
+    <h2>✨ EVENTOS</h2>
+    <div id="evBody"></div>
+    <button class="mbtn gray" id="evClose">CERRAR</button>
+  </div></div>
+
+  <div class="modal" id="mHub"><div class="mcard">
+    <div class="gearTop">
+      <h2 style="margin:0">📱 MENÚ</h2>
+      <button class="gearX" id="hubClose" title="Cerrar">✖</button>
+    </div>
+    <div id="hubBody"></div>
+  </div></div>
+
+  <div class="modal" id="mStats"><div class="mcard">
+    <h2>📊 ESTADÍSTICAS</h2>
+    <div id="statsBody"></div>
+    <button class="mbtn gray" id="statsClose">CERRAR</button>
+  </div></div>
+
+  <!-- Scripts en orden correcto: store.js ANTES que los que usan S -->
+  <script src="js/core/config.js"></script>
+  <script src="js/core/assets.js"></script>
+  <script src="js/core/audio.js"></script>
+  <script src="js/core/net.js"></script>
+  <script src="js/core/store.js"></script>
+  <script src="js/ui/ui.js"></script>
+  <script src="js/game/battle.js"></script>
+  <script src="js/game/phaser-setup.js"></script>
+  <script src="js/game/battle-scene.js"></script>
+  <script src="js/ui/ui-hud.js"></script>
+  <script src="js/ui/ui-gear.js"></script>
+  <script src="js/ui/autoequip.js"></script>
+  <script src="js/ui/ui-shop.js"></script>
+  <script src="js/ui/ui-look.js"></script>
+  <script src="js/ui/ui-map.js"></script>
+  <script src="js/ui/ui-weekly.js"></script>
+  <script src="js/ui/ui-battlepass.js"></script>
+  <script src="js/ui/ui-events.js"></script>
+  <script src="js/ui/ui-hub.js"></script>
+  <script src="js/ui/ui-stats.js"></script>
+  <script src="js/ui/ui-missions.js"></script>
+  <script src="js/modes/sim.js"></script>
+  <script src="js/modes/daily.js"></script>
+  <script src="js/modes/tower.js"></script>
+  <script src="js/modes/rogue.js"></script>
+  <script src="js/social/social.js"></script>
+  <script src="js/ui/ui-auth.js"></script>
+  <script src="js/game/main.js"></script>
 </body>
 </html>
