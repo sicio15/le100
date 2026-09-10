@@ -1,122 +1,73 @@
 'use strict';
-// ===== Arena PvP + Colonias =====
+// ===== ARENA PvP =====
 // netEmit = evento CON dato + ack · netCall = evento SIN dato + ack
 // LOTE 2A (deuda #4): checkArenaTickets eliminado → store.checkDailyResets().
+//
+// FIX LOTE 26 — la Arena estaba MUERTA: renderArena() escribía en #arenaMe, #arenaOps
+// y #arenaTop, tres ids que no existen en index.html (el modal sólo tiene #arenaBody).
+// La primera línea lanzaba TypeError, así que el modal ni siquiera llegaba a abrirse:
+// el botón ⚔️ no hacía nada. Ahora todo se construye dentro de #arenaBody.
+//
+// También se retiró la UI de Colonias (deprecada en L25): el botón #btnColony y el
+// modal #mColony ya no existen en el HTML, así que openColony/renderColony eran código
+// inalcanzable que apuntaba a un DOM inexistente. El servidor conserva colonies.js y
+// los campos colony/colonyLevel para compatibilidad de saves.
 const netEmit = (ev, data, cb) => { if (typeof socket !== 'undefined' && socket) socket.emit(ev, data, cb); };
 const netCall = (ev, cb) => { if (typeof socket !== 'undefined' && socket) socket.emit(ev, cb); };
-// ================= ARENA =================
+
 wire('btnArena', 'click', openArena);
 wire('arenaClose', 'click', () => { $('mArena').style.display = 'none'; });
+
 function openArena() {
   Audio.SFX.click();
-  if (!authed) { toast('🔒 Entrá con tu cuenta para usar la Arena'); return; }
+  const box = $('arenaBody'); if (!box) return;
+  if (!authed) {
+    box.innerHTML = '<p style="color:#8fa3c8;font-size:12px">🔒 Entrá con tu cuenta para competir en la Arena.</p>';
+    $('mArena').style.display = 'flex';
+    return;
+  }
   checkDailyResets(); persist();
-  netCall('arenaInfo', info => { renderArena(info || {}); $('mArena').style.display = 'flex'; });
+  box.innerHTML = '<p style="color:#8fa3c8;font-size:12px">⏳ Buscando rivales…</p>';
+  $('mArena').style.display = 'flex';
+  netCall('arenaInfo', info => renderArena(info || {}));
 }
+
 function renderArena(info) {
-  $('arenaMe').innerHTML = '🏟️ <b>' + S.arenaPts + '</b> pts · 🎟️ ' + S.arenaTickets + '/5';
-  const list = $('arenaOps'); list.innerHTML = '';
+  const box = $('arenaBody'); if (!box) return;
+  box.innerHTML =
+    '<div class="mrow" style="border:1px solid #ffd700">' +
+      '<span>🏟️ <b style="color:#ffd700">' + S.arenaPts + '</b> pts</span>' +
+      '<span>🎟️ <b>' + S.arenaTickets + '</b>/5</span>' +
+    '</div>' +
+    '<h3 style="color:#ffd700;font-size:11px;margin:12px 0 6px">⚔️ RIVALES</h3><div id="arenaOps"></div>' +
+    '<h3 style="color:#ffd700;font-size:11px;margin:12px 0 6px">🏆 TOP 10</h3><div id="arenaTop"></div>';
+
+  const list = $('arenaOps');
   (info.ops || []).forEach(op => {
     const row = document.createElement('div'); row.className = 'mrow';
-    row.innerHTML = '<span>🐛 <b>' + op.name + '</b><br><small>Etapa ' + op.best + ' · ' + op.pts + ' pts</small></span>';
+    row.innerHTML = '<span>🐛 <b>' + op.name + '</b><br><small style="color:#8fa3c8">Etapa ' + op.best + ' · ' + op.pts + ' pts</small></span>';
     const b = document.createElement('button'); b.className = 'claim'; b.textContent = '⚔️ ATACAR';
     b.disabled = S.arenaTickets <= 0;
     b.onclick = () => {
+      b.disabled = true;
       netEmit('arenaFight', op.name, res => {
-        if (!res) return;
+        if (!res) { b.disabled = false; return; }
         toast(res.msg);
         if (res.win) Audio.SFX.levelup(); else Audio.SFX.death();
-        persist(); openArena();
+        // El servidor es la autoridad: usamos SUS números, no los recalculamos.
+        if (res.tickets != null) S.arenaTickets = res.tickets;
+        if (res.pts != null) S.arenaPts = res.pts;
+        if (res.gold) S.gold += res.gold;
+        persist();
+        openArena();
       });
     };
     row.appendChild(b); list.appendChild(row);
   });
-  if (!(info.ops || []).length) list.innerHTML = '<p style="color:#8fa3c8">Todavía no hay rivales… ¡sé el primero!</p>';
+  if (!(info.ops || []).length) list.innerHTML = '<p style="color:#8fa3c8;font-size:12px">Todavía no hay rivales… ¡sé el primero!</p>';
+
   $('arenaTop').innerHTML = (info.top || []).map((p, i) =>
     '<div class="mrow"><span>' + (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1) + '.') +
     ' <b style="color:' + (p.name === S.name ? '#7CFC7C' : '#fff') + '">' + p.name + '</b></span><span>' + p.pts + ' pts</span></div>').join('') ||
-    '<p style="color:#8fa3c8">Sin luchadores aún</p>';
-}
-// ================= COLONIAS =================
-wire('btnColony', 'click', openColony);
-wire('colonyClose', 'click', () => { $('mColony').style.display = 'none'; });
-function openColony() {
-  Audio.SFX.click();
-  if (!authed) { toast('🔒 Entrá con tu cuenta para usar Colonias'); return; }
-  netCall('colonyInfo', info => { renderColony(info || {}); $('mColony').style.display = 'flex'; });
-}
-const bossMaxClient = c => Math.round(1e6 * (c.level || 1) * Math.max(1, (c.members || []).length));
-function renderColony(info) {
-  const box = $('colonyBody'); if (!box) return;
-  box.innerHTML = '';
-  if (!info.in) {
-    box.innerHTML = '<h3 style="color:#ffd700">CREAR COLONIA (10.000 🪙)</h3>' +
-      '<input id="colName" class="minput" placeholder="Nombre" maxlength="14">' +
-      '<button class="mbtn" id="colCreate">🐜 CREAR</button>' +
-      '<h3 style="color:#ffd700;margin-top:16px">UNIRSE A UNA COLONIA</h3>';
-    wire('colCreate', 'click', () => {
-      netEmit('colonyCreate', $('colName').value, res => {
-        if (res && res.ok) { toast('🐜 ¡Colonia fundada!'); Audio.SFX.levelup(); persist(); openColony(); }
-        else toast('❌ ' + ((res && res.err) || 'Error'));
-      });
-    });
-    (info.list || []).forEach(c => {
-      const row = document.createElement('div'); row.className = 'mrow';
-      row.innerHTML = '<span>🐜 <b>' + c.name + '</b> · Nv ' + c.level + '<br><small>' + c.members + '/20 miembros</small></span>';
-      const b = document.createElement('button'); b.className = 'claim'; b.textContent = 'UNIRSE';
-      b.onclick = () => netEmit('colonyJoin', c.key, res => {
-        if (res && res.ok) { toast('🐜 ¡Bienvenido a ' + c.name + '!'); Audio.SFX.buy(); persist(); openColony(); }
-        else toast('❌ No se pudo unir');
-      });
-      row.appendChild(b); box.appendChild(row);
-    });
-    if (!(info.list || []).length) {
-      const p = document.createElement('p');
-      p.style.color = '#8fa3c8';
-      p.textContent = 'No hay colonias aún. ¡Fundá la primera!';
-      box.appendChild(p);
-    }
-    return;
-  }
-  const c = info.in;
-  box.innerHTML = '<h3 style="color:#ffd700">🐜 ' + c.name + ' · Nv ' + (c.level || 1) + '</h3>' +
-    '<small style="color:#8fa3c8">Buff: +' + (2 * ((c.level || 1) - 1)) + '% daño · ' + (c.members || []).length + '/20 miembros</small>' +
-    '<h3 style="color:#ff5252;margin-top:14px">🐲 JEFE DE COLONIA</h3>' +
-    '<div class="sqHp" style="width:100%;height:12px;margin:8px 0"><i style="width:' + Math.max(0, 100 - (c.bossHp || 0) / bossMaxClient(c) * 100) + '%;background:linear-gradient(90deg,#ff5252,#ff9800)"></i></div>' +
-    '<small style="color:#8fa3c8">' + fmt(c.bossHp || 0) + ' / ' + fmt(bossMaxClient(c)) + ' HP · 1 intento/día por miembro</small>' +
-    '<div style="margin-top:10px"><button class="mbtn" id="colBoss">⚔️ LUCHAR</button>' +
-    '<button class="mbtn" id="colClaim">🎁 RECLAMAR</button>' +
-    '<button class="mbtn" id="colDonate">💰 DONAR</button>' +
-    '<button class="mbtn gray" id="colLeave">🚪 SALIR</button></div>' +
-    '<h3 style="color:#ffd700;margin-top:14px">MIEMBROS</h3><div id="colMembers"></div>';
-  wire('colBoss', 'click', () => {
-    netCall('colonyBoss', res => {
-      if (!res || !res.ok) { toast('❌ ' + ((res && res.err) || 'Sin intento hoy')); return; }
-      toast('💥 ' + fmt(res.dmg) + ' de daño' + (res.killed ? ' · ¡🐲 JEFE DERROTADO!' : ''));
-      if (res.killed) Audio.SFX.levelup(); else Audio.SFX.hit();
-      openColony();
-    });
-  });
-  wire('colClaim', 'click', () => {
-    netCall('colonyClaim', res => {
-      if (res && res.ok) { toast('🎁 +' + fmt(res.g) + ' 🪙'); Audio.SFX.coin(); persist(); openColony(); }
-      else toast('❌ Nada para reclamar');
-    });
-  });
-  wire('colDonate', 'click', () => {
-    netCall('colonyDonate', res => {
-      if (res && res.ok) { toast('💰 Colonia Nv ' + res.level); S.colonyLevel = res.level; persist(); Audio.SFX.buy(); openColony(); }
-      else toast('❌ Oro insuficiente');
-    });
-  });
-  wire('colLeave', 'click', () => {
-    if (!confirm('¿Salir de la colonia?')) return;
-    netCall('colonyLeave', res => { if (res && res.ok) { toast('🚪 Saliste de la colonia'); persist(); openColony(); } });
-  });
-  const mw = $('colMembers');
-  if (mw) (info.members || []).forEach(m => {
-    const row = document.createElement('div'); row.className = 'mrow';
-    row.innerHTML = '<span>🐛 <b style="color:' + (m.name === S.name ? '#7CFC7C' : '#fff') + '">' + m.name + '</b></span><span>Etapa ' + m.best + '</span>';
-    mw.appendChild(row);
-  });
+    '<p style="color:#8fa3c8;font-size:12px">Sin luchadores aún</p>';
 }
