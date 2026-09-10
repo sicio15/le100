@@ -6,8 +6,9 @@ const HUB_SECTIONS = [
     { id: 'btnDaily', ico: '🎯', n: 'Diario', dot: 'dailyDot' },
     { id: 'btnTower', ico: '🗼', n: 'Torre' },
     { id: 'btnRogue', ico: '🌀', n: 'Sotobosque' },
-    { id: 'btnArena', ico: '⚔️', n: 'Arena' },
-    { id: 'btnColony', ico: '🐜', n: 'Colonia' }
+    { id: 'btnArena', ico: '⚔️', n: 'Arena' }
+    // L26: 'btnColony' eliminado — el botón y el modal no existen desde L25, así que
+    // el HUB dibujaba un ítem que no hacía nada (guilds-ui lo filtraba en runtime).
   ]},
   { t: '📋 PROGRESO', items: [
     { id: 'btnMap', ico: '🗺️', n: 'Mapa' },
@@ -20,7 +21,8 @@ const HUB_SECTIONS = [
     { id: 'btnShop', ico: '🛒', n: 'ADN' },
     { id: 'btnLook', ico: '🎩', n: 'Vestidor' },
     { id: 'btnGear', ico: '🎒', n: 'Equipo', dot: 'gearDot' },
-    { id: 'btnWeekly', ico: '🎁', n: 'Semanal', dot: 'weekDot' }
+    { id: 'btnWeekly', ico: '🎁', n: 'Semanal', dot: 'weekDot' },
+    { id: 'btnBattlePass', ico: '🎫', n: 'Pase', dot: 'bpDot' } // L26: faltaba en el HUB mobile
   ]},
   { t: '⚙️ SISTEMA', items: [
     { id: 'btnEvent', ico: '✨', n: 'Evento' },

@@ -12,12 +12,43 @@ const wire = (id, ev, fn) => { const e = $(id); if (e) e.addEventListener(ev, fn
 // OPTIMIZACIÓN: elementos del hot-path (uiTick 10Hz) cacheados 1 sola vez.
 const EL = {};
 ['goldTxt', 'stageTxt', 'adnTxt', 'bossTag', 'hpTxt', 'dpsTxt', 'heroHpWrap',
-  'stageProgFill', 'stageProgTxt', 'prDot', 'achDot', 'gearDot'
+  'stageProgFill', 'stageProgTxt', 'prDot', 'achDot', 'gearDot',
+  'comboBox', 'comboX', 'comboN', 'comboBar'
 ].forEach(id => { EL[id] = $(id); });
+if (EL.comboBar) EL.comboBarFill = EL.comboBar.querySelector('i');
 // HOOKS QoL: eventos explícitos (autoequip etc.)
 const UI_HOOKS = { gearOpen: [] };
 function onGearOpen(fn) { UI_HOOKS.gearOpen.push(fn); }
 function fireGearOpen() { UI_HOOKS.gearOpen.forEach(fn => { try { fn(); } catch (e) {} }); }
+
+// ===== L26: GESTOR DE MODALES =====
+// Había 20 modales y ninguno se cerraba con Escape ni tocando fuera de la tarjeta:
+// la única salida era encontrar el botón CERRAR. Esto lo resuelve para todos de una
+// vez, sin tocar ni uno solo de los paneles.
+const MODAL_LOCKED = ['mAuth']; // el login no se puede descartar
+const openModals = () => Array.prototype.filter.call(
+  document.querySelectorAll('.modal'),
+  m => m.style.display === 'flex' && MODAL_LOCKED.indexOf(m.id) < 0);
+function closeTopModal() {
+  const list = openModals();
+  if (!list.length) return false;
+  list[list.length - 1].style.display = 'none';
+  if (typeof Audio !== 'undefined' && Audio.SFX) Audio.SFX.click();
+  return true;
+}
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  const tag = (e.target && e.target.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA') { e.target.blur(); return; }
+  if (closeTopModal()) e.preventDefault();
+});
+// Click en el fondo (no en la tarjeta) = cerrar
+document.addEventListener('click', e => {
+  if (!e.target.classList || !e.target.classList.contains('modal')) return;
+  if (MODAL_LOCKED.indexOf(e.target.id) >= 0) return;
+  e.target.style.display = 'none';
+  if (typeof Audio !== 'undefined' && Audio.SFX) Audio.SFX.click();
+});
 // ===== Logo con chroma =====
 (function loadLogo() {
   const img = new Image();

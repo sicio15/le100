@@ -68,17 +68,28 @@ function cycleSpeed() {
 wire('speedBtn', 'click', cycleSpeed);
 if ($('speedBtn')) $('speedBtn').textContent = '⏩ x' + SETTINGS.speed;
 
-// ----- Atajos de teclado (desktop) -----
+// ----- Atajos de teclado (desktop) — L26: ampliados a todos los paneles -----
+const KEYMAP = {
+  m: 'btnMap', e: 'btnGear', p: 'btnPrestige', t: 'btnTower', r: 'btnRogue',
+  a: 'btnArena', d: 'btnDaily', s: 'btnShop', c: 'btnMissions', b: 'btnBattlePass',
+  g: 'btnGuild', l: 'btnLb', v: 'btnStats', o: 'btnSettings'
+};
 window.addEventListener('keydown', e => {
-  if (e.repeat) return;
+  if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
   const tag = (e.target && e.target.tagName) || '';
   if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
-  switch (e.key) {
-    case ' ': e.preventDefault(); cycleSpeed(); break;
-    case 'm': case 'M': { const b = $('btnMap'); if (b) b.click(); break; }
-    case 'e': case 'E': { const b = $('btnGear'); if (b) b.click(); break; }
-    case 'p': case 'P': { const b = $('btnPrestige'); if (b) b.click(); break; }
+  // Espacio = golpe manual si hay enemigos; si no, cambia la velocidad
+  if (e.key === ' ') {
+    e.preventDefault();
+    if (typeof doTap === 'function' && typeof enemies !== 'undefined' && enemies.length) {
+      if (doTap(heroX() + advance + 200, groundY() - 40)) return;
+      return;
+    }
+    cycleSpeed(); return;
   }
+  if (e.key === 'q' || e.key === 'Q') { cycleBuyQty(); return; }
+  const id = KEYMAP[String(e.key).toLowerCase()];
+  if (id) { const b = $(id); if (b) b.click(); }
 });
 
 // ----- Settings -----
@@ -150,6 +161,7 @@ wire('prBtn', 'click', () => {
   S.ups = { dmg: 0, vit: 0, regen: 0, venom: 0, fortune: 0 };
   initSquad(); resetSquad();
   enemies = [];
+  resetCombo(); startStageClock(); // L26: la run nueva arranca limpia
   persist(); netScore(S.name, S.best);
   $('mPrestige').style.display = 'none';
   Audio.SFX.levelup();
@@ -212,6 +224,19 @@ persist = function () {
   }
 };
 
+// ----- L26: medidor de combo -----
+function updateComboHud() {
+  const box = EL.comboBox; if (!box) return;
+  if (typeof combo === 'undefined' || combo < 2) { box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  const m = comboMult();
+  EL.comboX.textContent = 'x' + m.toFixed(2);
+  EL.comboN.textContent = Math.floor(combo) + ' kills · +' + comboPct() + '% daño';
+  // la barra es el tiempo que queda antes de que la racha empiece a caer
+  if (EL.comboBarFill) EL.comboBarFill.style.width = Math.max(0, Math.min(100, (comboT / COMBO_WINDOW) * 100)) + '%';
+  box.classList.toggle('hot', m >= COMBO_MAX - 0.001);
+}
+
 // ----- HUD tick (10Hz desde BattleScene) -----
 let dotAcc = 0;
 function uiTick() {
@@ -222,7 +247,9 @@ function uiTick() {
   let totHp = 0, totMax = 0;
   for (const m of squad) { totHp += Math.max(0, m.hp); totMax += m.maxHp; }
   EL.hpTxt.textContent = fmt(totHp) + '/' + fmt(totMax);
-  EL.dpsTxt.textContent = fmt(dps());
+  // L26: el HUD muestra el daño REAL (con combo), no el teórico
+  EL.dpsTxt.textContent = fmt(liveDps());
+  updateComboHud();
   buildSquadHud();
   for (const m of squad) {
     const r = sqRows[m.def.id]; if (!r) continue;

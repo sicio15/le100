@@ -56,6 +56,8 @@ function afterLogin() {
   initSquad();
   if (typeof checkDailyResets === 'function') checkDailyResets();
   else if (typeof checkTickets === 'function') checkTickets();
+  if (typeof checkSeasonReset === 'function') checkSeasonReset(); // L26: rotar temporada al entrar
+  if (typeof startStageClock === 'function') startStageClock();   // L26: el cronómetro de rango arranca acá
   const sec = Math.min(Date.now() - (S.last || Date.now()), 8 * 3600 * 1000) / 1000;
   const pending = Math.floor(sec * goldKill(S.best) * 0.4);
   offlinePending = pending;
