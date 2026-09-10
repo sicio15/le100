@@ -37,7 +37,9 @@ function registerArena(s) {
     const g = Math.ceil(3 * Math.pow(1.18, me.save.best || 1)) * (win ? 15 : 4);
     me.save.gold += g;
     await U.save(s.user, me.save); await U.save(op._id, op.save);
-    cb({ win, msg: (win ? '🏆 ¡Victoria! +' : '💀 Derrota... +') + g + ' 🪙 · ' + (win ? '+30' : '-10') + ' pts' });
+    // L26: devolvemos los valores AUTORITATIVOS para que el cliente no los adivine
+    cb({ win, pts: me.save.arenaPts, tickets: me.save.arenaTickets, gold: g,
+      msg: (win ? '🏆 ¡Victoria! +' : '💀 Derrota... +') + g + ' 🪙 · ' + (win ? '+30' : '-10') + ' pts' });
   });
 }
 module.exports = { registerArena };

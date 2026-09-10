@@ -47,12 +47,16 @@ function registerAuth(s, { U, sanitizeSave, pushScore }) {
     } catch (e) { cb({ ok: false, err: 'Error del servidor' }); }
   });
 
+  // L26: sin try/catch, cualquier throw dentro de sanitizeSave tiraba el handler
+  // en silencio y el jugador perdía TODO el progreso online sin un solo aviso.
   s.on('saveGame', d => {
-    if (!s.user) return;
-    const now = Date.now();
-    if (now - (s.lastSaveAt || 0) < 2000) return;
-    s.lastSaveAt = now;
-    U.save(s.user, sanitizeSave(d));
+    try {
+      if (!s.user) return;
+      const now = Date.now();
+      if (now - (s.lastSaveAt || 0) < 2000) return;
+      s.lastSaveAt = now;
+      U.save(s.user, sanitizeSave(d));
+    } catch (e) { console.error('💾 saveGame:', e && e.message); }
   });
 
   s.on('score', d => { if (d && d.name) pushScore(String(d.name).slice(0, 14), Math.min(9999, +d.stage || 1)); });
