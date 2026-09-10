@@ -12,6 +12,7 @@ function travelToStage(targetStage) {
   if (targetStage === S.stage) return toast('Ya estás en esa etapa');
   S.stage = targetStage; S.ks = 0;
   resetSquad(); reEnter(); enemies = [];
+  startStageClock();
   persist();
   toast('🗺️ Viajaste a la Etapa ' + targetStage); Audio.SFX.click();
 }
@@ -26,18 +27,25 @@ function getChapterStats(chapterIndex) {
   }
   return { ranks, total: endStage - startStage + 1 };
 }
+// L26: dps() se llama decenas de veces por frame y esto recorría TODOS los rangos
+// en cada llamada. Ahora se cachea y se invalida sólo cuando un rango cambia.
+let _rankCache = null;
+const invalidateRankBonus = () => { _rankCache = null; };
 function getTotalRankBonus() {
+  if (_rankCache) return _rankCache;
   let sCount = 0, aCount = 0;
-  Object.values(S.stageRanks).forEach(r => {
+  Object.values(S.stageRanks || {}).forEach(r => {
     if (r === 'S') sCount++;
     else if (r === 'A') aCount++;
   });
-  return { damage: (sCount * 0.5 + aCount * 0.2) / 100, sCount, aCount };
+  _rankCache = { damage: (sCount * 0.5 + aCount * 0.2) / 100, sCount, aCount };
+  return _rankCache;
 }
 function skipToRecord() {
   if (S.stage >= S.best) return toast('Ya estás en tu récord');
   S.stage = S.best; S.ks = 0;
   resetSquad(); reEnter(); enemies = [];
+  startStageClock();
   persist();
   toast('⚡ Saltaste a tu récord: Etapa ' + S.best); Audio.SFX.levelup();
 }

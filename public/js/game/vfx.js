@@ -61,6 +61,8 @@ function attachVFX(scene) {
     scene.tweens.add({ targets: c, y: y - 16, alpha: 0, duration: 500, onComplete: () => c.destroy() });
   };
   HOOKS.crit = (x, y) => { vfxRing(scene, x, y, 0xffeb3b); vfxHitStop(scene, 0.25, 60); };
+  // L26: onda en el punto tocado — feedback inmediato del golpe manual
+  HOOKS.tap = (x, y) => { vfxRing(scene, x, y, 0x7efcff); vfxSlash(scene, x, y); };
   HOOKS.ult = () => { scene.cameras.main.flash(220, 126, 252, 252); vfxHitStop(scene, 0.2, 80); vfxZoomPulse(scene); };
   HOOKS.kill = e => vfxRing(scene, e.x, groundY() - 30, 0xffffff);
   HOOKS.bossRoar = () => { scene.cameras.main.flash(320, 255, 40, 40); scene.cameras.main.shake(500, 0.03); vfxHitStop(scene, 0.25, 350); };

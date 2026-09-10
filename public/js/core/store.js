@@ -11,7 +11,11 @@ const DEF = { name: '', gold: 0, adn: 0, stage: 1, best: 1, kills: 0, ks: 0, pre
   stageRanks: {}, weekTower: 1, weekClaimedKey: 0, milestones: {},
   essence: 0, amulets: 0, bagSize: 30, autoSalvage: -1,
   flashType: '', flashEnd: 0, flashNext: 0,
-  season: 1, seasonXp: 0, seasonLevel: 1, hasPremiumPass: false, seasonClaimed: {}, seasonStart: Date.now() };
+  season: 1, seasonXp: 0, seasonLevel: 1, hasPremiumPass: false, seasonClaimed: {}, seasonStart: Date.now(),
+  // L26: estadísticas de vida para el panel 📊 (nunca alimentan fórmulas)
+  stats: { goldEarned: 0, bossKills: 0, elites: 0, ultimates: 0, bestCombo: 0, playMs: 0 } };
+const DEF_STATS = { goldEarned: 0, bossKills: 0, elites: 0, ultimates: 0, bestCombo: 0, playMs: 0 };
+const normStats = st => Object.assign({}, DEF_STATS, (st && typeof st === 'object') ? st : {});
 let S = loadCache();
 let authed = false;
 
@@ -63,6 +67,7 @@ function loadCache() {
       out.hasPremiumPass = !!s.hasPremiumPass;
       out.seasonClaimed = (s.seasonClaimed && typeof s.seasonClaimed === 'object') ? s.seasonClaimed : {};
       out.seasonStart = +s.seasonStart || Date.now();
+      out.stats = normStats(s.stats);
       return out;
     }
   } catch (e) {}
@@ -74,6 +79,17 @@ function persist() {
   if (authed) netSendSave(S);
 }
 setInterval(persist, 5000);
+// L26: tiempo jugado real (sólo cuenta con la pestaña visible, y descarta saltos
+// grandes para que un portátil suspendido no sume 8 horas de "juego")
+let _ptLast = Date.now();
+setInterval(() => {
+  const now = Date.now(), d = now - _ptLast;
+  _ptLast = now;
+  if (d > 0 && d < 15000 && document.visibilityState === 'visible') {
+    if (!S.stats) S.stats = normStats(null);
+    S.stats.playMs = (S.stats.playMs || 0) + d;
+  }
+}, 5000);
 window.addEventListener('visibilitychange', () => persist());
 window.addEventListener('beforeunload', () => persist());
 window.addEventListener('pagehide', () => persist());
@@ -87,7 +103,10 @@ function applyServerSave(save) {
   S.shop = normShop((save || {}).shop);
   S.stageRanks = ((save || {}).stageRanks && typeof (save || {}).stageRanks === 'object') ? save.stageRanks : {};
   S.milestones = ((save || {}).milestones && typeof (save || {}).milestones === 'object') ? save.milestones : {};
+  S.stats = normStats((save || {}).stats);
   S.name = name; S.ks = 0;
+  // el save entrante trae otros rangos → el bonus de daño cacheado ya no vale
+  if (typeof invalidateRankBonus === 'function') invalidateRankBonus();
 }
 // ===== Resets diarios (usa dayHas de events.js en tiempo de llamada) =====
 function checkDailyResets() {

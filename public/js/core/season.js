@@ -32,6 +32,11 @@ function claimSeasonReward(lvl, type) {
   if (reward.title) toast('🏆 Título: ' + reward.title);
   Audio.SFX.coin(); persist();
 }
+// FIX L26: checkSeasonReset() sólo se llamaba al ABRIR el modal del Battle Pass.
+// Si nunca lo abrías, la temporada jamás rotaba: el contador quedaba en "0 días
+// restantes" para siempre y no se desbloqueaba la siguiente. Ahora corre sola.
+setInterval(() => { if (typeof S !== 'undefined' && S.seasonStart) checkSeasonReset(); }, 60000);
+
 function buyPremiumPass() {
   if (S.hasPremiumPass) return toast('✅ Ya tenés el pase premium');
   if (S.adn < PREMIUM_PASS_COST) return toast('❌ Necesitás ' + PREMIUM_PASS_COST + ' 🧬');

@@ -13,7 +13,7 @@ class BattleScene extends Phaser.Scene {
     this.bg = this.add.image(0, 0, 'bg'); this.bg.setOrigin(0.5, 1);
     this.fliesG = this.add.graphics();
     this.bars = this.add.graphics();
-    this.seen = new Map();
+    this.seen = new Set(); // sprites vivos a limpiar (antes era un Map que nunca se vaciaba)
     this.curBg = 'bg';
     this.petSprite = null; this.petCrown = null;
     this.prevShake = 0; this.prevFlash = 0; this.lastStage = S.stage;
@@ -160,9 +160,9 @@ class BattleScene extends Phaser.Scene {
         e.sprite = this.add.sprite(e.x, gy, kind + '_walk');
         e.sprite.setOrigin(0.5, 1);
         this.safePlay(e.sprite, kind + '_walk');
-        this.seen.set(e, true);
+        this.seen.add(e);
         if (e.boss) { showBanner('👑 JEFE · ETAPA ' + S.stage); this.cameras.main.shake(400, 0.02); }
-        else vfxRing(this, e.x, gy - 20, 0x7bed9f);
+        else vfxRing(this, e.x, gy - 20, e.elite ? 0xffd700 : 0x7bed9f);
       }
       if (!e.sprite) return;
       const su = e.size * (1 + Math.min(0.5, S.stage * 0.004)) * (e.pop < 1 ? Math.max(0.01, easeOutBack(e.pop)) : 1);
@@ -195,22 +195,38 @@ class BattleScene extends Phaser.Scene {
             if (this.anims.exists(des)) { try { e.sprite.play(des); } catch (err) {} }
           }
         }
-        if (e.flash > 0) e.sprite.setTint(0xffffff); else e.sprite.clearTint();
+        // L26: élites en dorado para que se lean de un vistazo
+        if (e.flash > 0) e.sprite.setTint(0xffffff);
+        else if (e.elite) e.sprite.setTint(0xffd76b);
+        else e.sprite.clearTint();
       }
       e.su = su;
     });
-    for (const e of this.seen.keys()) {
-      if (!alive.has(e) && e.sprite && !e.fx) {
-        if (e.warn) { e.warn.destroy(); e.warn = null; }
-        e.sprite.destroy(); e.sprite = null; this.seen.delete(e);
-      }
+    // FIX L26: fuga de memoria. La condición anterior (`e.sprite && !e.fx`) nunca se
+    // cumplía para un enemigo muerto — el tween de muerte pone e.sprite = null y deja
+    // e.fx = true —, así que el Map crecía sin tope durante toda la partida. Además los
+    // sprites de `enemies = []` (prestigio, viaje, salto al récord) quedaban huérfanos
+    // en pantalla. Ahora se limpia todo lo que ya no está en `enemies`.
+    for (const e of this.seen) {
+      if (alive.has(e)) continue;
+      if (e.warn) { e.warn.destroy(); e.warn = null; }
+      if (e.sprite) { e.sprite.destroy(); e.sprite = null; }
+      if (e.aura) { e.aura.destroy(); e.aura = null; }
+      e.fx = false;
+      this.seen.delete(e);
     }
     enemies.forEach(e => {
       if (e.dying !== null || !e.sprite) return;
       const su = e.su || 1;
       const bw = 56 * su, bx = e.x + e.lungeX + e.kb, by = gy - 82 * su;
+      // L26: halo palpitante bajo los élites (dibujado en el graphics compartido: 0 objetos extra)
+      if (e.elite && !SETTINGS.reduceFx) {
+        const pulse = 0.35 + Math.sin(t * 5) * 0.15;
+        this.bars.fillStyle(0xffd700, pulse);
+        this.bars.fillEllipse(bx, gy + 4, 66 * su, 16);
+      }
       this.bars.fillStyle(0x000000, 0.6); this.bars.fillRect(bx - bw / 2, by, bw, 6);
-      this.bars.fillStyle(e.boss ? 0xff4757 : 0x7bed9f, 1);
+      this.bars.fillStyle(e.boss ? 0xff4757 : e.elite ? 0xffd700 : 0x7bed9f, 1);
       this.bars.fillRect(bx - bw / 2, by, bw * Math.max(0, e.hp / e.max), 6);
     });
     if (shake > this.prevShake + 1) this.cameras.main.shake(120, Math.min(0.03, 0.004 * shake));

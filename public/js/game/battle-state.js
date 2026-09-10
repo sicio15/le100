@@ -6,7 +6,25 @@ let spawnT = 1, bossT = 0, shake = 0, time = 0, stageFlash = 0, dustT = 0, lastC
 let healT = 2, venT = 3, petCastT = 0;
 let stageStartTime = Date.now(), stageHadDeaths = false;
 let advance = 0;
-const HOOKS = { ult: null, crit: null, kill: null, cutin: null, bossShow: null, bossHide: null, bossTick: null, bossRoar: null };
+// ===== L26: COMBO — kills encadenadas suben el daño y decaen si dejás de matar =====
+// (constantes de balance en core/data.js)
+let combo = 0, comboT = 0;
+const comboMult = () => Math.min(COMBO_MAX, 1 + combo * COMBO_STEP);
+const comboPct = () => Math.round((comboMult() - 1) * 100);
+function addCombo() {
+  combo++; comboT = COMBO_WINDOW;
+  if (!S.stats) S.stats = {};
+  if (combo > (S.stats.bestCombo || 0)) S.stats.bestCombo = combo;
+}
+function resetCombo() { combo = 0; comboT = 0; }
+// ===== L26: FURIA DEL JEFE — el reloj de 30s ahora tiene consecuencia =====
+let bossRage = 0;
+const bossRageMult = () => 1 + bossRage * BOSS_RAGE_STEP;
+// Reinicia el cronómetro de la etapa (rangos S/A/B/C) — se llamaba mal en varios sitios
+function startStageClock() { stageStartTime = Date.now(); stageHadDeaths = false; bossRage = 0; }
+// ===== L26: GOLPE MANUAL (game/tap.js) =====
+let tapCd = 0;
+const HOOKS = { ult: null, crit: null, kill: null, cutin: null, bossShow: null, bossHide: null, bossTick: null, bossRoar: null, tap: null };
 const VFX = { float(){}, burst(){}, coin(){}, puff(){} };
 const notify = t => { if (typeof toast !== 'undefined') toast(t); };
 function float(x, y, txt, color, big) { VFX.float(x, y, txt, color, big); }

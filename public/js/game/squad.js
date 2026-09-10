@@ -36,20 +36,22 @@ function gainEnergy(m, n) {
 function castUlt(m) {
   m.castT = 0.9; Audio.SFX.ult(); showCutin(m);
   if (HOOKS.ult) HOOKS.ult(m);
+  if (!S.stats) S.stats = {};
+  S.stats.ultimates = (S.stats.ultimates || 0) + 1;
   const gy = groundY();
   if (m.def.role === 'dps') {
     for (let i = 0; i < 3; i++) {
       const t = pickTarget(); if (!t) break;
-      hitEnemy(t, dps() * 1.5, '#ffeb3b', true);
+      hitEnemy(t, liveDps() * 1.5, '#ffeb3b', true);
     }
   } else if (m.def.role === 'archer') {
     const aliveE = enemies.filter(e => e.dying === null);
     if (!aliveE.length) return;
-    aliveE.forEach(e => hitEnemy(e, dps() * 1.2, '#7efcff', false));
+    aliveE.forEach(e => hitEnemy(e, liveDps() * 1.2, '#7efcff', false));
     Audio.SFX.venom();
   } else if (m.def.role === 'mage') {
     const aliveE = enemies.filter(e => e.dying === null);
-    aliveE.forEach(e => hitEnemy(e, dps() * 1.8, '#c86bfa', true));
+    aliveE.forEach(e => hitEnemy(e, liveDps() * 1.8, '#c86bfa', true));
     squad.forEach(a => {
       if (a.alive) {
         const h = a.maxHp * 0.15;

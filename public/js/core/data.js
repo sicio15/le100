@@ -69,3 +69,31 @@ const AMULET_DROP_CHANCE = [0, 0, 0.05, 0.15, 0.4];
 
 // ----- Rangos de etapa -----
 const RANK_COLORS = { S: '#ffd700', A: '#7bed9f', B: '#7efcff', C: '#cfcfcf', R: '#ff4757' };
+
+// ===================== LOTE 26 =====================
+// ----- Combo de kills (battle-state.js) -----
+const COMBO_WINDOW = 4;      // s sin matar antes de que el combo empiece a caer
+const COMBO_STEP   = 0.02;   // +2% daño por kill encadenada
+const COMBO_MAX    = 1.5;    // tope x1.5 (se alcanza a las 25 kills)
+const COMBO_DECAY  = 6;      // kills por segundo que se pierden al cortar la racha
+
+// ----- Enemigos élite (enemies.js) -----
+const ELITE_CHANCE = 0.07;   // 7% de los spawns normales
+const ELITE_HP     = 3.2;    // multiplicador de vida
+const ELITE_GOLD   = 4;      // multiplicador de oro
+const ELITE_SIZE   = 1.35;   // escala visual
+const ELITE_DROP   = 0.55;   // probabilidad de soltar equipo
+
+// ----- Furia del jefe (battle-update.js) -----
+const BOSS_RAGE_STEP = 0.25; // +25% de daño del jefe por cada ciclo de 30s agotado
+const BOSS_TIMER     = 30;   // s por ciclo
+
+// ----- Golpe manual (tap.js) -----
+const TAP_CD   = 0.35;       // s entre golpes manuales
+const TAP_MULT = 1.6;        // daño = dps() * TAP_MULT
+const TAP_ENERGY = 6;        // energía que otorga al escuadrón
+
+// ----- Sotobosque (modes/rogue.js) -----
+const ROGUE_ROOMS   = 8;
+const ROGUE_HP_MUL  = 4;     // dureza base de la sala 1
+const ROGUE_STEP    = 1.35;  // dureza x1.35 por sala

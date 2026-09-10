@@ -13,11 +13,16 @@ function nextStage() {
   const timeSec = (Date.now() - stageStartTime) / 1000;
   const rank = getStageRank(timeSec, stageHadDeaths, isBossStage());
   if (!S.stageRanks) S.stageRanks = {};
-  S.stageRanks[S.stage] = rank;
-  if (rank === 'S') toast('🌟 ¡RANGO S EN ETAPA ' + S.stage + '!');
+  const prev = S.stageRanks[S.stage];
+  // L26: un rango sólo mejora, nunca empeora al re-farmear una etapa ya conquistada
+  const ORDER = { R: 0, C: 1, B: 2, A: 3, S: 4 };
+  if (!prev || ORDER[rank] > ORDER[prev]) {
+    S.stageRanks[S.stage] = rank;
+    invalidateRankBonus(); // el bonus de daño por rangos S/A cambió → recalcular
+    if (rank === 'S') toast('🌟 ¡RANGO S EN ETAPA ' + S.stage + '!');
+  }
   S.stage++; S.best = Math.max(S.best, S.stage); S.ks = 0;
-  stageStartTime = Date.now();
-  stageHadDeaths = false;
+  startStageClock();
   resetSquad(); initSquad();
   reEnter();
   enemies = []; spawnT = 0.6;
@@ -34,6 +39,12 @@ function update(rawDt) {
   time += dt;
   stageFlash = Math.max(0, stageFlash - dt);
   petCastT = Math.max(0, petCastT - dt);
+  tapCd = Math.max(0, tapCd - dt);
+  // L26: el combo decae si dejás de matar (no se pierde de golpe: se desangra)
+  if (combo > 0) {
+    comboT -= dt;
+    if (comboT <= 0) { combo = Math.max(0, combo - COMBO_DECAY * dt); if (combo < 1) combo = 0; }
+  }
   if (!squad.length) initSquad();
   const hx = heroX(), gy = groundY();
   updateAdvance(dt);
@@ -53,7 +64,7 @@ function update(rawDt) {
         m.lunge = 1;
         const mult = m.def.role === 'dps' ? 1 : m.def.role === 'archer' ? 0.85 : 0.55;
         const isCrit = Math.random() < critChance();
-        const d = dps() * 0.5 * mult * (isCrit ? critMult() : 1);
+        const d = liveDps() * 0.5 * mult * (isCrit ? critMult() : 1);
         t.hp -= d; t.flash = 0.15; t.kb = isCrit ? 11 : 7;
         float(t.x, gy - 70 * t.size, fmt(d), isCrit ? '#ffeb3b' : '#fff', isCrit);
         burst(t.x, gy - 45 * t.size, isCrit ? '#ffeb3b' : '#ffffff', isCrit ? 10 : 6);
@@ -116,7 +127,8 @@ function update(rawDt) {
         if (e.atkT <= 0) {
           e.atkT = 1 + Math.random() * 0.4;
           e.state = 'idle';
-          const d = eDmg(S.stage) * (e.boss ? 3 : 1);
+          // L26: el jefe pega más fuerte por cada ciclo de 30s que dejás pasar
+          const d = eDmg(S.stage) * (e.boss ? 3 * bossRageMult() : e.elite ? 1.6 : 1);
           m.hp -= d; m.flash = 0.15;
           float(m.px, gy - 80, '-' + fmt(d), '#ff4757');
           shake = Math.max(shake, 4);
@@ -134,6 +146,10 @@ function update(rawDt) {
               if (HOOKS.bossHide) HOOKS.bossHide();
               spawnT = 0.8;
               reEnter();
+              resetCombo();
+              // FIX L26: el cronómetro no se reiniciaba al caer, así que la etapa
+              // siguiente heredaba el tiempo acumulado y salía siempre rango C/R.
+              startStageClock();
               persist(); netScore(S.name, S.best);
               notify('💀 Caíste → Etapa ' + S.stage + '. ¡Farmeá y volvé!');
               resetSquad();
@@ -147,8 +163,19 @@ function update(rawDt) {
   enemies = enemies.filter(e => e.dying === null || e.dying > 0);
   if (isBossStage() && enemies.length) {
     bossT -= dt;
-    if (HOOKS.bossTick) HOOKS.bossTick(Math.max(0, bossT / 30) * 100, Math.max(0, Math.ceil(bossT)) + 's');
-    if (bossT <= 0) { bossT = 30; notify('⏰ El jefe se recuperó... ¡otra vez!'); }
+    if (HOOKS.bossTick) {
+      const lbl = bossRage > 0 ? Math.max(0, Math.ceil(bossT)) + 's · 🔥x' + bossRage : Math.max(0, Math.ceil(bossT)) + 's';
+      HOOKS.bossTick(Math.max(0, bossT / BOSS_TIMER) * 100, lbl);
+    }
+    // FIX L26: antes el reloj llegaba a 0 y sólo se reiniciaba con un toast — no
+    // pasaba absolutamente nada. Ahora el jefe ENFURECE: +25% de daño acumulativo.
+    if (bossT <= 0) {
+      bossT = BOSS_TIMER; bossRage++;
+      shake = Math.max(shake, 8);
+      if (HOOKS.bossRoar) HOOKS.bossRoar();
+      Audio.SFX.boss();
+      notify('🔥 ¡El jefe ENFURECE! +' + Math.round((bossRageMult() - 1) * 100) + '% daño');
+    }
   }
   if (shake > 0) shake -= dt * 20;
 }
