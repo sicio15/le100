@@ -57,6 +57,8 @@
   <div id="battleWrap">
     <div id="heroHpWrap"><div id="heroHp"></div></div>
     <div id="bossBar" class="hidden"><div id="bossFill"></div><div id="bossTime"></div></div>
+    <!-- L26: medidor de combo (racha de kills → +daño) -->
+    <div id="comboBox" class="hidden"><b id="comboX">x1.00</b><span id="comboN">0 kills</span><div id="comboBar"><i></i></div></div>
   </div>
   <div id="bottombar">
     <div id="heroStats">
@@ -242,6 +244,7 @@
 <script src="js/game/enemies.js"></script>
 <script src="js/game/battle-update.js"></script>
 <script src="js/game/battle-scene.js"></script>
+<script src="js/game/tap.js"></script>
 
 <!-- ===== UI: system + panels ===== -->
 <script src="js/ui/system/ui-hud.js"></script>
