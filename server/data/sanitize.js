@@ -1,6 +1,5 @@
 'use strict';
 // ===== SAVE SANITIZER: el cliente NUNCA decide sus números =====
-// LOTE 5: look = { pet, crown } — el cienpies es mascota, no forma del héroe.
 const DEF_SAVE = { gold: 0, adn: 0, stage: 1, best: 1, kills: 0, prestiges: 0, prBase: 1,
   ups: { dmg: 0, vit: 0, regen: 0, venom: 0, fortune: 0 }, ach: {}, last: Date.now(),
   gear: { equipped: { fang: null, shell: null, antenna: null, charm: null }, inv: [] },
@@ -8,9 +7,20 @@ const DEF_SAVE = { gold: 0, adn: 0, stage: 1, best: 1, kills: 0, prestiges: 0, p
   arenaPts: 0, arenaTickets: 5, arenaDate: '', colony: '', colonyLevel: 1, bossTicketDate: '',
   mDate: '', mBase: { kills: 0, tower: 1, prestiges: 0 }, mClaimed: {},
   shop: { lv: {}, skins: [], skin: '' },
-  look: { pet: true, crown: false } };
+  look: { pet: true, crown: false },
+  stageRanks: {}, weekTower: 1, weekClaimedKey: 0, milestones: {},
+  essence: 0, amulets: 0, bagSize: 30, autoSalvage: -1,
+  flashType: '', flashEnd: 0, flashNext: 0, season: 1, seasonXp: 0, seasonLevel: 1, hasPremiumPass: false, seasonClaimed: {}, seasonStart: Date.now(),
+  stats: { goldEarned: 0, bossKills: 0, elites: 0, ultimates: 0, bestCombo: 0, playMs: 0 } };
 const SHOP_MAX = { fury: 10, vita: 10, fort: 10, regen: 10, crit: 5 };
-const SKIN_IDS = ['oro', 'hielo', 'sombra'];
+const SKIN_IDS = ['oro', 'hielo', 'sombra', 'bronce', 'plata'];
+const VALID_RANKS = ['S', 'A', 'B', 'C', 'R'];
+const MILESTONE_IDS = ['t10', 't25', 't50', 't100'];
+const FLASH_IDS = ['oro', 'drop', 'energia', 'dano'];
+// FIX L26: esta constante vivía sólo en el cliente (public/js/core/data.js).
+// Sin ella, sanitizeSave() lanzaba ReferenceError en CADA llamada → register
+// devolvía "Error del servidor" y saveGame moría sin guardar nunca.
+const SEASON_MAX_LEVEL = 50;
 function sanitizeSave(s) {
   const o = JSON.parse(JSON.stringify(DEF_SAVE));
   if (!s || typeof s !== 'object') return o;
@@ -28,11 +38,12 @@ function sanitizeSave(s) {
         slot: ['fang', 'shell', 'antenna', 'charm'].includes(it.slot) ? it.slot : 'fang',
         rarity: Math.max(0, Math.min(4, +it.rarity || 0)), lvl: Math.max(0, Math.min(99, +it.lvl || 0)),
         stat: String(it.stat || 'atk').slice(0, 8), val: Math.max(0, Math.min(999, +it.val || 0)),
+        locked: !!it.locked,
         subs: Array.isArray(it.subs) ? it.subs.slice(0, 2).map(x => ({ stat: String(x.stat || 'atk').slice(0, 8), val: Math.max(0, Math.min(999, +x.val || 0)) })) : [] };
     };
     const g = { equipped: { fang: null, shell: null, antenna: null, charm: null }, inv: [] };
     Object.keys(g.equipped).forEach(k => { g.equipped[k] = cleanItem((s.gear.equipped || {})[k]); });
-    g.inv = Array.isArray(s.gear.inv) ? s.gear.inv.slice(0, 30).map(cleanItem).filter(Boolean) : [];
+    g.inv = Array.isArray(s.gear.inv) ? s.gear.inv.slice(0, 100).map(cleanItem).filter(Boolean) : [];
     o.gear = g;
   }
   o.tickets = Number.isFinite(+s.tickets) ? Math.max(0, Math.min(3, +s.tickets)) : 3;
@@ -59,14 +70,48 @@ function sanitizeSave(s) {
     o.shop.skins = Array.isArray(s.shop.skins) ? s.shop.skins.map(x => String(x).slice(0, 12)).filter(x => SKIN_IDS.includes(x)) : [];
     o.shop.skin = o.shop.skins.includes(String(s.shop.skin || '')) ? String(s.shop.skin) : '';
   }
-  // MASCOTA + corona: booleanos saneados (form/hair viejos se ignoran → migran a pet)
+  // FIX L26: el cliente usa { pet, crown } desde el Lote 5; el server whitelisteaba
+  // { form, hair, crown }, así que "ocultar mascota" se perdía en cada round-trip.
   if (s.look && typeof s.look === 'object') {
-    o.look = {
-      pet: s.look.pet !== false,
-      crown: !!s.look.crown
-    };
+    o.look = { pet: s.look.pet !== false, crown: !!s.look.crown };
   }
+  if (s.stageRanks && typeof s.stageRanks === 'object') {
+    const ranks = {};
+    Object.entries(s.stageRanks).forEach(([k, v]) => {
+      const st = parseInt(k, 10);
+      if (!isNaN(st) && st >= 1 && st <= 9999 && VALID_RANKS.includes(v)) ranks[st] = v;
+    });
+    o.stageRanks = ranks;
+  }
+  o.weekTower = Math.max(1, num(s.weekTower, 9999));
+  o.weekClaimedKey = Number.isFinite(+s.weekClaimedKey) ? +s.weekClaimedKey : 0;
+  if (s.milestones && typeof s.milestones === 'object') {
+    const ms = {};
+    Object.entries(s.milestones).forEach(([k, v]) => { if (MILESTONE_IDS.includes(k) && v) ms[k] = 1; });
+    o.milestones = ms;
+  }
+  o.essence = num(s.essence, 1e9);
+  o.amulets = num(s.amulets, 9999);
+  o.bagSize = Math.max(30, Math.min(100, num(s.bagSize, 100) || 30));
+  o.autoSalvage = Math.max(-1, Math.min(3, Number.isFinite(+s.autoSalvage) ? +s.autoSalvage : -1));
+  // LOTE 17: eventos relámpago
+  o.flashType = FLASH_IDS.includes(String(s.flashType || '')) ? String(s.flashType) : '';
+  o.flashEnd = num(s.flashEnd, 1e15);
+  o.flashNext = num(s.flashNext, 1e15);
   o.last = Number(s.last) || Date.now();
+  o.season = Math.max(1, num(s.season, 999));
+o.seasonXp = num(s.seasonXp, 1e9);
+o.seasonLevel = Math.max(1, Math.min(SEASON_MAX_LEVEL, num(s.seasonLevel, SEASON_MAX_LEVEL)));
+o.hasPremiumPass = !!s.hasPremiumPass;
+o.seasonClaimed = (s.seasonClaimed && typeof s.seasonClaimed === 'object')
+  ? Object.fromEntries(Object.entries(s.seasonClaimed).filter(([, v]) => v).map(([k]) => [String(k).slice(0, 20), 1]))
+  : {};
+o.seasonStart = num(s.seasonStart, 1e15) || Date.now();
+  // L26: estadísticas de vida (sólo lectura para el panel 📊, nunca alimentan fórmulas)
+  const st = (s.stats && typeof s.stats === 'object') ? s.stats : {};
+  o.stats = { goldEarned: num(st.goldEarned, 1e15), bossKills: num(st.bossKills, 1e9),
+    elites: num(st.elites, 1e9), ultimates: num(st.ultimates, 1e9),
+    bestCombo: num(st.bestCombo, 1e6), playMs: num(st.playMs, 1e13) };
   return o;
 }
 module.exports = { sanitizeSave, DEF_SAVE };

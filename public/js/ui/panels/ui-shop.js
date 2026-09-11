@@ -9,10 +9,16 @@ const SHOP_DEFS = [
   { id: 'crit',  n: '🎯 Ojo Crítico',         d: '+2% crítico por nivel',      base: 8 }
 ];
 const shopCost = (it, lv) => it.base + lv * 3;
+// FIX L26: las tintas se indexaban por 'sting'/'shell'/'leaf', pero HEROES[].id es
+// 'hero_a'/'hero_b'/'hero_c' → sk.tints[h.id] daba siempre undefined y NINGUNA skin
+// pintaba nada. Además faltaban 'bronce' y 'plata', que el Battle Pass ya regalaba
+// en los niveles 10 y 25 (premios que no se podían ni ver ni equipar).
 const SKINS = {
-  oro:    { n: '🌟 Dorado',  cost: 15, tints: { sting: 0xffd700, shell: 0xffa000, leaf: 0xffec8b } },
-  hielo:  { n: '❄️ Glacial', cost: 25, tints: { sting: 0x7efcff, shell: 0x4fc3f7, leaf: 0xb3e5fc } },
-  sombra: { n: '🌑 Sombrío', cost: 40, tints: { sting: 0xc86bfa, shell: 0x9575cd, leaf: 0x7e57c2 } }
+  bronce: { n: '🥉 Bronce',  cost: 0,  bp: true, tints: { hero_a: 0xd08b45, hero_b: 0xc98a4b, hero_c: 0xb87333 } },
+  plata:  { n: '🥈 Plata',   cost: 0,  bp: true, tints: { hero_a: 0xd8dee9, hero_b: 0xc0c8d4, hero_c: 0xa8b2c0 } },
+  oro:    { n: '🌟 Dorado',  cost: 15, tints: { hero_a: 0xffd700, hero_b: 0xffa000, hero_c: 0xffec8b } },
+  hielo:  { n: '❄️ Glacial', cost: 25, tints: { hero_a: 0x7efcff, hero_b: 0x4fc3f7, hero_c: 0xb3e5fc } },
+  sombra: { n: '🌑 Sombrío', cost: 40, tints: { hero_a: 0xc86bfa, hero_b: 0x9575cd, hero_c: 0x7e57c2 } }
 };
 const BASE_TINTS = {};
 // Las skins mutan HEROES[].tint: battle-scene ya lo lee cada frame → cero edits en battle/
@@ -42,7 +48,7 @@ function buyShop(id) {
   renderShop();
 }
 function buySkin(id) {
-  const sk = SKINS[id]; if (!sk || (S.shop.skins || []).includes(id)) return;
+  const sk = SKINS[id]; if (!sk || sk.bp || (S.shop.skins || []).includes(id)) return;
   if (S.adn < sk.cost) { Audio.SFX.click(); return; }
   S.adn -= sk.cost; S.shop.skins.push(id); S.shop.skin = id;
   applySkin(); persist(); Audio.SFX.levelup(); toast(sk.n + ' desbloqueado');
@@ -51,6 +57,22 @@ function buySkin(id) {
 function equipSkin(id) {
   S.shop.skin = id; applySkin(); persist(); Audio.SFX.click(); renderShop();
 }
+// FIX L26: renderShop() buscaba #skinList, un contenedor que NO existe en index.html,
+// y salía por el `return` de la línea siguiente. Resultado: las 3 skins (15/25/40 🧬)
+// eran imposibles de comprar y las del Battle Pass, imposibles de equipar. Lo creamos.
+function ensureSkinList() {
+  let sb = $('skinList');
+  if (sb) return sb;
+  const box = $('shopList'); if (!box) return null;
+  const h = document.createElement('h3');
+  h.style.cssText = 'color:#ffd700;font-size:11px;margin:14px 0 6px;font-family:var(--font-pixel);';
+  h.textContent = '🎨 SKINS DE ESCUADRÓN';
+  sb = document.createElement('div');
+  sb.id = 'skinList';
+  box.after(h, sb);
+  return sb;
+}
+
 function renderShop() {
   const box = $('shopList'); if (!box) return;
   box.innerHTML = '';
@@ -64,7 +86,7 @@ function renderShop() {
     b.onclick = () => buyShop(it.id);
     row.appendChild(b); box.appendChild(row);
   });
-  const sb = $('skinList'); if (!sb) return;
+  const sb = ensureSkinList(); if (!sb) return;
   sb.innerHTML = '';
   const r0 = document.createElement('div'); r0.className = 'mrow';
   r0.innerHTML = '<span>🐛 Original<br><small style="color:#8fa3c8">Sin tintas</small></span>';
@@ -75,8 +97,11 @@ function renderShop() {
   r0.appendChild(b0); sb.appendChild(r0);
   Object.keys(SKINS).forEach(id => {
     const sk = SKINS[id], owned = (S.shop.skins || []).includes(id);
+    // Las skins del Battle Pass no se compran: sólo se desbloquean subiendo el pase.
+    if (sk.bp && !owned) return;
     const row = document.createElement('div'); row.className = 'mrow';
-    row.innerHTML = '<span>' + sk.n + '<br><small style="color:#8fa3c8">' + (owned ? 'En tu colección' : 'Skin permanente de escuadrón') + '</small></span>';
+    const desc = owned ? 'En tu colección' : sk.bp ? 'Recompensa del Battle Pass' : 'Skin permanente de escuadrón';
+    row.innerHTML = '<span>' + sk.n + '<br><small style="color:#8fa3c8">' + desc + '</small></span>';
     const b = document.createElement('button'); b.className = 'claim';
     if (owned) { b.textContent = S.shop.skin === id ? 'USANDO' : 'USAR'; b.disabled = S.shop.skin === id; b.onclick = () => equipSkin(id); }
     else { b.textContent = '🧬 ' + sk.cost; b.disabled = S.adn < sk.cost; b.onclick = () => buySkin(id); }

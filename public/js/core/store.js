@@ -1,5 +1,5 @@
 'use strict';
-// ===== STORE: estado S + fórmulas + persistencia =====
+// ===== STORE: estado S + persistencia + resets diarios =====
 const KEY = 'le100_cache_v4';
 const DEF = { name: '', gold: 0, adn: 0, stage: 1, best: 1, kills: 0, ks: 0, prestiges: 0, prBase: 1,
   ups: { dmg: 0, vit: 0, regen: 0, venom: 0, fortune: 0 }, ach: {}, last: Date.now(),
@@ -7,28 +7,31 @@ const DEF = { name: '', gold: 0, adn: 0, stage: 1, best: 1, kills: 0, ks: 0, pre
   tickets: 3, ticketDate: '', tower: 1, towerBest: 1, rlTickets: 2, rlDate: '',
   arenaPts: 0, arenaTickets: 5, arenaDate: '', colony: '', colonyLevel: 1, bossTicketDate: '',
   mDate: '', mBase: { kills: 0, tower: 1, prestiges: 0 }, mClaimed: {},
-  shop: { lv: {}, skins: [], skin: '' } };
+  shop: { lv: {}, skins: [], skin: '' },
+  stageRanks: {}, weekTower: 1, weekClaimedKey: 0, milestones: {},
+  essence: 0, amulets: 0, bagSize: 30, autoSalvage: -1,
+  flashType: '', flashEnd: 0, flashNext: 0,
+  season: 1, seasonXp: 0, seasonLevel: 1, hasPremiumPass: false, seasonClaimed: {}, seasonStart: Date.now(),
+  // L26: estadísticas de vida para el panel 📊 (nunca alimentan fórmulas)
+  stats: { goldEarned: 0, bossKills: 0, elites: 0, ultimates: 0, bestCombo: 0, playMs: 0 } };
+const DEF_STATS = { goldEarned: 0, bossKills: 0, elites: 0, ultimates: 0, bestCombo: 0, playMs: 0 };
+const normStats = st => Object.assign({}, DEF_STATS, (st && typeof st === 'object') ? st : {});
 let S = loadCache();
 let authed = false;
-const todayStr = () => new Date().toISOString().slice(0, 10);
+
 function normGear(g) {
   const def = JSON.parse(JSON.stringify(DEF.gear));
   if (!g || typeof g !== 'object') return def;
   const cleanItem = it => {
     if (!it || typeof it !== 'object') return null;
-    return {
-      id: String(it.id || ''),
-      slot: Object.prototype.hasOwnProperty.call(def.equipped, it.slot) ? it.slot : 'fang',
-      rarity: Math.max(0, Math.min(4, +it.rarity || 0)),
-      lvl: Math.max(0, Math.min(99, +it.lvl || 0)),
-      stat: String(it.stat || 'atk'),
-      val: Math.max(0, Math.min(999, +it.val || 0)),
-      subs: Array.isArray(it.subs) ? it.subs.slice(0, 2).map(x => ({ stat: String(x.stat || 'atk'), val: Math.max(0, Math.min(999, +x.val || 0)) })) : []
-    };
+    return { id: String(it.id || ''), slot: Object.prototype.hasOwnProperty.call(def.equipped, it.slot) ? it.slot : 'fang',
+      rarity: Math.max(0, Math.min(4, +it.rarity || 0)), lvl: Math.max(0, Math.min(99, +it.lvl || 0)),
+      stat: String(it.stat || 'atk'), val: Math.max(0, Math.min(999, +it.val || 0)), locked: !!it.locked,
+      subs: Array.isArray(it.subs) ? it.subs.slice(0, 2).map(x => ({ stat: String(x.stat || 'atk'), val: Math.max(0, Math.min(999, +x.val || 0)) })) : [] };
   };
   const out = { equipped: {}, inv: [] };
   Object.keys(def.equipped).forEach(k => { out.equipped[k] = cleanItem((g.equipped || {})[k]); });
-  out.inv = Array.isArray(g.inv) ? g.inv.slice(0, 30).map(cleanItem).filter(Boolean) : [];
+  out.inv = Array.isArray(g.inv) ? g.inv.slice(0, 100).map(cleanItem).filter(Boolean) : [];
   return out;
 }
 function normShop(sh) {
@@ -36,9 +39,7 @@ function normShop(sh) {
   if (!sh || typeof sh !== 'object') return def;
   const lv = {};
   if (sh.lv && typeof sh.lv === 'object') Object.keys(sh.lv).forEach(k => { lv[k] = Math.max(0, Math.min(99, +sh.lv[k] || 0)); });
-  return { lv,
-    skins: Array.isArray(sh.skins) ? sh.skins.map(x => String(x).slice(0, 12)) : [],
-    skin: String(sh.skin || '').slice(0, 12) };
+  return { lv, skins: Array.isArray(sh.skins) ? sh.skins.map(x => String(x).slice(0, 12)) : [], skin: String(sh.skin || '').slice(0, 12) };
 }
 function loadCache() {
   try {
@@ -51,6 +52,22 @@ function loadCache() {
       out.mBase = Object.assign({ kills: 0, tower: 1, prestiges: 0 }, s.mBase || {});
       out.mClaimed = (s.mClaimed && typeof s.mClaimed === 'object') ? s.mClaimed : {};
       out.shop = normShop(s.shop);
+      out.stageRanks = (s.stageRanks && typeof s.stageRanks === 'object') ? s.stageRanks : {};
+      out.milestones = (s.milestones && typeof s.milestones === 'object') ? s.milestones : {};
+      out.essence = Math.max(0, +s.essence || 0);
+      out.amulets = Math.max(0, +s.amulets || 0);
+      out.bagSize = Math.max(30, Math.min(100, +s.bagSize || 30));
+      out.autoSalvage = Math.max(-1, Math.min(3, +s.autoSalvage != null ? +s.autoSalvage : -1));
+      out.flashType = String(s.flashType || '');
+      out.flashEnd = Math.max(0, +s.flashEnd || 0);
+      out.flashNext = Math.max(0, +s.flashNext || 0);
+      out.season = Math.max(1, +s.season || 1);
+      out.seasonXp = Math.max(0, +s.seasonXp || 0);
+      out.seasonLevel = Math.max(1, Math.min(SEASON_MAX_LEVEL, +s.seasonLevel || 1));
+      out.hasPremiumPass = !!s.hasPremiumPass;
+      out.seasonClaimed = (s.seasonClaimed && typeof s.seasonClaimed === 'object') ? s.seasonClaimed : {};
+      out.seasonStart = +s.seasonStart || Date.now();
+      out.stats = normStats(s.stats);
       return out;
     }
   } catch (e) {}
@@ -61,8 +78,18 @@ function persist() {
   localStorage.setItem(KEY, JSON.stringify(S));
   if (authed) netSendSave(S);
 }
-// autoguardado siempre (invitado incluido); el net solo si authed
 setInterval(persist, 5000);
+// L26: tiempo jugado real (sólo cuenta con la pestaña visible, y descarta saltos
+// grandes para que un portátil suspendido no sume 8 horas de "juego")
+let _ptLast = Date.now();
+setInterval(() => {
+  const now = Date.now(), d = now - _ptLast;
+  _ptLast = now;
+  if (d > 0 && d < 15000 && document.visibilityState === 'visible') {
+    if (!S.stats) S.stats = normStats(null);
+    S.stats.playMs = (S.stats.playMs || 0) + d;
+  }
+}, 5000);
 window.addEventListener('visibilitychange', () => persist());
 window.addEventListener('beforeunload', () => persist());
 window.addEventListener('pagehide', () => persist());
@@ -74,93 +101,27 @@ function applyServerSave(save) {
   S.mBase = Object.assign({ kills: 0, tower: 1, prestiges: 0 }, (save || {}).mBase || {});
   S.mClaimed = ((save || {}).mClaimed && typeof (save || {}).mClaimed === 'object') ? save.mClaimed : {};
   S.shop = normShop((save || {}).shop);
+  S.stageRanks = ((save || {}).stageRanks && typeof (save || {}).stageRanks === 'object') ? save.stageRanks : {};
+  S.milestones = ((save || {}).milestones && typeof (save || {}).milestones === 'object') ? save.milestones : {};
+  S.stats = normStats((save || {}).stats);
   S.name = name; S.ks = 0;
+  // el save entrante trae otros rangos → el bonus de daño cacheado ya no vale
+  if (typeof invalidateRankBonus === 'function') invalidateRankBonus();
 }
-// ===== RESET DIARIO CENTRAL (deuda #4): tickets + misiones en UN solo lugar =====
-// Idempotente y barato: lo llaman modales, intervalos y afterLogin sin riesgo.
+// ===== Resets diarios (usa dayHas de events.js en tiempo de llamada) =====
 function checkDailyResets() {
-  const d = todayStr();
-  if (S.ticketDate !== d) { S.ticketDate = d; S.tickets = 3; }
-  if (S.rlDate !== d) { S.rlDate = d; S.rlTickets = 2; }
+  const d = new Date().toISOString().slice(0, 10);
+  if (S.ticketDate !== d) { S.ticketDate = d; S.tickets = 3 + (dayHas('daily') ? 1 : 0); }
   if (S.arenaDate !== d) { S.arenaDate = d; S.arenaTickets = 5; }
+  if (S.rlDate !== d) { S.rlDate = d; S.rlTickets = 2 + (dayHas('soto') ? 1 : 0); }
   if (S.mDate !== d) {
     S.mDate = d;
     S.mBase = { kills: S.kills, tower: S.tower, prestiges: S.prestiges };
     S.mClaimed = {};
   }
 }
-const checkTickets = checkDailyResets; // retro-compat (daily.js/ui-auth.js migran en lote 2)
-function gearBonuses() {
-  const b = { atk: 0, hp: 0, crit: 0, critd: 0, regen: 0 };
-  Object.values(S.gear.equipped).forEach(it => {
-    if (!it) return;
-    const mult = 1 + 0.1 * (it.lvl || 0);
-    b[it.stat] = (b[it.stat] || 0) + it.val * mult;
-    (it.subs || []).forEach(s => { b[s.stat] = (b[s.stat] || 0) + s.val; });
-  });
-  return b;
+const checkTickets = checkDailyResets;
+const weekNow = () => Math.floor(Date.now() / 604800000);
+function checkWeekReset() {
+  if ((S.weekTower || 1) < 1) S.weekTower = 1;
 }
-const itemPower = it => it ? (it.rarity || 0) * 20 + (it.lvl || 0) * 2 + (it.val || 0) + (it.subs || []).reduce((a, s) => a + (s.val || 0), 0) : 0;
-const gearPower = () => Object.values(S.gear.equipped).reduce((a, it) => a + itemPower(it), 0);
-const hasBetterGear = () => S.gear.inv.some(it => itemPower(it) > itemPower(S.gear.equipped[it.slot]));
-function rollItem(luck) {
-  const slotKeys = Object.keys(SLOT_DEFS);
-  const slot = slotKeys[Math.random() * slotKeys.length | 0];
-  const w = [50, 30, 14, 5, 1].map((x, i) => x + (i >= 2 ? luck * 2 : 0));
-  const tot = w.reduce((a, b) => a + b, 0);
-  let r = Math.random() * tot, rarity = 4;
-  for (let i = 0; i < 5; i++) { if (r < w[i]) { rarity = i; break; } r -= w[i]; }
-  const val = Math.round((3 + rarity * 3 + Math.random() * 3) * 10) / 10;
-  const subs = [];
-  const nSub = rarity >= 3 ? 2 : rarity >= 1 ? 1 : 0;
-  for (let i = 0; i < nSub; i++) {
-    const st = SUB_POOL[Math.random() * SUB_POOL.length | 0];
-    subs.push({ stat: st, val: Math.round((1 + rarity * 1.5 + Math.random() * 2) * 10) / 10 });
-  }
-  return { id: Date.now() + '' + Math.floor(Math.random() * 999), slot, rarity, lvl: 0, stat: SLOT_DEFS[slot].stat, val, subs };
-}
-function dropItem(luck) {
-  const it = rollItem(luck + Math.floor(S.stage / 10));
-  if (S.gear.inv.length >= 30) {
-    S.gold += 10 * (it.rarity + 1);
-    if (typeof toast !== 'undefined') toast('📦 Mochila llena → +🪙 ' + (10 * (it.rarity + 1)));
-    return;
-  }
-  S.gear.inv.push(it);
-  if (typeof toast !== 'undefined') toast(SLOT_DEFS[it.slot].icon + ' ¡' + RAR_NAMES[it.rarity] + ' ' + SLOT_DEFS[it.slot].name + '!');
-}
-const enhanceCost = it => Math.floor(20 * Math.pow(1.35, it.lvl) * (it.rarity + 1));
-// ===== EVENTOS SEMANALES: rotación determinística por semana (cero campos en save) =====
-const EVENTS = [
-  { id: 'fiebre',    n: '🪙 Fiebre del Oro',       d: 'Todo el oro x2' },
-  { id: 'precision', n: '🎯 Precisión Total',      d: '+25% crítico' },
-  { id: 'furia',     n: '🗡️ Furia Ancestral',      d: '+30% daño' },
-  { id: 'vital',     n: '❤️ Vitalidad Floreciente', d: '+30% vida y regeneración' },
-  { id: 'toxico',    n: '☠️ Marea Tóxica',         d: 'Veneno +50% y cooldown -2s' },
-  { id: 'racha',     n: '🛒 Semana de Ofertas',    d: 'Mejoras 20% más baratas' }
-];
-let _evW = -1, _ev = EVENTS[0];
-function weekEvent() {
-  const w = Math.floor(Date.now() / 604800000); // semana epoch → rotación estable
-  if (w !== _evW) { _evW = w; _ev = EVENTS[w % EVENTS.length]; }
-  return _ev;
-}
-const evHas = id => weekEvent().id === id;
-// ===== Tienda de ADN: niveles permanentes =====
-const shopLv = k => (S.shop && S.shop.lv && S.shop.lv[k]) || 0;
-const adnMult   = () => 1 + 0.1 * S.adn;
-const dps       = () => 5 * Math.pow(1.3, S.ups.dmg) * adnMult() * (1 + gearBonuses().atk / 100) * (1 + 0.02 * ((S.colonyLevel || 1) - 1)) * (1 + 0.05 * shopLv('fury')) * (evHas('furia') ? 1.3 : 1);
-const maxHP     = () => 100 * Math.pow(1.22, S.ups.vit) * (1 + gearBonuses().hp / 100) * (1 + 0.05 * shopLv('vita')) * (evHas('vital') ? 1.3 : 1);
-const regenPs   = () => maxHP() * (0.02 + 0.01 * S.ups.regen) * (1 + gearBonuses().regen / 100) * (1 + 0.08 * shopLv('regen')) * (evHas('vital') ? 1.3 : 1);
-const critChance= () => Math.min(0.75, 0.2 + gearBonuses().crit / 100 + 0.02 * shopLv('crit') + (evHas('precision') ? 0.25 : 0));
-const critMult  = () => 2.2 + gearBonuses().critd / 100;
-const venomCd   = () => Math.max(2, (Math.max(3, 7 - 0.3 * S.ups.venom)) - (evHas('toxico') ? 2 : 0));
-const venomDm   = () => dps() * (2 + 0.5 * S.ups.venom) * (evHas('toxico') ? 1.5 : 1);
-const goldKill  = st => Math.ceil(3 * Math.pow(1.18, st) * (1 + 0.25 * S.ups.fortune) * adnMult() * (1 + 0.05 * shopLv('fort')) * (evHas('fiebre') ? 2 : 1));
-const eHP       = st => 10 * Math.pow(1.27, st);
-const eDmg      = st => 4 * Math.pow(1.22, st);
-const cost      = k => Math.floor(COSTS[k][0] * Math.pow(COSTS[k][1], S.ups[k]) * (evHas('racha') ? 0.8 : 1));
-const isBossStage = () => S.stage % 5 === 0;
-const killsNeed = () => isBossStage() ? 1 : 8;
-const prTotal = x => Math.floor(3 * Math.sqrt(Math.max(0, x - 8)));
-const prGain  = () => Math.max(0, prTotal(S.best) - prTotal(S.prBase || 1));

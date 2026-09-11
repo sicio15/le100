@@ -1,71 +1,151 @@
 'use strict';
-// ===== ROGUELIKE: EL SOTOBOSQUE =====
-// LOTE 2A: reset vía store.checkDailyResets() (deuda #4).
-// LOTE 3: probabilidad de sala vía modes/sim.js (deuda #5, aguante desactivado).
-const RL_BUFFS = [
-  { id: 'dmg',  n: '🗡️ Furia',      d: '+25% daño',       f: b => { b.dmg *= 1.25; } },
-  { id: 'hp',   n: '❤️ Coraza',      d: '+25% vida máx',   f: (b, r) => { b.hp *= 1.25; r.maxHp *= 1.25; r.hp *= 1.25; } },
-  { id: 'crit', n: '🎯 Precisión',   d: '+10% crítico',    f: b => { b.crit += 0.10; } },
-  { id: 'heal', n: '💚 Savia',       d: 'Cura 50% ahora',  f: (b, r) => { r.hp = Math.min(r.maxHp, r.hp + r.maxHp * 0.5); } },
-  { id: 'ls',   n: '🩸 Vampirismo',  d: 'Roba 15% del daño', f: b => { b.ls += 0.15; } },
-  { id: 'ven',  n: '☠️ Toxina',      d: '+40% veneno',     f: b => { b.ven *= 1.4; } }
+// ===== SOTOBOSQUE (Roguelike) =====
+// REESCRITO EN L26. Antes era un roguelike sin roguelike: elegías un buff por sala,
+// la sala avanzaba sola y al llegar a la 8 cobrabas el botín completo. No había
+// combate, ni riesgo, ni decisión — y de los 6 buffs sólo `goldMult` hacía algo:
+// dmgMult, hpMult, critAdd, venomMult y drop se calculaban y se tiraban a la basura.
+//
+// Ahora cada sala es ELEGIR BUFF → PELEAR. La dificultad escala por sala, los buffs
+// entran en la probabilidad de victoria, perder termina la run y podés retirarte con
+// lo acumulado en cualquier momento. Constantes de balance en core/data.js.
+let rogueRun = null;
+const ROGUE_BUFFS = [
+  { id: 'furia',  n: '🗡️ Furia',       d: '+25% daño',          eff: () => { rogueRun.dmgMult *= 1.25; } },
+  { id: 'vital',  n: '❤️ Vitalidad',   d: '+25% aguante',        eff: () => { rogueRun.hpMult *= 1.25; } },
+  { id: 'oro',    n: '🪙 Fiebre',      d: '+50% oro',            eff: () => { rogueRun.goldMult *= 1.5; } },
+  { id: 'drop',   n: '🎒 Suerte',      d: 'Botín garantizado',   eff: () => { rogueRun.drop = true; } },
+  { id: 'crit',   n: '🎯 Precisión',   d: '+20% crítico',        eff: () => { rogueRun.critAdd += 0.2; } },
+  { id: 'venom',  n: '☠️ Tóxico',      d: 'Veneno +50%',         eff: () => { rogueRun.venomMult *= 1.5; } }
 ];
-let RL = null;
-wire('btnRogue', 'click', () => { checkDailyResets(); renderRogue(); $('mRogue').style.display = 'flex'; Audio.SFX.click(); });
-wire('rogueClose', 'click', () => { $('mRogue').style.display = 'none'; });
-wire('rogueStart', 'click', () => {
-  if (S.rlTickets <= 0) return;
-  S.rlTickets--; persist();
-  RL = { room: 1, hp: maxHP(), maxHp: maxHP(), b: { dmg: 1, hp: 1, crit: 0, ls: 0, ven: 1 }, over: false, choices: rollChoices() };
-  Audio.SFX.click(); renderRogue();
-});
-function rollChoices() {
-  const pool = RL_BUFFS.slice(), out = [];
-  for (let i = 0; i < 3 && pool.length; i++) out.push(pool.splice(Math.random() * pool.length | 0, 1)[0]);
-  return out;
+
+wire('btnRogue', 'click', () => { renderRogue(); const m = $('mRogue'); if (m) m.style.display = 'flex'; Audio.SFX.click(); });
+wire('rogueClose', 'click', () => { const m = $('mRogue'); if (m) m.style.display = 'none'; });
+
+// ----- Poder efectivo de la run (los buffs por fin cuentan) -----
+function roguePower() {
+  const r = rogueRun;
+  const crit = Math.min(0.95, critChance() + r.critAdd);
+  const critAvg = 1 + crit * (critMult() - 1);
+  const venomShare = 1 + 0.15 * (r.venomMult - 1);
+  return dps() * 30 * 1.4 * r.dmgMult * critAvg * venomShare;
 }
+const rogueIsBoss = () => rogueRun.room >= rogueRun.max;
+function rogueOdds() {
+  const r = rogueRun;
+  const hpMul = ROGUE_HP_MUL * Math.pow(ROGUE_STEP, r.room - 1) * (rogueIsBoss() ? 2.5 : 1);
+  const atkMul = (1.2 + r.room * 0.1) / r.hpMult; // dividir el daño entrante ≈ más aguante
+  return fightChance(S.best, hpMul, atkMul, { our: roguePower(), min: 0.08 });
+}
+const rogueRoomGold = room => goldKill(S.best) * (2 + room);
+
 function renderRogue() {
-  const box = $('rogueBody'); if (!box) return;
-  if (!RL) {
-    box.innerHTML = '<p>8 salas · elegí 1 de 3 buffs por sala · recompensas según avance.<br><small style="color:#8fa3c8">Run perfecta (8/8) = +1🧬</small></p>';
-    $('rogueStart').style.display = 'inline-block';
-    $('rogueStart').textContent = '🌀 EMPEZAR (🎟️ ' + S.rlTickets + '/2)';
-    $('rogueStart').disabled = S.rlTickets <= 0;
+  const body = $('rogueBody');
+  if (!body) return; // GUARDIÁN
+  checkDailyResets();
+  const isBonus = (typeof dayHas === 'function' && dayHas('soto'));
+  if (rogueRun) { renderRogueRun(); return; }
+  body.innerHTML = '<p style="color:#8fa3c8;font-size:11px">🌀 ' + new Date().toISOString().slice(0, 10) + (isBonus ? ' · HOY +1 🎟️' : '') + '</p>' +
+    '<p>🎟️ Tickets: <b style="color:#ffd700">' + S.rlTickets + ' / ' + (2 + (isBonus ? 1 : 0)) + '</b></p>' +
+    '<p style="font-size:12px;margin:12px 0">' + ROGUE_ROOMS + ' salas. En cada una elegís <b>1 de 3 buffs</b> y después peleás.<br>' +
+    'La dificultad sube sala a sala. Si perdés, se termina la run.<br>' +
+    '<b style="color:#7efcff">Podés retirarte cuando quieras y quedarte con lo ganado.</b></p>' +
+    '<button class="mbtn" id="rogueStart">ENTRAR (1 🎟️)</button>';
+  const b = $('rogueStart');
+  if (b) b.onclick = startRogue;
+}
+
+function startRogue() {
+  if (S.rlTickets < 1) return toast('❌ Sin tickets');
+  S.rlTickets--;
+  rogueRun = { room: 1, max: ROGUE_ROOMS, dmgMult: 1, hpMult: 1, goldMult: 1, venomMult: 1,
+    critAdd: 0, drop: false, buffs: [], gold: 0, cleared: 0, phase: 'buff' };
+  persist();
+  renderRogueRun();
+}
+
+function renderRogueRun() {
+  const body = $('rogueBody');
+  if (!body || !rogueRun) return;
+  const r = rogueRun;
+  const head = '<h3>🌀 Sala ' + r.room + ' / ' + r.max + (rogueIsBoss() ? ' 👑' : '') + '</h3>' +
+    '<p style="font-size:11px;color:#8fa3c8">Buffs: ' + (r.buffs.length ? r.buffs.map(b => b.n).join(', ') : 'ninguno') + '</p>' +
+    '<p style="font-size:11px;color:#7bed9f">💰 Acumulado: <b>' + fmt(r.gold) + '</b> 🪙 · ' + r.cleared + ' salas limpias</p>';
+
+  if (r.phase === 'buff') {
+    body.innerHTML = head + '<p style="font-size:11px;color:#ffd700;margin-top:8px">Elegí una bendición:</p><div class="buffRow" id="rogueChoices"></div>' +
+      (r.cleared > 0 ? '<button class="mbtn gray" id="rogueLeave">🚪 RETIRARSE CON ' + fmt(r.gold) + ' 🪙</button>' : '');
+    const pool = ROGUE_BUFFS.slice();
+    const choices = [];
+    for (let i = 0; i < 3 && pool.length; i++) choices.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+    const cBox = $('rogueChoices');
+    if (cBox) choices.forEach(c => {
+      const card = document.createElement('div');
+      card.className = 'mrow buff';
+      card.style.cursor = 'pointer';
+      card.innerHTML = '<span><b>' + c.n + '</b><br><small>' + c.d + '</small></span>';
+      card.onclick = () => { c.eff(); r.buffs.push(c); r.phase = 'fight'; persist(); renderRogueRun(); };
+      cBox.appendChild(card);
+    });
+    const lv = $('rogueLeave');
+    if (lv) lv.onclick = () => finishRogue('leave');
     return;
   }
-  $('rogueStart').style.display = 'none';
-  box.innerHTML = '<h3 style="color:#ffd700">SALA ' + RL.room + '/8</h3>' +
-    '<div class="sqHp" style="width:100%;height:10px;margin:10px 0"><i style="width:' + Math.max(0, RL.hp / RL.maxHp * 100) + '%"></i></div>' +
-    '<div class="buffRow">' + RL.choices.map((c, i) => '<button class="mbtn buff" data-i="' + i + '">' + c.n + '<br><small>' + c.d + '</small></button>').join('') + '</div>' +
-    '<div id="rogueMsg" style="min-height:20px;color:#8fa3c8">Elegí un buff para entrar a la sala…</div>';
-  box.querySelectorAll('.buff').forEach(b => { b.onclick = () => pickBuff(+b.dataset.i); });
+
+  // fase de combate: mostramos las probabilidades ANTES de apostar
+  const ch = rogueOdds();
+  const col = ch >= 0.7 ? '#7bed9f' : ch >= 0.4 ? '#ffd700' : '#ff5252';
+  body.innerHTML = head +
+    '<div class="mrow" style="border:1px solid ' + col + '"><span>' + (rogueIsBoss() ? '👑 <b>GUARDIÁN DEL SOTOBOSQUE</b>' : '👾 <b>Emboscada</b>') +
+    '<br><small style="color:#8fa3c8">Recompensa: ' + fmt(rogueRoomGold(r.room) * r.goldMult) + ' 🪙</small></span>' +
+    '<b style="color:' + col + '">' + Math.round(ch * 100) + '%</b></div>' +
+    '<button class="mbtn" id="rogueFight">⚔️ PELEAR</button>' +
+    (r.cleared > 0 ? '<button class="mbtn gray" id="rogueLeave">🚪 RETIRARSE CON ' + fmt(r.gold) + ' 🪙</button>' : '');
+  const fb = $('rogueFight');
+  if (fb) fb.onclick = rogueFight;
+  const lv = $('rogueLeave');
+  if (lv) lv.onclick = () => finishRogue('leave');
 }
-function pickBuff(i) {
-  if (!RL || RL.over) return;
-  const c = RL.choices[i]; if (!c) return;
-  c.f(RL.b, RL);
-  const st = S.best + RL.room * 3, eatk = eDmg(st) * 1.5;
-  const our = dps() * RL.b.dmg * 10 * (1 + RL.b.crit) * (1 + RL.b.ven * 0.2);
-  const win = rollFight(fightChance(st, 8, 1.5, { aguante: false, our }));
-  let taken = eatk * 8 * (win ? 0.5 : 1);
-  taken *= Math.max(0.4, 1 - (RL.b.hp - 1) * 0.4);
-  RL.hp -= taken;
-  if (RL.b.ls > 0) RL.hp = Math.min(RL.maxHp, RL.hp + our * RL.b.ls);
-  const msgEl = $('rogueMsg');
-  if (RL.hp <= 0) { RL.over = true; if (msgEl) msgEl.textContent = '💀 Caíste en la sala ' + RL.room + '…'; setTimeout(() => endRun(false), 700); return; }
-  if (!win)     { RL.over = true; if (msgEl) msgEl.textContent = '💀 El guardián te superó…'; setTimeout(() => endRun(false), 700); return; }
-  if (RL.room >= 8) { RL.over = true; if (msgEl) msgEl.textContent = '🏆 ¡SOTOBOSQUE COMPLETO!'; setTimeout(() => endRun(true), 700); return; }
-  RL.room++; RL.choices = rollChoices(); Audio.SFX.hit(); renderRogue();
+
+function rogueFight() {
+  const r = rogueRun; if (!r) return;
+  const won = rollFight(rogueOdds());
+  if (!won) {
+    Audio.SFX.death();
+    toast('💀 La sala ' + r.room + ' te derrotó');
+    return finishRogue('lost');
+  }
+  r.gold += Math.floor(rogueRoomGold(r.room) * r.goldMult);
+  r.cleared++;
+  Audio.SFX.levelup();
+  if (rogueIsBoss()) return finishRogue('won');
+  r.room++; r.phase = 'buff';
+  toast('✅ Sala ' + (r.room - 1) + ' superada');
+  persist();
+  renderRogueRun();
 }
-function endRun(cleared) {
-  if (!RL) return;
-  const rooms = cleared ? 8 : Math.max(0, RL.room - 1);
-  const g = goldKill(S.best + 5) * Math.max(1, rooms) * 3;
-  S.gold += g;
-  let msg = '🌀 Run: ' + rooms + '/8 salas · +' + fmt(g) + ' 🪙';
-  if (rooms >= 3) dropItem(Math.floor(rooms / 3) - 1);
-  if (cleared) { S.adn++; msg += ' · ¡PERFECTO! +1🧬'; }
-  persist(); toast(msg);
-  if (cleared) Audio.SFX.levelup(); else Audio.SFX.death();
-  RL = null; checkDailyResets(); renderRogue();
+
+// outcome: 'won' (llegaste al final) · 'leave' (te retiraste) · 'lost' (te derrotaron)
+function finishRogue(outcome) {
+  const r = rogueRun;
+  if (!r) { renderRogue(); return; }
+  S.gold += r.gold;
+  let msg = '🌀 ' + (outcome === 'won' ? '¡Sotobosque completado!' : outcome === 'leave' ? 'Te retiraste' : 'Run perdida') + ' +' + fmt(r.gold) + ' 🪙';
+  if (outcome === 'won') {
+    const a = 5; S.adn += a; msg += ' +' + a + ' 🧬';
+    for (let i = 0; i < 3; i++) dropItem(2);
+    msg += ' +3 🎒';
+    Audio.SFX.levelup();
+  } else if (outcome === 'leave') {
+    // retirarse conserva un botín proporcional a lo limpiado
+    const a = Math.floor(r.cleared / 3);
+    if (a > 0) { S.adn += a; msg += ' +' + a + ' 🧬'; }
+    if (r.drop || r.cleared >= 4) { dropItem(1); msg += ' +🎒'; }
+    Audio.SFX.coin();
+  } else if (r.drop && r.cleared > 0) {
+    dropItem(0); msg += ' +🎒'; // el buff 🎒 Suerte salva algo incluso al perder
+  }
+  toast(msg);
+  rogueRun = null;
+  persist();
+  renderRogue();
 }

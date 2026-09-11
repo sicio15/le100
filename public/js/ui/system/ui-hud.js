@@ -1,5 +1,36 @@
 'use strict';
-// ===== HUD: mejoras, velocidad, settings, logros, prestigio, ranking, escuadrón, uiTick =====
+// ===== HUD: mejoras (cantidad + mantenido), velocidad, settings, logros,
+// prestigio (info clara), ranking, escuadrón, uiTick, sync, atajos desktop =====
+
+// ----- Cantidad de compra (x1 → x10 → MAX) -----
+let buyQtyMode = (SETTINGS && SETTINGS.buyQty) || 1;
+const qtyLabel = () => buyQtyMode === 'max' ? 'MAX' : 'x' + buyQtyMode;
+function cycleBuyQty() {
+  buyQtyMode = buyQtyMode === 1 ? 10 : buyQtyMode === 10 ? 'max' : 1;
+  SETTINGS.buyQty = buyQtyMode; saveSettings();
+  const b = $('buyQtyBtn'); if (b) b.textContent = '🛒 ' + qtyLabel();
+  toast('🛒 Compra ' + qtyLabel());
+  Audio.SFX.click();
+}
+function buyUps(k, n) {
+  let bought = 0;
+  for (let i = 0; i < n; i++) { const co = cost(k); if (S.gold < co) break; S.gold -= co; S.ups[k]++; bought++; }
+  if (bought) { if (k === 'vit') initSquad(); persist(); Audio.SFX.buy(); }
+  else Audio.SFX.click();
+  return bought;
+}
+// click = cantidad elegida · mantener pulsado = compra continua
+function attachBuy(btn, k) {
+  let holdT = null, repT = null, held = false;
+  btn.addEventListener('click', () => { if (held) { held = false; return; } buyUps(k, buyQtyMode === 'max' ? 999 : buyQtyMode); });
+  btn.addEventListener('pointerdown', () => {
+    held = false;
+    holdT = setTimeout(() => { held = true; repT = setInterval(() => buyUps(k, 1), 140); }, 450);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev =>
+    btn.addEventListener(ev, () => { clearTimeout(holdT); if (repT) { clearInterval(repT); repT = null; } }));
+}
+
 // ----- Mejoras -----
 const upBtns = {}, upLvs = {};
 (function buildUps() {
@@ -11,18 +42,21 @@ const upBtns = {}, upLvs = {};
     c.innerHTML = '<div class="un">' + ico + ' ' + UPDEF[k].name + ' <span class="ul" id="lv_' + k + '">Nv 0</span></div><button class="ubuy" id="buy_' + k + '"></button>';
     ups.appendChild(c);
     upBtns[k] = c.querySelector('button');
-    upLvs[k] = c.querySelector('.ul'); // span de nivel cacheado
-    upBtns[k].onclick = () => {
-      const co = cost(k);
-      if (S.gold >= co) {
-        S.gold -= co; S.ups[k]++;
-        if (k === 'vit') initSquad();
-        persist(); Audio.SFX.buy();
-        toast(UPDEF[k].icon + ' ' + UPDEF[k].name + ' Nv ' + S.ups[k]);
-      } else { Audio.SFX.click(); }
-    };
+    upLvs[k] = c.querySelector('.ul');
+    attachBuy(upBtns[k], k);
   });
+  // botón de cantidad en heroStats
+  const hs = $('heroStats');
+  if (hs && !$('buyQtyBtn')) {
+    const b = document.createElement('button');
+    b.id = 'buyQtyBtn'; b.className = 'tbtn'; b.title = 'Cantidad de compra (click para cambiar)';
+    b.style.cssText = 'font-size:8px;padding:4px 8px;';
+    b.textContent = '🛒 ' + qtyLabel();
+    b.onclick = cycleBuyQty;
+    hs.appendChild(b);
+  }
 })();
+
 // ----- Velocidad -----
 const SPEEDS = [1, 2, 3];
 function cycleSpeed() {
@@ -33,6 +67,31 @@ function cycleSpeed() {
 }
 wire('speedBtn', 'click', cycleSpeed);
 if ($('speedBtn')) $('speedBtn').textContent = '⏩ x' + SETTINGS.speed;
+
+// ----- Atajos de teclado (desktop) — L26: ampliados a todos los paneles -----
+const KEYMAP = {
+  m: 'btnMap', e: 'btnGear', p: 'btnPrestige', t: 'btnTower', r: 'btnRogue',
+  a: 'btnArena', d: 'btnDaily', s: 'btnShop', c: 'btnMissions', b: 'btnBattlePass',
+  g: 'btnGuild', l: 'btnLb', v: 'btnStats', o: 'btnSettings'
+};
+window.addEventListener('keydown', e => {
+  if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+  const tag = (e.target && e.target.tagName) || '';
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+  // Espacio = golpe manual si hay enemigos; si no, cambia la velocidad
+  if (e.key === ' ') {
+    e.preventDefault();
+    if (typeof doTap === 'function' && typeof enemies !== 'undefined' && enemies.length) {
+      if (doTap(heroX() + advance + 200, groundY() - 40)) return;
+      return;
+    }
+    cycleSpeed(); return;
+  }
+  if (e.key === 'q' || e.key === 'Q') { cycleBuyQty(); return; }
+  const id = KEYMAP[String(e.key).toLowerCase()];
+  if (id) { const b = $(id); if (b) b.click(); }
+});
+
 // ----- Settings -----
 function openSettings() {
   Audio.SFX.click();
@@ -48,13 +107,13 @@ wire('setAudio', 'change', e => { SETTINGS.audio = e.target.checked; Audio.setEn
 wire('setMusic', 'input', e => { SETTINGS.musicVol = +e.target.value; $('setMusicV').textContent = Math.round(SETTINGS.musicVol * 100); Audio.setMusicVol(SETTINGS.musicVol); });
 wire('setSfx', 'input', e => { SETTINGS.sfxVol = +e.target.value; $('setSfxV').textContent = Math.round(SETTINGS.sfxVol * 100); Audio.setSfxVol(SETTINGS.sfxVol); });
 wire('setReduce', 'change', e => { SETTINGS.reduceFx = e.target.checked; saveSettings(); });
-// LOTE 2C (deuda #8): logout limpia el token persistente antes del reload
 wire('setLogout', 'click', () => {
   if (!confirm('¿Cerrar sesión? (tu partida queda guardada en la cuenta)')) return;
   persist();
   if (typeof netClearToken === 'function') netClearToken();
   location.reload();
 });
+
 // ----- Logros -----
 function renderAch() {
   $('achList').innerHTML = '';
@@ -78,10 +137,18 @@ function renderAch() {
     $('achList').appendChild(row);
   });
 }
-// ----- Prestigio -----
+
+// ----- Prestigio (con resumen claro) -----
 wire('btnPrestige', 'click', () => {
   $('prGain').textContent = '+' + prGain() + ' 🧬';
   $('prBtn').disabled = !(S.best >= 10 && prGain() > 0);
+  let info = $('prInfo');
+  if (!info) {
+    info = document.createElement('p'); info.id = 'prInfo';
+    info.style.cssText = 'color:#8fa3c8;font-size:11px;margin:8px 0;line-height:1.5;';
+    $('prGain').after(info);
+  }
+  info.innerHTML = '♻️ Se reinicia: oro, etapa y mejoras.<br>💾 Se conserva: ADN, equipo, logros, tienda, rangos y modos.';
   $('mPrestige').style.display = 'flex'; Audio.SFX.click();
 });
 wire('prClose', 'click', () => { $('mPrestige').style.display = 'none'; });
@@ -94,11 +161,13 @@ wire('prBtn', 'click', () => {
   S.ups = { dmg: 0, vit: 0, regen: 0, venom: 0, fortune: 0 };
   initSquad(); resetSquad();
   enemies = [];
+  resetCombo(); startStageClock(); // L26: la run nueva arranca limpia
   persist(); netScore(S.name, S.best);
   $('mPrestige').style.display = 'none';
   Audio.SFX.levelup();
   toast('🧬 ¡Prestigio! +' + g + ' ADN');
 });
+
 // ----- Modales: logros + ranking -----
 wire('btnAch', 'click', () => { renderAch(); $('mAch').style.display = 'flex'; Audio.SFX.click(); });
 wire('achClose', 'click', () => { $('mAch').style.display = 'none'; });
@@ -110,6 +179,7 @@ wire('btnLb', 'click', () => {
   $('mLb').style.display = 'flex'; Audio.SFX.click();
 });
 wire('lbClose', 'click', () => { $('mLb').style.display = 'none'; });
+
 // ----- HUD de escuadrón -----
 let sqBuiltKey = '';
 const sqRows = {};
@@ -129,7 +199,45 @@ function buildSquadHud() {
     sqRows[m.def.id] = { row: r, hp: r.querySelector('.sqHp i'), en: r.querySelector('.sqEn i') };
   });
 }
-// ----- HUD tick (llamado a 10Hz desde BattleScene) -----
+
+// ----- Indicador de sincronización cloud-save -----
+let syncEl = null, lastSync = 0;
+function initSync() {
+  if (syncEl) return;
+  syncEl = document.createElement('div');
+  syncEl.id = 'syncIndicator';
+  document.body.appendChild(syncEl);
+}
+function showSync(status, msg) {
+  initSync();
+  syncEl.style.color = status === 'saved' ? '#7bed9f' : status === 'error' ? '#ff4757' : '#ffd700';
+  syncEl.textContent = msg;
+  syncEl.style.opacity = '1';
+  if (status === 'saved') setTimeout(() => { syncEl.style.opacity = '0'; }, 2000);
+}
+const _persistHud = persist;
+persist = function () {
+  if (authed && typeof socket !== 'undefined' && socket && socket.connected) { showSync('saving', '💾 Guardando...'); lastSync = Date.now(); }
+  _persistHud();
+  if (authed && typeof socket !== 'undefined' && socket && socket.connected) {
+    setTimeout(() => { if (Date.now() - lastSync < 3000) showSync('saved', '✅ Sincronizado'); }, 500);
+  }
+};
+
+// ----- L26: medidor de combo -----
+function updateComboHud() {
+  const box = EL.comboBox; if (!box) return;
+  if (typeof combo === 'undefined' || combo < 2) { box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  const m = comboMult();
+  EL.comboX.textContent = 'x' + m.toFixed(2);
+  EL.comboN.textContent = Math.floor(combo) + ' kills · +' + comboPct() + '% daño';
+  // la barra es el tiempo que queda antes de que la racha empiece a caer
+  if (EL.comboBarFill) EL.comboBarFill.style.width = Math.max(0, Math.min(100, (comboT / COMBO_WINDOW) * 100)) + '%';
+  box.classList.toggle('hot', m >= COMBO_MAX - 0.001);
+}
+
+// ----- HUD tick (10Hz desde BattleScene) -----
 let dotAcc = 0;
 function uiTick() {
   EL.goldTxt.textContent = fmt(S.gold);
@@ -139,7 +247,9 @@ function uiTick() {
   let totHp = 0, totMax = 0;
   for (const m of squad) { totHp += Math.max(0, m.hp); totMax += m.maxHp; }
   EL.hpTxt.textContent = fmt(totHp) + '/' + fmt(totMax);
-  EL.dpsTxt.textContent = fmt(dps());
+  // L26: el HUD muestra el daño REAL (con combo), no el teórico
+  EL.dpsTxt.textContent = fmt(liveDps());
+  updateComboHud();
   buildSquadHud();
   for (const m of squad) {
     const r = sqRows[m.def.id]; if (!r) continue;
@@ -156,11 +266,10 @@ function uiTick() {
   for (const k in UPDEF) {
     const lv = upLvs[k]; if (lv) lv.textContent = 'Nv ' + S.ups[k];
     const b = upBtns[k]; if (!b) continue;
-    const co = cost(k); // 1 cost() por mejora y tick (antes 2)
+    const co = cost(k);
     b.textContent = '🪙 ' + fmt(co);
     b.disabled = S.gold < co;
   }
-  // dots a 2Hz en vez de 10Hz (hasBetterGear/ACH.some no necesitan más)
   if (++dotAcc >= 5) {
     dotAcc = 0;
     EL.prDot.style.display = (S.best >= 10 && prGain() > 0) ? 'block' : 'none';
