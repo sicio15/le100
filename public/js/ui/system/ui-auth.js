@@ -54,6 +54,7 @@ function afterLogin() {
   Audio.init(); Audio.startMusic();
   Audio.setChapter(Math.floor((S.stage - 1) / 10));
   initSquad();
+  if (typeof checkSkillUnlocks === 'function') checkSkillUnlocks(); // L27
   if (typeof checkDailyResets === 'function') checkDailyResets();
   else if (typeof checkTickets === 'function') checkTickets();
   if (typeof checkSeasonReset === 'function') checkSeasonReset(); // L26: rotar temporada al entrar
@@ -93,11 +94,12 @@ function afterLogin() {
 }
 // ===== Tutorial =====
 const TUT_STEPS = [
-  { t: 'Tu escuadrón pelea solo. ¡Miralo combatir! 🐛', s: 'battleWrap' },
-  { t: 'Ganá oro y comprá mejoras acá abajo ⬇️ (mantené pulsado para compra continua)', s: 'bottombar' },
+  { t: 'Tu escuadrón pelea solo. ¡Tocá la pantalla para sumar tu propio golpe! 🐛', s: 'battleWrap' },
+  { t: 'Ganá oro y comprá mejoras acá abajo ⬇️ (mantené pulsado para compra continua). La tarjeta marcada MEJOR es la que más rinde por moneda.', s: 'bottombar' },
   { t: 'Cada héroe carga ⚡ energía: al 100% lanza su ULTIMATE con cut-in.', s: 'heroHpWrap' },
-  { t: 'Cada 5 etapas aparece un JEFE 👑. Si caés, bajás una etapa a farmear.', s: 'topbar' },
-  { t: '⏩ Acelerá la batalla (o Espacio) y ⚙️ ajustes arriba. ¡A jugar!', s: 'speedBtn' }
+  { t: '✨ Desde la etapa 3 desbloqueás HABILIDADES con teclas 1·2·3 (o tocando estos botones).', s: 'skillBar' },
+  { t: 'Cada 5 etapas aparece un JEFE 👑 con fases: a 60% y 30% de vida enfurece e invoca esbirros.', s: 'topbar' },
+  { t: '☰ El MENÚ tiene todo: modos, equipo, gremio y ajustes. ¡A jugar!', s: 'btnHub' }
 ];
 function startTutorial() {
   let i = 0;
@@ -109,13 +111,20 @@ function startTutorial() {
       SETTINGS.tutorialDone = true; saveSettings();
       ov.remove(); return;
     }
+    // FIX L27: se posicionaba con W/H (el viewport del canvas de Phaser), que valen
+    // 0 hasta que la escena corre su primer frame → el tutorial salía fuera de pantalla.
+    const vw = window.innerWidth, vh = window.innerHeight;
     const step = TUT_STEPS[i];
     const target = $(step.s);
-    const r = target ? target.getBoundingClientRect() : { left: W / 2 - 150, top: H / 2, width: 300, height: 0 };
+    const r = (target && target.offsetParent !== null) ? target.getBoundingClientRect()
+      : { left: vw / 2 - 150, top: vh / 2 - 60, width: 300, height: 0 };
     box.innerHTML = '<div class="tutTxt">' + step.t + '</div><div class="tutCtr">' + (i + 1) + '/' + TUT_STEPS.length +
       ' <button class="mbtn" id="tutNext">' + (i === TUT_STEPS.length - 1 ? '¡LISTO!' : 'SIGUIENTE ▶') + '</button></div>';
-    box.style.left = Math.max(10, Math.min(W - 320, r.left)) + 'px';
-    box.style.top = Math.min(H - 140, r.top + r.height + 14) + 'px';
+    const bw = box.offsetWidth || 320, bh = box.offsetHeight || 150;
+    box.style.left = Math.max(10, Math.min(vw - bw - 10, r.left + r.width / 2 - bw / 2)) + 'px';
+    // debajo del objetivo si entra; si no, encima
+    const below = r.top + r.height + 14;
+    box.style.top = (below + bh < vh - 10 ? below : Math.max(10, r.top - bh - 14)) + 'px';
     wire('tutNext', 'click', () => { Audio.SFX.click(); i++; show(); });
   }
   show();

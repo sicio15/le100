@@ -24,6 +24,7 @@ function nextStage() {
   S.stage++; S.best = Math.max(S.best, S.stage); S.ks = 0;
   startStageClock();
   resetSquad(); initSquad();
+  if (typeof checkSkillUnlocks === 'function') checkSkillUnlocks(); // L27
   reEnter();
   enemies = []; spawnT = 0.6;
   stageFlash = 0.5;
@@ -34,20 +35,10 @@ function nextStage() {
   persist(); netScore(S.name, S.best);
   notify('⚔️ Etapa ' + S.stage + (isBossStage() ? ' 👑' : ''));
 }
-function update(rawDt) {
-  const dt = rawDt * SETTINGS.speed;
-  time += dt;
-  stageFlash = Math.max(0, stageFlash - dt);
-  petCastT = Math.max(0, petCastT - dt);
-  tapCd = Math.max(0, tapCd - dt);
-  // L26: el combo decae si dejás de matar (no se pierde de golpe: se desangra)
-  if (combo > 0) {
-    comboT -= dt;
-    if (comboT <= 0) { combo = Math.max(0, combo - COMBO_DECAY * dt); if (combo < 1) combo = 0; }
-  }
-  if (!squad.length) initSquad();
-  const hx = heroX(), gy = groundY();
-  updateAdvance(dt);
+
+// ----- Escuadrón: mover, atacar, curar -----
+function updateSquad(dt, hx, gy) {
+  const haste = buffHaste();
   squad.forEach(m => {
     m.flash = Math.max(0, m.flash - dt);
     m.lunge = Math.max(0, m.lunge - dt * 4);
@@ -57,55 +48,28 @@ function update(rawDt) {
     if (m.px < tx - 2) { m.px = Math.min(tx, m.px + 150 * dt); m.entering = true; }
     else { if (m.px > tx + 2) m.px = Math.max(tx, m.px - 150 * dt); m.entering = false; }
     m.atkT -= dt;
-    if (m.atkT <= 0 && !m.entering) {
-      m.atkT = 0.5;
-      const t = pickTarget();
-      if (t) {
-        m.lunge = 1;
-        const mult = m.def.role === 'dps' ? 1 : m.def.role === 'archer' ? 0.85 : 0.55;
-        const isCrit = Math.random() < critChance();
-        const d = liveDps() * 0.5 * mult * (isCrit ? critMult() : 1);
-        t.hp -= d; t.flash = 0.15; t.kb = isCrit ? 11 : 7;
-        float(t.x, gy - 70 * t.size, fmt(d), isCrit ? '#ffeb3b' : '#fff', isCrit);
-        burst(t.x, gy - 45 * t.size, isCrit ? '#ffeb3b' : '#ffffff', isCrit ? 10 : 6);
-        if (isCrit) { shake = Math.max(shake, 3); Audio.SFX.crit(); } else Audio.SFX.hit();
-        if (isCrit && HOOKS.crit) HOOKS.crit(t.x, gy - 45 * t.size);
-        gainEnergy(m, 8);
-        if (t.hp <= 0) killEnemy(t);
-      }
-    }
+    if (m.atkT > 0 || m.entering) return;
+    m.atkT = 0.5 / haste; // ⚡ Frenesí: el doble de golpes por segundo
+    const t = pickTarget();
+    if (!t) return;
+    m.lunge = 1;
+    const mult = m.def.role === 'dps' ? 1 : m.def.role === 'archer' ? 0.85 : 0.55;
+    const isCrit = Math.random() < critChance();
+    const d = liveDps() * 0.5 * mult * (isCrit ? critMult() : 1) * affixDmgTaken(t);
+    t.hp -= d; t.flash = 0.15; t.kb = isCrit ? 11 : 7;
+    trackDmg(d);
+    float(t.x, gy - 70 * t.size, fmt(d), isCrit ? '#ffeb3b' : '#fff', isCrit);
+    burst(t.x, gy - 45 * t.size, isCrit ? '#ffeb3b' : '#ffffff', isCrit ? 10 : 6);
+    if (isCrit) { shake = Math.max(shake, 3); Audio.SFX.crit(); } else Audio.SFX.hit();
+    if (isCrit && HOOKS.crit) HOOKS.crit(t.x, gy - 45 * t.size);
+    gainEnergy(m, 8);
+    if (t.boss) checkBossPhase(t);
+    if (t.hp <= 0) killEnemy(t);
   });
-  healT -= dt;
-  if (healT <= 0) {
-    healT = 2;
-    const target = squad.filter(m => m.alive && m.hp < m.maxHp).sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp))[0];
-    if (target) {
-      const h = regenPs() * 2;
-      target.hp = Math.min(target.maxHp, target.hp + h);
-      float(target.px, gy - 110, '+' + fmt(h), '#7bed9f');
-    }
-  }
-  venT -= dt;
-  if (venT <= 0) {
-    venT = venomCd();
-    const aliveE = enemies.filter(e => e.dying === null);
-    if (aliveE.length) {
-      const d = venomDm();
-      float(hx + advance + 140, gy - 90, '☠️ ' + fmt(d), '#a020f0', true);
-      Audio.SFX.venom();
-      petCastT = 0.9;
-      aliveE.forEach(e => {
-        e.hp -= d; e.flash = 0.15; e.kb = 5;
-        burst(e.x, gy - 30, '#a020f0', 8);
-        squad.forEach(m => { if (m.alive) gainEnergy(m, 3); });
-        if (e.hp <= 0) killEnemy(e);
-      });
-    }
-  }
-  if (!isBossStage()) {
-    spawnT -= dt;
-    if (spawnT <= 0 && enemies.filter(e => e.dying === null).length < 4) { spawnT = 1.6; spawnEnemy(); }
-  } else if (!enemies.length && S.ks === 0) spawnBoss();
+}
+
+// ----- Enemigos: avance, golpes, afijos -----
+function updateEnemies(dt, hx, gy) {
   enemies.forEach(e => {
     e.flash = Math.max(0, e.flash - dt);
     e.kb = Math.max(0, e.kb - dt * 40);
@@ -125,57 +89,110 @@ function update(rawDt) {
         if (e.atkT <= 0.3 && e.atkT > 0.12) { e.state = 'windup'; lungeT = 10 * e.size; }
         else if (e.atkT <= 0.12) { e.state = 'strike'; lungeT = -18 * e.size; }
         if (e.atkT <= 0) {
-          e.atkT = 1 + Math.random() * 0.4;
+          // 💨 Veloz pega más seguido · 👑 el jefe acelera con cada fase
+          e.atkT = (1 + Math.random() * 0.4) * affixAtkSpd(e) * (e.boss ? bossPhaseSpd() : 1);
           e.state = 'idle';
           // L26: el jefe pega más fuerte por cada ciclo de 30s que dejás pasar
-          const d = eDmg(S.stage) * (e.boss ? 3 * bossRageMult() : e.elite ? 1.6 : 1);
+          // L27: …y por cada fase superada. La Égida recorta el golpe un 60%.
+          const raw = eDmg(S.stage) * (e.boss ? 3 * bossRageMult() * bossPhaseDmg() : e.elite ? 1.6 : 1);
+          const d = raw * damageTakenMult();
           m.hp -= d; m.flash = 0.15;
-          float(m.px, gy - 80, '-' + fmt(d), '#ff4757');
+          float(m.px, gy - 80, '-' + fmt(d), hasBuff('aegis') ? '#7bed9f' : '#ff4757');
           shake = Math.max(shake, 4);
           Audio.SFX.hit();
           gainEnergy(m, 6);
-          if (m.hp <= 0) {
-            m.alive = false;
-            stageHadDeaths = true;
-            notify('💀 ' + m.def.name + ' cayó');
-            Audio.SFX.death();
-            if (!aliveByPriority()) {
-              if (S.stage > 1) S.stage--;
-              S.ks = 0;
-              enemies.forEach(x => { if (x.dying === null) { x.dying = 0.45; puff(x.x, gy + 2); } });
-              if (HOOKS.bossHide) HOOKS.bossHide();
-              spawnT = 0.8;
-              reEnter();
-              resetCombo();
-              // FIX L26: el cronómetro no se reiniciaba al caer, así que la etapa
-              // siguiente heredaba el tiempo acumulado y salía siempre rango C/R.
-              startStageClock();
-              persist(); netScore(S.name, S.best);
-              notify('💀 Caíste → Etapa ' + S.stage + '. ¡Farmeá y volvé!');
-              resetSquad();
-            }
-          }
+          affixOnDealDamage(e, d); // 🩸 el Vampírico se cura con lo que pega
+          if (m.hp <= 0) killHero(m);
         }
       }
     }
     e.lungeX += (lungeT - e.lungeX) * Math.min(1, dt * 18);
   });
   enemies = enemies.filter(e => e.dying === null || e.dying > 0);
-  if (isBossStage() && enemies.length) {
-    bossT -= dt;
-    if (HOOKS.bossTick) {
-      const lbl = bossRage > 0 ? Math.max(0, Math.ceil(bossT)) + 's · 🔥x' + bossRage : Math.max(0, Math.ceil(bossT)) + 's';
-      HOOKS.bossTick(Math.max(0, bossT / BOSS_TIMER) * 100, lbl);
-    }
-    // FIX L26: antes el reloj llegaba a 0 y sólo se reiniciaba con un toast — no
-    // pasaba absolutamente nada. Ahora el jefe ENFURECE: +25% de daño acumulativo.
-    if (bossT <= 0) {
-      bossT = BOSS_TIMER; bossRage++;
-      shake = Math.max(shake, 8);
-      if (HOOKS.bossRoar) HOOKS.bossRoar();
-      Audio.SFX.boss();
-      notify('🔥 ¡El jefe ENFURECE! +' + Math.round((bossRageMult() - 1) * 100) + '% daño');
+}
+
+// ----- Jefe: reloj de furia + HUD -----
+function updateBoss(dt) {
+  const boss = enemies.find(e => e.boss && e.dying === null);
+  if (!isBossStage() || !boss) return;
+  bossT -= dt;
+  if (HOOKS.bossTick) {
+    HOOKS.bossTick({
+      time: Math.max(0, bossT / BOSS_TIMER) * 100,
+      secs: Math.max(0, Math.ceil(bossT)),
+      hp: Math.max(0, boss.hp / boss.max) * 100,
+      hpTxt: fmt(Math.max(0, boss.hp)) + ' / ' + fmt(boss.max),
+      rage: bossRage,
+      phase: bossPhase,
+      phases: BOSS_PHASES.length
+    });
+  }
+  // FIX L26: antes el reloj llegaba a 0 y sólo se reiniciaba con un toast — no
+  // pasaba absolutamente nada. Ahora el jefe ENFURECE: +25% de daño acumulativo.
+  if (bossT <= 0) {
+    bossT = BOSS_TIMER; bossRage++;
+    shake = Math.max(shake, 8);
+    bossRoar();
+    Audio.SFX.boss();
+    notify('🔥 ¡El jefe ENFURECE! +' + Math.round((bossRageMult() - 1) * 100) + '% daño');
+  }
+}
+
+function update(rawDt) {
+  const dt = rawDt * SETTINGS.speed;
+  time += dt;
+  stageFlash = Math.max(0, stageFlash - dt);
+  petCastT = Math.max(0, petCastT - dt);
+  tapCd = Math.max(0, tapCd - dt);
+  bossRoarT = Math.max(0, bossRoarT - dt);
+  tickBuffs(dt);                                        // L27
+  if (typeof tickSkills === 'function') tickSkills(dt); // L27
+  // L26: el combo decae si dejás de matar (no se pierde de golpe: se desangra)
+  if (combo > 0) {
+    comboT -= dt;
+    if (comboT <= 0) { combo = Math.max(0, combo - COMBO_DECAY * dt); if (combo < 1) combo = 0; }
+  }
+  if (!squad.length) initSquad();
+  const hx = heroX(), gy = groundY();
+  updateAdvance(dt);
+  updateSquad(dt, hx, gy);
+  // Curación pasiva al héroe más herido
+  healT -= dt;
+  if (healT <= 0) {
+    healT = 2;
+    const target = squad.filter(m => m.alive && m.hp < m.maxHp).sort((a, b) => (a.hp / a.maxHp) - (b.hp / b.maxHp))[0];
+    if (target) {
+      const h = regenPs() * 2;
+      target.hp = Math.min(target.maxHp, target.hp + h);
+      float(target.px, gy - 110, '+' + fmt(h), '#7bed9f');
     }
   }
+  // Veneno en área (mascota)
+  venT -= dt;
+  if (venT <= 0) {
+    venT = venomCd();
+    const aliveE = liveEnemies();
+    if (aliveE.length) {
+      const d = venomDm();
+      float(hx + advance + 140, gy - 90, '☠️ ' + fmt(d), '#a020f0', true);
+      Audio.SFX.venom();
+      petCastT = 0.9;
+      aliveE.forEach(e => {
+        const dd = d * affixDmgTaken(e);
+        e.hp -= dd; e.flash = 0.15; e.kb = 5;
+        trackDmg(dd);
+        burst(e.x, gy - 30, '#a020f0', 8);
+        squad.forEach(m => { if (m.alive) gainEnergy(m, 3); });
+        if (e.boss) checkBossPhase(e);
+        if (e.hp <= 0) killEnemy(e);
+      });
+    }
+  }
+  if (!isBossStage()) {
+    spawnT -= dt;
+    if (spawnT <= 0 && liveEnemies().length < 4) { spawnT = 1.6; spawnEnemy(); }
+  } else if (!enemies.length && S.ks === 0) spawnBoss();
+  updateEnemies(dt, hx, gy);
+  updateBoss(dt);
   if (shake > 0) shake -= dt * 20;
 }

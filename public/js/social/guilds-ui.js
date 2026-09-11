@@ -5,11 +5,16 @@
 let GUILD = null;
 wire('btnGuild', 'click', openGuild);
 wire('guildClose', 'click', () => { $('mGuild').style.display = 'none'; });
-// Inyectar al HUB + retirar colonias (deprecadas L25)
+// Inyectar al menú + retirar colonias (deprecadas L25)
+// FIX L27: la comprobación de duplicado miraba una sola sección, así que al mover
+// 🛡️ Gremio a "PROGRESO" el menú lo dibujaba dos veces. Ahora busca en todas.
 if (typeof HUB_SECTIONS !== 'undefined') {
   HUB_SECTIONS.forEach(sec => { sec.items = sec.items.filter(i => i.id !== 'btnColony'); });
-  const sec = HUB_SECTIONS.find(x => /SISTEMA/.test(x.t)) || HUB_SECTIONS[HUB_SECTIONS.length - 1];
-  if (sec && !sec.items.some(i => i.id === 'btnGuild')) sec.items.push({ id: 'btnGuild', ico: '🛡️', n: 'Gremio' });
+  const already = HUB_SECTIONS.some(s => s.items.some(i => i.id === 'btnGuild'));
+  if (!already) {
+    const sec = HUB_SECTIONS.find(x => /PROGRESO|SISTEMA/.test(x.t)) || HUB_SECTIONS[HUB_SECTIONS.length - 1];
+    if (sec) sec.items.push({ id: 'btnGuild', ico: '🛡️', n: 'Gremio', dot: 'guildDot' });
+  }
 }
 function syncColonyLevel(lvl) {
   const l = Math.max(1, Math.min(50, Math.floor(lvl) || 1));

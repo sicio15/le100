@@ -1,31 +1,85 @@
-/* ===== 01-base: reset, variables, estructura, accesibilidad ===== */
+/* ===== 01-base: reset, design tokens, estructura, accesibilidad ===== */
+/* L27: el sistema de diseño pasa de "unos colores sueltos" a escalas completas
+   (superficies, texto, acentos, elevación, movimiento). Todo lo demás consume
+   estas variables: cambiar el tema del juego es tocar sólo este archivo. */
 :root {
-  --bg-deep:#0d0a1a; --bg-bar:rgba(12,10,26,.9); --bg-glass:rgba(10,12,26,.78);
-  --bg-card:#171a2e; --bg-card2:#101222; --bg-item:rgba(255,255,255,.06);
-  --gold:#ffd700; --gold2:#ffa502; --gold-border:rgba(255,215,0,.28); --gold-soft:rgba(255,215,0,.15);
-  --cyan:#7efcff; --cyan2:#4fc3f7; --green:#2ed573; --green2:#7bed9f;
+  /* --- Superficies (de más profunda a más elevada) --- */
+  --bg-deep:#08060f;
+  --bg-1:#0d0a1a;
+  --bg-2:#141127;
+  --bg-3:#1b1734;
+  --bg-bar:rgba(11,9,22,.88);
+  --bg-glass:rgba(16,14,32,.72);
+  --bg-card:#171a2e; --bg-card2:#101222; --bg-item:rgba(255,255,255,.055);
+  --stroke:rgba(255,255,255,.10);
+  --stroke-2:rgba(255,255,255,.18);
+
+  /* --- Acentos --- */
+  --gold:#ffd700; --gold2:#ffa502; --gold-border:rgba(255,215,0,.30); --gold-soft:rgba(255,215,0,.14);
+  --cyan:#7efcff; --cyan2:#4fc3f7;
+  --green:#2ed573; --green2:#7bed9f;
   --red:#ff4757; --pink:#ff6b81; --violet:#c86bfa; --orange:#ffa726;
-  --text:#fff; --text-mid:#cfd6ff; --text-dim:#8fa3c8; --text-gold:#ffe9a8;
-  --border-soft:rgba(255,255,255,.12); --border-glass:rgba(255,255,255,.14);
-  --r-s:8px; --r-m:12px; --r-l:18px; --r-pill:999px;
+  /* roles del escuadrón (espejo de HEROES en config.js) */
+  --role-dps:#ff6b81; --role-archer:#7efcff; --role-mage:#c86bfa;
+
+  /* --- Texto --- */
+  --text:#fff; --text-mid:#cfd6ff; --text-dim:#8fa3c8; --text-faint:#63709a; --text-gold:#ffe9a8;
+
+  /* --- Forma --- */
+  --r-xs:6px; --r-s:9px; --r-m:13px; --r-l:18px; --r-xl:24px; --r-pill:999px;
+
+  /* --- Elevación --- */
+  --sh-1:0 1px 2px rgba(0,0,0,.4);
+  --sh-2:0 4px 14px rgba(0,0,0,.45);
+  --sh-3:0 10px 34px rgba(0,0,0,.6);
+  --sh-4:0 18px 60px rgba(0,0,0,.72);
+  --glow-gold:0 0 18px rgba(255,215,0,.28);
+  --glow-cyan:0 0 18px rgba(126,252,255,.28);
+  --glow-red:0 0 20px rgba(255,71,87,.35);
+
+  /* --- Movimiento --- */
+  --t-fast:.12s cubic-bezier(.34,1.4,.64,1);
+  --t-med:.22s cubic-bezier(.22,1,.36,1);
+  --t-slow:.36s cubic-bezier(.22,1,.36,1);
+
+  /* --- Tipografía --- */
   --font-pixel:'Press Start 2P',monospace; --font-ui:'Rubik',sans-serif;
-  --shadow-card:0 10px 40px rgba(0,0,0,.7); --shadow-btn:0 2px 6px rgba(0,0,0,.4);
-  --blur:blur(10px); --blur-soft:blur(6px);
+  --blur:blur(14px); --blur-soft:blur(8px);
+
+  /* compat con hojas viejas */
+  --shadow-card:var(--sh-4); --shadow-btn:var(--sh-1);
+  --border-soft:var(--stroke); --border-glass:var(--stroke-2);
 }
 * { margin:0; padding:0; box-sizing:border-box; }
-html, body { position:fixed; inset:0; overflow:hidden; background:var(--bg-deep);
+html, body {
+  position:fixed; inset:0; overflow:hidden;
+  background:
+    radial-gradient(120% 80% at 50% -10%, #1a1338 0%, transparent 60%),
+    radial-gradient(90% 60% at 50% 110%, #140f2c 0%, transparent 60%),
+    var(--bg-deep);
+  color:var(--text);
   font-family:var(--font-ui); user-select:none; -webkit-user-select:none;
-  -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent; }
-button { font-family:inherit; touch-action:manipulation; }
+  -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent;
+}
+button { font-family:inherit; touch-action:manipulation; color:inherit; }
 button:focus-visible, .minput:focus-visible { outline:2px solid var(--gold); outline-offset:2px; }
-button:active { transform:scale(.93); }
+button:active { transform:scale(.94); }
 *::-webkit-scrollbar { width:8px; height:8px; }
 *::-webkit-scrollbar-track { background:transparent; }
-*::-webkit-scrollbar-thumb { background:#3a4a7a; border-radius:4px; }
+*::-webkit-scrollbar-thumb { background:linear-gradient(180deg,#3a4a7a,#2a3560); border-radius:4px; }
 *::-webkit-scrollbar-thumb:hover { background:#4a5a9a; }
 #app { position:fixed; inset:0; display:flex; flex-direction:column; }
 .hidden { display:none !important; }
+.navStash { display:none !important; }
 .pxicon { image-rendering:pixelated; vertical-align:-2px; object-fit:contain; }
+
+/* Números que cambian en caliente: ancho fijo para que no "bailen" */
+.tnum { font-variant-numeric:tabular-nums; font-feature-settings:'tnum'; }
+
+/* Utilidad de resalte: el HUD la aplica al valor que acaba de subir */
+@keyframes popBump { 0%{transform:scale(1);} 40%{transform:scale(1.22);} 100%{transform:scale(1);} }
+.bump { animation:popBump .32s cubic-bezier(.34,1.56,.64,1); }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; }
 }

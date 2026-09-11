@@ -12,9 +12,13 @@ const DEF = { name: '', gold: 0, adn: 0, stage: 1, best: 1, kills: 0, ks: 0, pre
   essence: 0, amulets: 0, bagSize: 30, autoSalvage: -1,
   flashType: '', flashEnd: 0, flashNext: 0,
   season: 1, seasonXp: 0, seasonLevel: 1, hasPremiumPass: false, seasonClaimed: {}, seasonStart: Date.now(),
+  // L27: niveles de las habilidades activas + auto-cast (idle-friendly)
+  skills: {}, skillAuto: true,
   // L26: estadísticas de vida para el panel 📊 (nunca alimentan fórmulas)
-  stats: { goldEarned: 0, bossKills: 0, elites: 0, ultimates: 0, bestCombo: 0, playMs: 0 } };
-const DEF_STATS = { goldEarned: 0, bossKills: 0, elites: 0, ultimates: 0, bestCombo: 0, playMs: 0 };
+  stats: { goldEarned: 0, bossKills: 0, elites: 0, ultimates: 0, bestCombo: 0, playMs: 0,
+    skillCasts: 0, affixKills: 0, taps: 0 } };
+const DEF_STATS = { goldEarned: 0, bossKills: 0, elites: 0, ultimates: 0, bestCombo: 0, playMs: 0,
+  skillCasts: 0, affixKills: 0, taps: 0 };
 const normStats = st => Object.assign({}, DEF_STATS, (st && typeof st === 'object') ? st : {});
 let S = loadCache();
 let authed = false;
@@ -32,6 +36,15 @@ function normGear(g) {
   const out = { equipped: {}, inv: [] };
   Object.keys(def.equipped).forEach(k => { out.equipped[k] = cleanItem((g.equipped || {})[k]); });
   out.inv = Array.isArray(g.inv) ? g.inv.slice(0, 100).map(cleanItem).filter(Boolean) : [];
+  return out;
+}
+// L27: niveles de habilidad saneados (0 = todavía no desbloqueada por etapa)
+function normSkills(sk) {
+  const out = {};
+  const src = (sk && typeof sk === 'object') ? sk : {};
+  (typeof SKILLS !== 'undefined' ? SKILLS : []).forEach(s => {
+    out[s.id] = Math.max(0, Math.min(SKILL_MAX_LV, +src[s.id] || 0));
+  });
   return out;
 }
 function normShop(sh) {
@@ -67,6 +80,8 @@ function loadCache() {
       out.hasPremiumPass = !!s.hasPremiumPass;
       out.seasonClaimed = (s.seasonClaimed && typeof s.seasonClaimed === 'object') ? s.seasonClaimed : {};
       out.seasonStart = +s.seasonStart || Date.now();
+      out.skills = normSkills(s.skills);
+      out.skillAuto = s.skillAuto !== false;
       out.stats = normStats(s.stats);
       return out;
     }
@@ -103,6 +118,8 @@ function applyServerSave(save) {
   S.shop = normShop((save || {}).shop);
   S.stageRanks = ((save || {}).stageRanks && typeof (save || {}).stageRanks === 'object') ? save.stageRanks : {};
   S.milestones = ((save || {}).milestones && typeof (save || {}).milestones === 'object') ? save.milestones : {};
+  S.skills = normSkills((save || {}).skills);
+  S.skillAuto = (save || {}).skillAuto !== false;
   S.stats = normStats((save || {}).stats);
   S.name = name; S.ks = 0;
   // el save entrante trae otros rangos → el bonus de daño cacheado ya no vale

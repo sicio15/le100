@@ -11,7 +11,8 @@ const dps = () => 5 * Math.pow(1.3, S.ups.dmg) * adnMult() * (1 + gearBonuses().
 const liveDps = () => dps() * (typeof comboMult === 'function' ? comboMult() : 1);
 const maxHP = () => 100 * Math.pow(1.22, S.ups.vit) * (1 + gearBonuses().hp / 100) * (1 + 0.05 * shopLv('vita')) * (evHas('vital') ? 1.3 : 1);
 const regenPs = () => maxHP() * (0.02 + 0.01 * S.ups.regen) * (1 + gearBonuses().regen / 100) * (1 + 0.08 * shopLv('regen')) * (evHas('vital') ? 1.3 : 1);
-const critChance = () => Math.min(0.75, 0.2 + gearBonuses().crit / 100 + 0.02 * shopLv('crit') + (evHas('precision') ? 0.25 : 0));
+// L27: el Frenesí suma crítico mientras dura (tope 0.85 para que no sea 100% seguro)
+const critChance = () => Math.min(0.85, 0.2 + gearBonuses().crit / 100 + 0.02 * shopLv('crit') + (evHas('precision') ? 0.25 : 0) + (typeof buffCrit === 'function' ? buffCrit() : 0));
 const critMult = () => 2.2 + gearBonuses().critd / 100;
 const venomCd = () => Math.max(2, (Math.max(3, 7 - 0.3 * S.ups.venom)) - (evHas('toxico') ? 2 : 0));
 const venomDm = () => liveDps() * (2 + 0.5 * S.ups.venom) * (evHas('toxico') ? 1.5 : 1);

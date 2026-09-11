@@ -11,8 +11,13 @@ const DEF_SAVE = { gold: 0, adn: 0, stage: 1, best: 1, kills: 0, prestiges: 0, p
   stageRanks: {}, weekTower: 1, weekClaimedKey: 0, milestones: {},
   essence: 0, amulets: 0, bagSize: 30, autoSalvage: -1,
   flashType: '', flashEnd: 0, flashNext: 0, season: 1, seasonXp: 0, seasonLevel: 1, hasPremiumPass: false, seasonClaimed: {}, seasonStart: Date.now(),
-  stats: { goldEarned: 0, bossKills: 0, elites: 0, ultimates: 0, bestCombo: 0, playMs: 0 } };
+  skills: {}, skillAuto: true,
+  stats: { goldEarned: 0, bossKills: 0, elites: 0, ultimates: 0, bestCombo: 0, playMs: 0,
+    skillCasts: 0, affixKills: 0, taps: 0 } };
 const SHOP_MAX = { fury: 10, vita: 10, fort: 10, regen: 10, crit: 5 };
+// L27: habilidades activas — ids y tope de nivel espejo de public/js/core/data.js
+const SKILL_IDS = ['smash', 'frenzy', 'aegis'];
+const SKILL_MAX_LV = 10;
 const SKIN_IDS = ['oro', 'hielo', 'sombra', 'bronce', 'plata'];
 const VALID_RANKS = ['S', 'A', 'B', 'C', 'R'];
 const MILESTONE_IDS = ['t10', 't25', 't50', 't100'];
@@ -107,11 +112,17 @@ o.seasonClaimed = (s.seasonClaimed && typeof s.seasonClaimed === 'object')
   ? Object.fromEntries(Object.entries(s.seasonClaimed).filter(([, v]) => v).map(([k]) => [String(k).slice(0, 20), 1]))
   : {};
 o.seasonStart = num(s.seasonStart, 1e15) || Date.now();
+  // L27: niveles de habilidad activa (el cliente no decide el tope)
+  const sk = (s.skills && typeof s.skills === 'object') ? s.skills : {};
+  o.skills = {};
+  SKILL_IDS.forEach(id => { o.skills[id] = Math.max(0, Math.min(SKILL_MAX_LV, num(sk[id], SKILL_MAX_LV))); });
+  o.skillAuto = s.skillAuto !== false;
   // L26: estadísticas de vida (sólo lectura para el panel 📊, nunca alimentan fórmulas)
   const st = (s.stats && typeof s.stats === 'object') ? s.stats : {};
   o.stats = { goldEarned: num(st.goldEarned, 1e15), bossKills: num(st.bossKills, 1e9),
     elites: num(st.elites, 1e9), ultimates: num(st.ultimates, 1e9),
-    bestCombo: num(st.bestCombo, 1e6), playMs: num(st.playMs, 1e13) };
+    bestCombo: num(st.bestCombo, 1e6), playMs: num(st.playMs, 1e13),
+    skillCasts: num(st.skillCasts, 1e9), affixKills: num(st.affixKills, 1e9), taps: num(st.taps, 1e10) };
   return o;
 }
 module.exports = { sanitizeSave, DEF_SAVE };

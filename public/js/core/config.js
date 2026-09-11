@@ -37,7 +37,9 @@ const ACH = [
 ];
 const SETTINGS = {
   audio: true, musicVol: 0.5, sfxVol: 0.7, speed: 1,
-  reduceFx: false, tutorialDone: false, buyQty: 1
+  reduceFx: false, tutorialDone: false, buyQty: 1,
+  // L27: resaltar la mejora con mejor relación beneficio/precio
+  hintBest: true
 };
 const saveSettings = () => localStorage.setItem('le100_settings', JSON.stringify(SETTINGS));
 try { Object.assign(SETTINGS, JSON.parse(localStorage.getItem('le100_settings')) || {}); } catch(e) {}

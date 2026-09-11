@@ -9,73 +9,120 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;700;800&family=Press+Start+2P&display=swap" rel="stylesheet">
-<!-- ===== CSS MODULAR (Lote 16) — style.css ya no existe ===== -->
+<!-- ===== CSS MODULAR (L16 · ampliado en L27) ===== -->
 <link rel="stylesheet" href="css/01-base.css">
 <link rel="stylesheet" href="css/02-layout.css">
 <link rel="stylesheet" href="css/03-components.css">
 <link rel="stylesheet" href="css/04-features.css">
+<link rel="stylesheet" href="css/06-hud.css">
 <link rel="stylesheet" href="css/05-mobile.css">
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
 </head>
 <body>
 <div id="app">
+  <!-- ============ TOPBAR ============ -->
   <div id="topbar">
     <div class="tb-left">
-      <div class="panel">⚔️ <b id="stageTxt">1</b>
-        <div id="stageProg"><div id="stageProgFill"></div><div id="stageProgTxt">0/8</div></div>
+      <div class="stageChip" id="stageChip" data-tip="Etapa actual · progreso hasta el jefe">
+        <div class="scRing" id="scRing"><span id="stageTxt">1</span></div>
+        <div class="scMeta">
+          <b id="chapterTxt">Bosque de los Inicios</b>
+          <div id="stageProg"><div id="stageProgFill"></div><div id="stageProgTxt">0/8</div></div>
+        </div>
       </div>
-      <div class="panel hidden" id="bossTag">👑</div>
+      <div class="chip danger hidden" id="bossTag">👑 JEFE</div>
     </div>
+
     <div class="tb-mid">
-      <div class="panel">🪙 <b id="goldTxt">0</b></div>
-      <div class="panel">🧬 <b id="adnTxt">0</b></div>
+      <div class="res gold" data-tip="Oro — sube mejoras y forja equipo">
+        <i>🪙</i><b id="goldTxt">0</b><span class="rate" id="goldRate"></span>
+      </div>
+      <div class="res adn" data-tip="ADN — moneda de prestigio"><i>🧬</i><b id="adnTxt">0</b></div>
+      <div class="res ess" data-tip="Esencia — mejora y forja equipo"><i>💎</i><b id="essTxt">0</b></div>
     </div>
+
     <div class="tb-right">
-      <button class="tbtn" id="btnEvent" title="Eventos">✨<span class="dot" id="evDot"></span></button>
-      <button class="tbtn" id="speedBtn">⏩ x1</button>
-      <button class="tbtn" id="btnSettings" title="Ajustes">⚙️</button>
-      <button class="tbtn" id="btnAch" title="Logros">🏅<span class="dot" id="achDot"></span></button>
-      <button class="tbtn" id="btnLb" title="Ranking">🏆</button>
-      <button class="tbtn" id="btnStats" title="Estadísticas">📊</button>
-      <button class="tbtn" id="btnPrestige" title="Prestigio">🧬<span class="dot" id="prDot"></span></button>
-      <button class="tbtn" id="btnShop" title="Tienda de ADN">🛒</button>
-      <button class="tbtn" id="btnLook" title="Vestidor">🎩</button>
-      <button class="tbtn" id="btnGear" title="Equipo">🎒<span class="dot" id="gearDot"></span></button>
-      <button class="tbtn" id="btnDaily" title="Jefe Diario">🎯<span class="dot" id="dailyDot"></span></button>
-      <button class="tbtn" id="btnTower" title="Torre Infinita">🗼</button>
-      <button class="tbtn" id="btnRogue" title="Sotobosque">🌀</button>
-      <button class="tbtn" id="btnArena" title="Arena PvP">⚔️</button>
-      <button class="tbtn" id="btnGuild" title="Gremio">🛡️<span class="dot" id="guildDot"></span></button>
-      <button class="tbtn" id="btnMissions" title="Misiones">📜<span class="dot" id="misDot"></span></button>
-      <button class="tbtn" id="btnMap" title="Mapa">🗺️</button>
-      <button class="tbtn" id="btnWeekly" title="Recompensas semanales">🎁<span class="dot" id="weekDot"></span></button>
-      <button class="tbtn" id="btnBattlePass" title="Battle Pass">🎫<span class="dot" id="bpDot"></span></button>
-      <button class="tbtn hubBtn" id="btnHub" title="Menú">📱<span class="dot" id="hubDot"></span></button>
+      <button class="tbtn" id="btnEvent" data-tip="Eventos activos">✨<span class="dot" id="evDot"></span></button>
+      <button class="tbtn" id="speedBtn" data-tip="Velocidad de batalla (Espacio)">⏩ x1</button>
+      <button class="tbtn menuBtn" id="btnHub" data-tip="Menú del juego (Tab)">
+        <span class="mbIco">☰</span><span class="mbTxt">MENU</span><span class="dot" id="hubDot"></span>
+      </button>
     </div>
   </div>
-  <div id="battleWrap">
-    <div id="heroHpWrap"><div id="heroHp"></div></div>
-    <div id="bossBar" class="hidden"><div id="bossFill"></div><div id="bossTime"></div></div>
-    <!-- L26: medidor de combo (racha de kills → +daño) -->
-    <div id="comboBox" class="hidden"><b id="comboX">x1.00</b><span id="comboN">0 kills</span><div id="comboBar"><i></i></div></div>
+
+  <!-- Botonera completa: sigue en el DOM (atajos + drawer la usan), oculta visualmente -->
+  <div id="navStash" class="navStash">
+    <button class="tbtn" id="btnSettings">⚙️</button>
+    <button class="tbtn" id="btnAch">🏅<span class="dot" id="achDot"></span></button>
+    <button class="tbtn" id="btnLb">🏆</button>
+    <button class="tbtn" id="btnStats">📊</button>
+    <button class="tbtn" id="btnPrestige">🧬<span class="dot" id="prDot"></span></button>
+    <button class="tbtn" id="btnShop">🛒</button>
+    <button class="tbtn" id="btnLook">🎩</button>
+    <button class="tbtn" id="btnGear">🎒<span class="dot" id="gearDot"></span></button>
+    <button class="tbtn" id="btnSkills">✨<span class="dot" id="skillDot"></span></button>
+    <button class="tbtn" id="btnDaily">🎯<span class="dot" id="dailyDot"></span></button>
+    <button class="tbtn" id="btnTower">🗼</button>
+    <button class="tbtn" id="btnRogue">🌀</button>
+    <button class="tbtn" id="btnArena">⚔️</button>
+    <button class="tbtn" id="btnGuild">🛡️<span class="dot" id="guildDot"></span></button>
+    <button class="tbtn" id="btnMissions">📜<span class="dot" id="misDot"></span></button>
+    <button class="tbtn" id="btnMap">🗺️</button>
+    <button class="tbtn" id="btnWeekly">🎁<span class="dot" id="weekDot"></span></button>
+    <button class="tbtn" id="btnBattlePass">🎫<span class="dot" id="bpDot"></span></button>
   </div>
+
+  <!-- ============ CAMPO DE BATALLA ============ -->
+  <div id="battleWrap">
+    <!-- Marco del jefe: vida + fases + reloj de furia -->
+    <div id="bossFrame" class="hidden">
+      <div class="bfTop">
+        <span class="bfName">👑 REY BESTIA</span>
+        <span class="bfPhases" id="bossPhases"></span>
+        <span class="bfRage hidden" id="bossRage">🔥 x0</span>
+      </div>
+      <div class="bfBar"><div id="bossFill"></div><span id="bossHpTxt">0 / 0</span></div>
+      <div class="bfTimer"><div id="bossTimeFill"></div><span id="bossTime">30s</span></div>
+    </div>
+
+    <!-- Medidor de combo -->
+    <div id="comboBox" class="hidden">
+      <b id="comboX">x1.00</b>
+      <span id="comboN">0 kills</span>
+      <div id="comboBar"><i></i></div>
+    </div>
+
+    <!-- Buffs activos (habilidades) -->
+    <div id="buffBar"></div>
+
+    <!-- Dock inferior: escuadrón + habilidades -->
+    <div id="combatDock">
+      <div id="heroHpWrap"><div id="heroHp"></div></div>
+      <div id="skillBar"></div>
+    </div>
+  </div>
+
+  <!-- ============ BOTTOMBAR: mejoras ============ -->
   <div id="bottombar">
     <div id="heroStats">
-      <div>❤️ <b id="hpTxt">100/100</b></div>
-      <div>⚔️ <b id="dpsTxt">10</b>/s</div>
+      <div class="hsRow"><span>❤️</span><b id="hpTxt">100/100</b></div>
+      <div class="hsRow"><span>⚔️</span><b id="dpsTxt">10</b><small>/s</small></div>
+      <div class="hsRow dim"><span>📈</span><b id="realDps">0</b><small>real</small></div>
     </div>
     <div id="ups"></div>
   </div>
 </div>
+
 <div id="toasts"></div>
 <div id="cutin"></div>
+<div id="tipLayer"></div>
 
 <!-- ===== MODALES ===== -->
 <div class="modal" id="mAuth"><div class="mcard">
   <img id="logoImg" alt="" style="width:120px;margin:0 auto 8px;display:block;">
   <h2>🐛 le100.io</h2>
-  <p style="color:#8fa3c8;font-size:11px;margin-bottom:10px;">IDLE ARENA · Tu cuenta, tu partida</p>
+  <p style="color:var(--text-dim);font-size:11px;margin-bottom:10px;">IDLE ARENA · Tu cuenta, tu partida</p>
   <div class="tabs">
     <button class="tab sel" id="tabLogin">ENTRAR</button>
     <button class="tab" id="tabReg">CREAR CUENTA</button>
@@ -90,7 +137,7 @@
 <div class="modal" id="mOffline"><div class="mcard">
   <h2>💤 RECOMPENSAS AFK</h2>
   <p class="big" id="offlineAmt">🪙 0</p>
-  <p id="offlineTime" style="color:#8fa3c8;font-size:11px;margin:4px 0;"></p>
+  <p id="offlineTime" style="color:var(--text-dim);font-size:11px;margin:4px 0;"></p>
   <button class="mbtn" id="offlineBtn">RECLAMAR</button>
 </div></div>
 
@@ -100,6 +147,8 @@
   <label class="setRow"><span>🎵 Música</span><input type="range" id="setMusic" min="0" max="1" step="0.05" value="0.5"><span id="setMusicV">50</span></label>
   <label class="setRow"><span>🔔 SFX</span><input type="range" id="setSfx" min="0" max="1" step="0.05" value="0.7"><span id="setSfxV">70</span></label>
   <label class="setRow"><span>🎨 Reducir efectos</span><input type="checkbox" id="setReduce"></label>
+  <label class="setRow"><span>🤖 Auto-lanzar habilidades</span><input type="checkbox" id="setAuto"></label>
+  <label class="setRow"><span>💡 Sugerir mejor mejora</span><input type="checkbox" id="setHint"></label>
   <button class="mbtn" id="setClose">CERRAR</button>
   <button class="mbtn gray" id="setLogout">CERRAR SESIÓN</button>
 </div></div>
@@ -107,9 +156,15 @@
 <div class="modal" id="mPrestige"><div class="mcard">
   <h2>🧬 PRESTIGIO</h2>
   <p>Alcanzaste la etapa <b id="prStage">10</b>. ¿Reiniciar para ganar <span id="prGain">+0</span> ADN?</p>
-  <p id="prInfo" style="color:#8fa3c8;font-size:11px;margin:8px 0;line-height:1.5;"></p>
+  <p id="prInfo" style="color:var(--text-dim);font-size:11px;margin:8px 0;line-height:1.5;"></p>
   <button class="mbtn" id="prBtn">PRESTIGIAR</button>
   <button class="mbtn gray" id="prClose">CERRAR</button>
+</div></div>
+
+<div class="modal" id="mSkills"><div class="mcard">
+  <h2>✨ HABILIDADES</h2>
+  <div id="skillsBody"></div>
+  <button class="mbtn gray" id="skillsClose">CERRAR</button>
 </div></div>
 
 <div class="modal" id="mAch"><div class="mcard">
@@ -134,6 +189,7 @@
   <div id="gearBody"></div>
   <button class="mbtn gray" id="gearClose">CERRAR</button>
 </div></div>
+
 <div class="modal" id="mGuild"><div class="mcard">
   <h2>🛡️ GREMIO</h2>
   <div id="guildBody"></div>
@@ -176,7 +232,6 @@
   <button class="mbtn gray" id="arenaClose">CERRAR</button>
 </div></div>
 
-
 <div class="modal" id="mMissions"><div class="mcard">
   <h2>📜 MISIONES DIARIAS</h2>
   <div id="missionsBody"></div>
@@ -207,18 +262,19 @@
   <button class="mbtn gray" id="evClose">CERRAR</button>
 </div></div>
 
-<div class="modal" id="mHub"><div class="mcard">
-  <div class="gearTop">
-    <h2 style="margin:0">📱 MENÚ</h2>
-    <button class="gearX" id="hubClose" title="Cerrar">✖</button>
-  </div>
-  <div id="hubBody"></div>
-</div></div>
-
 <div class="modal" id="mStats"><div class="mcard">
   <h2>📊 ESTADÍSTICAS</h2>
   <div id="statsBody"></div>
   <button class="mbtn gray" id="statsClose">CERRAR</button>
+</div></div>
+
+<!-- ===== DRAWER DE NAVEGACIÓN (reemplaza la fila de 18 emojis) ===== -->
+<div class="modal drawer" id="mHub"><div class="dcard">
+  <div class="dHead">
+    <div class="dWho"><span class="dAvatar">🐛</span><div><b id="drawerName">—</b><small id="drawerSub">Etapa 1</small></div></div>
+    <button class="gearX" id="hubClose" title="Cerrar">✖</button>
+  </div>
+  <div id="hubBody"></div>
 </div></div>
 
 <!-- ===== CORE (orden crítico: data antes que store, formulas antes que game) ===== -->
@@ -234,20 +290,25 @@
 <script src="js/core/progression.js"></script>
 <script src="js/core/formulas.js"></script>
 <script src="js/ui/system/ui.js"></script>
+<script src="js/ui/system/ui-fx.js"></script>
 
 <!-- ===== GAME ===== -->
 <script src="js/game/anims.js"></script>
 <script src="js/game/boot-scene.js"></script>
 <script src="js/game/vfx.js"></script>
 <script src="js/game/battle-state.js"></script>
+<script src="js/game/affixes.js"></script>
+<script src="js/game/skills.js"></script>
 <script src="js/game/squad.js"></script>
 <script src="js/game/enemies.js"></script>
 <script src="js/game/battle-update.js"></script>
+<script src="js/game/ambience.js"></script>
 <script src="js/game/battle-scene.js"></script>
 <script src="js/game/tap.js"></script>
 
 <!-- ===== UI: system + panels ===== -->
 <script src="js/ui/system/ui-hud.js"></script>
+<script src="js/ui/system/ui-skills.js"></script>
 <script src="js/ui/panels/ui-gear.js"></script>
 <script src="js/ui/panels/autoequip.js"></script>
 <script src="js/ui/panels/ui-shop.js"></script>

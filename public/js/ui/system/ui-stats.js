@@ -1,8 +1,8 @@
 'use strict';
 // ===== PANEL DE ESTADÍSTICAS: transparencia de multiplicadores =====
-// L26: agrega el bonus por rangos (que antes no existía en dps()), el combo activo,
-// la furia del jefe y un bloque de estadísticas de vida. La etiqueta "🐜 Colonia"
-// pasa a "🛡️ Gremio", que es de donde sale realmente ese multiplicador desde L25.
+// L26: bonus por rangos, combo activo, furia del jefe y estadísticas de vida.
+// L27: buffs de habilidad, rendimiento real medido (daño/s y oro/s de verdad,
+// no el teórico) y el recuento de lo nuevo (casts, afijos, golpes manuales).
 wire('btnStats', 'click', () => { renderStats(); $('mStats').style.display = 'flex'; Audio.SFX.click(); });
 wire('statsClose', 'click', () => { $('mStats').style.display = 'none'; });
 
@@ -28,8 +28,17 @@ function renderStats() {
     ['🌠 Relámpago', 'x' + flashMult('dano').toFixed(2)],
     ['= DAÑO BASE', fmt(dps()) + '/s'],
     ['🔥 Combo actual', 'x' + comboMult().toFixed(2) + ' (' + Math.floor(combo) + ' kills)'],
-    ['= DAÑO EN COMBATE', fmt(liveDps()) + '/s']
+    ['= DAÑO EN COMBATE', fmt(liveDps()) + '/s'],
+    ['📈 Daño real medido', fmt(dmgPerSec()) + '/s']
   ];
+  const skillRows = SKILLS.map(s => {
+    const lv = skillLv(s.id);
+    const state = !skillUnlocked(s.id) ? '🔒 Etapa ' + s.unlock
+      : hasBuff(s.id) ? '⏳ activa ' + buffs[s.id].toFixed(1) + 's'
+      : skillReady(s.id) ? '✅ lista'
+      : Math.ceil(skillCd[s.id]) + 's';
+    return [s.ico + ' ' + s.n + ' (Nv ' + lv + ')', state];
+  }).concat([['🤖 Auto-lanzar', S.skillAuto !== false ? 'ON' : 'OFF']]);
   const otherRows = [
     ['🎯 Crítico', Math.round(critChance() * 100) + '% · x' + critMult().toFixed(1)],
     ['❤️ Vida máx', fmt(maxHP())],
@@ -37,6 +46,7 @@ function renderStats() {
     ['☠️ Veneno', fmt(venomDm()) + ' c/' + venomCd().toFixed(0) + 's'],
     ['👊 Golpe manual', fmt(liveDps() * TAP_MULT) + ' c/' + TAP_CD + 's'],
     ['🪙 Oro por kill', fmt(goldKill(S.stage))],
+    ['💰 Oro real medido', fmt(goldPerSec()) + '/s'],
     ['🏆 Récord', 'Etapa ' + S.best],
     ['🗼 Torre', 'Piso ' + S.tower + ' (récord ' + S.towerBest + ')'],
     ['🏟️ Arena', S.arenaPts + ' pts']
@@ -45,13 +55,19 @@ function renderStats() {
     ['💀 Kills totales', fmt(S.kills)],
     ['👑 Jefes derrotados', fmt(st.bossKills || 0)],
     ['✨ Élites cazados', fmt(st.elites || 0)],
+    ['🩸 Enemigos con afijo', fmt(st.affixKills || 0)],
     ['💥 Ultimates lanzadas', fmt(st.ultimates || 0)],
+    ['🎇 Habilidades usadas', fmt(st.skillCasts || 0)],
+    ['👊 Golpes manuales', fmt(st.taps || 0)],
     ['🔥 Mejor combo', Math.floor(st.bestCombo || 0) + ' kills'],
     ['🪙 Oro ganado', fmt(st.goldEarned || 0)],
     ['🧬 Prestigios', fmt(S.prestiges)],
     ['⏱️ Tiempo jugado', fmtDur(st.playMs || 0)]
   ];
-  const sec = (title, rows) => '<h3 style="color:#ffd700;font-size:11px;margin:12px 0 6px;text-align:left">' + title + '</h3>' +
-    rows.map(r => '<div class="mrow"><span>' + r[0] + '</span><b style="color:#7efcff">' + r[1] + '</b></div>').join('');
-  box.innerHTML = sec('⚔️ CÓMO SE ARMA TU DAÑO', dmgRows) + sec('📈 OTROS', otherRows) + sec('🏅 TU HISTORIA', lifeRows);
+  const sec = (title, rows) => '<h3 style="margin:14px 0 6px;text-align:left">' + title + '</h3>' +
+    rows.map(r => '<div class="mrow"><span>' + r[0] + '</span><b style="color:var(--cyan)">' + r[1] + '</b></div>').join('');
+  box.innerHTML = sec('⚔️ CÓMO SE ARMA TU DAÑO', dmgRows) +
+    sec('✨ HABILIDADES', skillRows) +
+    sec('📈 OTROS', otherRows) +
+    sec('🏅 TU HISTORIA', lifeRows);
 }

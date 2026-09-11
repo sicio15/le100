@@ -1,70 +1,136 @@
-/* ===== 05-mobile: portrait / <700px (HUD v2+v3 consolidado) ===== */
+/* ===== 05-mobile: portrait / <700px — HUD compacto (L27) ===== */
 @media (orientation: portrait), (max-width: 700px) {
   html, body { height:100dvh; }
   #app { height:100dvh; }
   #battleWrap { flex:1 1 auto; min-height:0; }
-  /* Topbar mínima + HUB */
-  #topbar { flex-wrap:nowrap; justify-content:space-between; padding:6px 8px; }
-  .tb-left { flex:0 0 auto; }
-  .tb-mid { gap:5px; }
-  .tb-right { width:auto; overflow:visible; }
-  .tb-right .tbtn:not(.hubBtn) { display:none; }
-  #btnHub { display:block; width:34px; height:34px; font-size:15px;
-    border-color:rgba(255,215,0,.5); box-shadow:0 0 10px rgba(255,215,0,.25); }
-  .panel { font-size:9px; padding:4px 9px; }
-  .panel b { font-size:10px; }
-  #stageProg { width:40px; height:7px; }
-  #stageProgTxt { font-size:6px; }
-  /* Boss / toasts / cut-ins compactos */
-  #bossBar { top:46px; height:16px; }
-  #bossTime { font-size:8px; line-height:16px; }
-  #toasts { top:50px; max-width:94vw; gap:4px; z-index:70; }
-  #toasts .toast { font-size:9px; padding:5px 12px; }
+
+  /* ---- Topbar: etapa + recursos + menú, nada más ---- */
+  #topbar { flex-wrap:nowrap; justify-content:space-between; padding:6px 8px; gap:6px; min-height:52px; }
+  .tb-left { flex:0 1 auto; min-width:0; }
+  .tb-mid { gap:4px; flex:0 1 auto; min-width:0; }
+  .tb-right { gap:5px; flex:0 0 auto; }
+  .stageChip { padding:3px 9px 3px 3px; gap:7px; }
+  .scRing { width:32px; height:32px; }
+  .scRing span { font-size:9px; }
+  .scMeta > b { font-size:8.5px; max-width:86px; }
+  #stageProg { width:72px; height:8px; }
+  #stageProgTxt { font-size:5.5px; line-height:8px; }
+  .res { padding:5px 9px; gap:4px; }
+  .res i { font-size:11px; }
+  .res b { font-size:11px; }
+  .res .rate { display:none; }
+  .res.ess { display:none; }               /* la esencia vive en el panel de equipo */
+  .tb-mid { overflow:hidden; }
+  .chip { padding:4px 8px; font-size:8px; }
+  .tbtn { padding:7px 9px; font-size:14px; }
+  .menuBtn { padding:7px 11px; }
+  .menuBtn .mbTxt { display:none; }
+  #speedBtn { font-size:8px; }
+
+  /* ---- Jefe / toasts / cut-ins ---- */
+  #bossFrame { top:8px; width:90%; padding:6px 9px 7px; }
+  .bfName { font-size:7px; }
+  .bfBar { height:14px; }
+  #bossHpTxt { font-size:8px; }
+  #bossTime { font-size:8px; top:-13px; }
+  /* por debajo del marco del jefe: si no, los toasts lo tapaban justo al aparecer */
+  #toasts { top:128px; max-width:94vw; gap:4px; z-index:70; }
+  #toasts .toast { font-size:10px; padding:6px 13px; }
   #toasts .toast:nth-child(n+4) { display:none; }
-  #cutin { top:15%; gap:5px; }
-  .cutin { padding:5px 14px; }
+  #cutin { top:16%; gap:5px; }
+  .cutin { padding:6px 16px 6px 10px; gap:8px; }
+  .ciIco { font-size:17px; }
   .ciName { font-size:10px; }
-  .ciUlt { font-size:8px; }
+  .ciUlt { font-size:7.5px; margin-top:4px; }
   #cutin .cutin:nth-child(n+3) { display:none; }
-  .banner { font-size:12px; }
-  /* Escuadrón flotante */
-  #heroHpWrap { bottom:6px; left:6px; right:6px; width:auto; }
-  #heroHpWrap button { display:none; }
-  #heroHpWrap.squad { display:flex; flex-direction:row; gap:8px; padding:5px 8px; }
-  .sqRow { flex:1; min-width:0; }
-  .sqName { font-size:8px; width:auto; }
+  .bnMain { font-size:15px; letter-spacing:1px; }
+  .bnSub { font-size:9px; }
+  .banner.bnSkill .bnMain { font-size:12px; }
+
+  /* ---- Combo + buffs ---- */
+  #comboBox { right:8px; top:8px; padding:5px 10px; }
+  #comboBox b { font-size:12px; }
+  #comboBox span { font-size:7.5px; }
+  #comboBar { width:70px; }
+  #buffBar { right:8px; top:74px; gap:4px; }
+  .buffPill { padding:4px 9px; font-size:9.5px; gap:5px; }
+
+  /* ---- Dock: escuadrón a la izquierda, habilidades a la derecha ---- */
+  #combatDock { bottom:7px; padding:0 7px; gap:7px; align-items:flex-end; }
+  #heroHpWrap { width:auto; flex:1 1 auto; min-width:0; padding:5px 7px; }
+  #heroHpWrap.squad { flex-direction:row; gap:7px; }
+  .sqRow { flex:1; min-width:0; gap:5px; }
+  .sqName { font-size:7.5px; width:15px; height:15px; flex-basis:15px; }
   .sqHp { height:6px; }
-  .sqEn { height:3px; width:auto; flex:0 0 34px; }
-  /* Bottombar: pill + 5 mejoras visibles */
-  #bottombar { flex:0 0 auto; flex-direction:column; gap:5px;
+  .sqEn { height:3px; }
+  #skillBar { gap:6px; flex:0 0 auto; }
+  .skBtn { width:46px; height:46px; border-radius:var(--r-s); }
+  .skBtn .skIco { font-size:18px; }
+  .skBtn .skKey { display:none; }
+  .skBtn .skLv { font-size:6px; bottom:2px; right:3px; }
+  .skBtn .skSecs { font-size:10px; }
+  .skMore { width:22px; height:46px; font-size:11px; border-radius:var(--r-s); }
+
+  /* ---- Bottombar: stats en píldora + 5 mejoras en grilla ---- */
+  #bottombar { flex:0 0 auto; flex-direction:column; gap:5px; min-height:0;
     padding:5px 8px calc(6px + env(safe-area-inset-bottom)); }
-  #heroStats { flex-direction:row; justify-content:center; gap:10px; font-size:9px;
-    padding:3px 12px; background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.02));
-    border:1px solid rgba(255,255,255,.1); border-radius:var(--r-pill);
-    width:max-content; margin:0 auto; min-width:0; }
+  #heroStats { flex-direction:row; justify-content:center; align-items:center; gap:10px; font-size:9px;
+    padding:4px 13px; background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.02));
+    border:1px solid var(--stroke); border-radius:var(--r-pill);
+    width:max-content; max-width:100%; margin:0 auto; min-width:0; }
+  .hsRow { font-size:9px; gap:4px; }
+  .hsRow small { font-size:7px; }
+  #buyQtyBtn { margin:0; }
   #ups { display:grid; grid-template-columns:repeat(5,1fr); gap:4px; overflow:visible; padding:3px 0 4px; }
-  .ucard { flex:none; min-width:0; max-width:none; padding:4px 3px; }
-  .un { font-size:6.5px; }
-  .ul { font-size:6px; }
+  .ucard { flex:none; min-width:0; max-width:none; padding:5px 3px 6px; gap:3px; }
+  .ucard .un { font-size:6.5px; gap:2px; flex-wrap:wrap; padding-right:12px; }
+  .ucard .ul { font-size:6px; }
+  .ucard .udelta { font-size:6px; min-height:8px; }
+  /* la chapa "MEJOR" no entra en 76px: en mobile es una estrellita */
+  .uBadge { font-size:0; padding:0; top:3px; right:3px; background:none; box-shadow:none; }
+  .uBadge::after { content:'★'; font-size:9px; color:var(--gold); text-shadow:0 0 6px rgba(255,215,0,.8); }
   .ubuy { font-size:6.5px; padding:5px 1px; }
-  /* Modales */
+
+  /* ---- Modales ---- */
   .modal { padding:10px; }
-  .mcard { width:min(94vw,430px); max-height:88dvh; padding:16px 14px; border-radius:16px; }
-  .mcard h2 { font-size:13px; }
-  .mbtn { font-size:10px; padding:10px 12px; }
-  .minput { font-size:11px; padding:10px; }
-  .mrow { font-size:10px; }
+  .mcard { width:min(94vw,430px); max-height:88dvh; padding:18px 15px; border-radius:var(--r-l); }
+  .mcard h2 { font-size:12px; }
+  .mbtn { font-size:10px; padding:10px 14px; }
+  .minput { font-size:12px; padding:10px; }
+  .mrow { font-size:10.5px; }
   #logoImg { width:90px; }
-  /* Equipo */
+  .modal.drawer { padding:0; }
+  .dcard { width:100%; border-left:none; }
+  .dGrid { grid-template-columns:repeat(2,1fr); gap:7px; }
+  .dItem { padding:10px; gap:8px; }
+  .dItem .dk { display:none; }
+  .skRow { padding:10px; gap:9px; }
+  .skRow .skFace { width:38px; height:38px; font-size:19px; }
+  .skRow .skInfo b { font-size:11.5px; }
+  .skRow .skInfo p { font-size:10px; }
+
+  /* ---- Equipo / mapa ---- */
   #gearBody { grid-template-columns:1fr; }
   .gearCol { max-height:34vh; }
   .gearTop { top:4px; padding:8px; }
   .gearX { width:32px; height:32px; }
   #autoEqBtn { font-size:9px; padding:7px 10px; }
-  /* Mapa */
   .mapGrid { grid-template-columns:repeat(5,1fr); gap:5px; }
   .mapNode { padding:7px 0; }
   .nodeStage { font-size:8px; }
   .nodeRank { font-size:9px; }
-  #syncIndicator { top:auto; bottom:120px; right:10px; }
+  #syncIndicator { top:auto; bottom:130px; right:10px; }
+}
+
+/* Teléfonos: la topbar no da para 3 contadores sin que se pisen entre sí.
+   El ADN se lee en el menú (fila "Tienda ADN") y en el panel de prestigio. */
+@media (max-width: 480px) {
+  .res.adn { display:none; }
+}
+/* Pantallas muy angostas: el escuadrón cede espacio a las habilidades */
+@media (max-width: 400px) {
+  .skBtn { width:40px; height:40px; }
+  .skBtn .skIco { font-size:16px; }
+  .skMore { height:40px; }
+  .scMeta > b { max-width:70px; }
 }

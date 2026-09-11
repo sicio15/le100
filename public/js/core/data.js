@@ -1,6 +1,6 @@
 'use strict';
 // ===== DATA: datos puros de balance (única fuente de verdad) =====
-// La lógica vive en gear/events/season/progression/formulas.
+// La lógica vive en gear/events/season/progression/formulas/skills/affixes.
 
 // ----- Battle Pass / Temporadas -----
 const SEASON_DURATION = 30 * 24 * 60 * 60 * 1000;
@@ -76,6 +76,13 @@ const COMBO_WINDOW = 4;      // s sin matar antes de que el combo empiece a caer
 const COMBO_STEP   = 0.02;   // +2% daño por kill encadenada
 const COMBO_MAX    = 1.5;    // tope x1.5 (se alcanza a las 25 kills)
 const COMBO_DECAY  = 6;      // kills por segundo que se pierden al cortar la racha
+// L27: escalones visuales del combo (el HUD y los VFX cambian de color en cada uno)
+const COMBO_TIERS = [
+  { at: 2,  name: 'RACHA',   color: '#7efcff' },
+  { at: 8,  name: 'ARDIENTE', color: '#ffd700' },
+  { at: 16, name: 'IMPARABLE', color: '#ffa726' },
+  { at: 25, name: 'MASACRE',  color: '#ff4757' }
+];
 
 // ----- Enemigos élite (enemies.js) -----
 const ELITE_CHANCE = 0.07;   // 7% de los spawns normales
@@ -97,3 +104,61 @@ const TAP_ENERGY = 6;        // energía que otorga al escuadrón
 const ROGUE_ROOMS   = 8;
 const ROGUE_HP_MUL  = 4;     // dureza base de la sala 1
 const ROGUE_STEP    = 1.35;  // dureza x1.35 por sala
+
+// ===================== LOTE 27 =====================
+// ----- HABILIDADES ACTIVAS (game/skills.js) -----
+// Tres botones con cooldown que le dan agencia real al jugador sin romper el idle
+// (existe un auto-cast opcional para quien quiera seguir dejándolo solo).
+const SKILL_MAX_LV = 10;
+const SKILLS = [
+  { id: 'smash',  n: 'Golpe Sísmico', ico: '💥', hot: '1', unlock: 3,  cd: 12, dur: 0, color: '#ffa726',
+    d: lv => 'Sacude el suelo: ' + (5 + 2 * lv) + 'x tu daño a TODOS los enemigos.' },
+  { id: 'frenzy', n: 'Frenesí',       ico: '⚡', hot: '2', unlock: 8,  cd: 26, dur: 8, color: '#7efcff',
+    d: lv => '8s de ataque al doble de velocidad y +' + Math.round((0.15 + 0.03 * lv) * 100) + '% de crítico.' },
+  { id: 'aegis',  n: 'Égida',         ico: '🛡️', hot: '3', unlock: 15, cd: 34, dur: 7, color: '#7bed9f',
+    d: lv => 'Cura ' + Math.round((0.25 + 0.05 * lv) * 100) + '% de vida al escuadrón y reduce el daño recibido 60% por 7s.' }
+];
+const skillCost = lv => Math.floor(1200 * Math.pow(2.35, lv - 1));
+const SKILL_SMASH_MULT  = lv => 5 + 2 * lv;
+const SKILL_FRENZY_CRIT = lv => 0.15 + 0.03 * lv;
+const SKILL_AEGIS_HEAL  = lv => 0.25 + 0.05 * lv;
+const AEGIS_REDUCTION   = 0.4;   // daño recibido x0.4 mientras dura
+const FRENZY_HASTE      = 2;     // ataques por segundo x2
+
+// ----- AFIJOS DE ENEMIGO (game/affixes.js) -----
+// Rompen la monotonía del farmeo: cada afijo cambia CÓMO se pelea, no sólo cuánto.
+const AFFIX_STAGE  = 6;    // a partir de qué etapa pueden aparecer
+const AFFIX_CHANCE = 0.16; // probabilidad en spawns normales (los élites siempre llevan uno)
+const AFFIXES = [
+  { id: 'armored',  n: 'Acorazado', ico: '🛡', css: '#9fb0d8', tint: 0xb9c6ea,
+    gold: 2.2, dmgTaken: 0.55, hp: 1.5,
+    d: 'Recibe 45% menos daño' },
+  { id: 'swift',    n: 'Veloz',     ico: '💨', css: '#7efcff', tint: 0x8ff2ff,
+    gold: 1.8, spd: 1.85, atkSpd: 0.62,
+    d: 'Corre y ataca mucho más rápido' },
+  { id: 'vampiric', n: 'Vampírico', ico: '🩸', css: '#ff6b81', tint: 0xff9aa8,
+    gold: 2.2, leech: 0.35,
+    d: 'Se cura con el daño que hace' },
+  { id: 'volatile', n: 'Volátil',   ico: '💣', css: '#ffa726', tint: 0xffc879,
+    gold: 2.6, boom: 1.1,
+    d: 'Explota al morir' }
+];
+
+// ----- FASES DE JEFE (enemies.js + battle-update.js) -----
+// El jefe deja de ser una bolsa de HP: a 60% y 30% cambia de fase, invoca esbirros
+// y sube su presión. El HUD muestra los puntos de fase.
+const BOSS_PHASES = [0.6, 0.3];
+const BOSS_PHASE_DMG = 0.3;   // +30% daño por fase
+const BOSS_PHASE_SPD = 0.25;  // +25% velocidad de ataque por fase
+const BOSS_PHASE_ADDS = 2;    // esbirros invocados en cada cambio de fase
+
+// ----- AMBIENTE POR CAPÍTULO (game/ambience.js) -----
+// Partículas + gradación de color: cada capítulo se SIENTE distinto aunque
+// comparta sprites. `grade` es un velo de color sobre la escena.
+const CHAPTER_FX = [
+  { id: 'forest', kind: 'leaf',  color: 0x9ad46a, n: 18, grade: 0x123a1e, gradeA: 0.10, fog: 0 },
+  { id: 'cave',   kind: 'drip',  color: 0x8fd8ff, n: 14, grade: 0x0b1740, gradeA: 0.22, fog: 0.12 },
+  { id: 'swamp',  kind: 'bubble', color: 0x7bed9f, n: 16, grade: 0x0d2a1c, gradeA: 0.20, fog: 0.22 },
+  { id: 'tower',  kind: 'ember', color: 0xffa726, n: 22, grade: 0x3a0e12, gradeA: 0.20, fog: 0.08 },
+  { id: 'void',   kind: 'star',  color: 0xc86bfa, n: 26, grade: 0x1a0a34, gradeA: 0.24, fog: 0.10 }
+];

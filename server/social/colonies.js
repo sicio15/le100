@@ -3,8 +3,8 @@
 // OPTIMIZACIONES (deuda #3):
 //  · colonyInfo/colonyBoss: doble C.get → single-get + mutación local + 1 update.
 //  · colonyDonate: N lecturas+escrituras de miembros → U.setColonyLevel (bulk).
-const { U, C } = require('./storage');
-const { powerOf, bossMax } = require('./power');
+const { U, C } = require('../data/storage');
+const { powerOf, bossMax } = require('../data/power');
 const today = () => new Date().toISOString().slice(0, 10);
 // si cambió el día, resetea el jefe SOBRE el objeto local y persiste 1 sola vez
 async function ensureBossDay(c) {

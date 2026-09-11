@@ -1,8 +1,8 @@
 'use strict';
 // ===== ARENA PvP: handlers socket =====
 // OPTIMIZACIÓN (deuda #2): arenaInfo hacía 2× U.all() por llamada → ahora 1 sola lectura.
-const { U } = require('./storage');
-const { powerOf } = require('./power');
+const { U } = require('../data/storage');
+const { powerOf } = require('../data/power');
 function registerArena(s) {
   s.on('arenaInfo', async cb => {
     const me = await U.get(s.user);

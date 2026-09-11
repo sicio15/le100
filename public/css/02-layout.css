@@ -1,84 +1,178 @@
-/* ===== 02-layout: topbar, batalla, escuadrón, bottombar ===== */
-#topbar { min-height:58px; display:flex; justify-content:space-between; align-items:center;
-  gap:8px; padding:8px 12px; background:var(--bg-bar); backdrop-filter:var(--blur);
-  border-bottom:1px solid var(--gold-soft); z-index:5; }
-.tb-left, .tb-mid, .tb-right { display:flex; gap:8px; align-items:center; }
-.panel { background:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,.03));
-  border:1px solid var(--gold-border); border-radius:var(--r-pill); padding:6px 14px;
-  color:var(--text-gold); font-size:13px; display:inline-flex; align-items:center; gap:6px;
-  font-variant-numeric:tabular-nums; white-space:nowrap; }
-.panel b { color:var(--text); }
-.panel b#adnTxt { color:var(--cyan); }
-.tbtn { position:relative; font-size:17px; padding:7px 11px; border-radius:10px;
-  border:1px solid var(--border-glass); color:var(--text); cursor:pointer;
-  background:radial-gradient(circle at 30% 25%,rgba(255,255,255,.14),rgba(255,255,255,.04));
-  box-shadow:var(--shadow-btn); transition:transform .12s,border-color .12s,box-shadow .12s; }
-.tbtn:hover { border-color:rgba(255,215,0,.55); box-shadow:0 0 12px rgba(255,215,0,.25); transform:translateY(-1px); }
-.dot { position:absolute; top:-5px; right:-5px; width:12px; height:12px; border-radius:50%;
-  background:var(--red); display:none; box-shadow:0 0 8px var(--red); border:1px solid #1a0b0e; }
-#speedBtn { color:var(--cyan); font-size:10px; font-weight:800; }
-#stageProg { position:relative; width:90px; height:12px; background:rgba(0,0,0,.5);
-  border:1px solid rgba(255,255,255,.2); border-radius:3px; overflow:hidden; }
-#stageProgFill { height:100%; width:0%; background:linear-gradient(90deg,var(--gold),var(--gold2)); transition:width .2s; }
-#stageProgTxt { position:absolute; inset:0; text-align:center; font-size:7px; line-height:12px;
-  color:var(--text); font-family:var(--font-pixel); text-shadow:1px 1px 0 #000; }
+/* ===== 02-layout: topbar, campo de batalla, bottombar, mejoras ===== */
+
+/* ---------------- TOPBAR ---------------- */
+#topbar {
+  min-height:64px; display:flex; justify-content:space-between; align-items:center;
+  gap:10px; padding:8px 14px; z-index:5;
+  background:linear-gradient(180deg,rgba(16,13,34,.96),var(--bg-bar));
+  backdrop-filter:var(--blur);
+  border-bottom:1px solid var(--gold-soft);
+  box-shadow:0 6px 22px rgba(0,0,0,.45);
+}
+.tb-left, .tb-mid, .tb-right { display:flex; gap:8px; align-items:center; min-width:0; }
+.tb-mid { flex:0 1 auto; }
+
+/* --- Chip de etapa con anillo de progreso --- */
+.stageChip {
+  display:flex; align-items:center; gap:10px; padding:5px 14px 5px 5px;
+  background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.02));
+  border:1px solid var(--gold-border); border-radius:var(--r-pill);
+  box-shadow:var(--sh-1); cursor:default;
+}
+.scRing {
+  --p:0;
+  position:relative; width:40px; height:40px; border-radius:50%; flex:0 0 auto;
+  display:grid; place-items:center;
+  background:conic-gradient(var(--gold) calc(var(--p) * 1%), rgba(255,255,255,.10) 0);
+  transition:background var(--t-med);
+}
+.scRing::after {
+  content:''; position:absolute; inset:3px; border-radius:50%;
+  background:linear-gradient(180deg,#1a1636,#110e24);
+}
+.scRing span {
+  position:relative; z-index:1; font-family:var(--font-pixel); font-size:12px;
+  color:var(--text-gold); text-shadow:0 0 10px rgba(255,215,0,.5);
+}
+.scMeta { display:flex; flex-direction:column; gap:3px; min-width:0; }
+.scMeta > b { font-size:11px; color:var(--text-mid); font-weight:700; white-space:nowrap;
+  max-width:150px; overflow:hidden; text-overflow:ellipsis; }
+#stageProg { position:relative; width:108px; height:11px; background:rgba(0,0,0,.55);
+  border:1px solid var(--stroke); border-radius:var(--r-xs); overflow:hidden; }
+#stageProgFill { height:100%; width:0%; transition:width var(--t-med);
+  background:linear-gradient(90deg,var(--gold2),var(--gold)); }
+#stageProgFill.warn { background:linear-gradient(90deg,#ff7043,var(--red)); }
+#stageProgTxt { position:absolute; inset:0; text-align:center; font-size:6.5px; line-height:11px;
+  color:var(--text); font-family:var(--font-pixel); text-shadow:1px 1px 0 #000; letter-spacing:.5px; }
+
+/* --- Chips genéricos --- */
+.chip { display:inline-flex; align-items:center; gap:5px; padding:6px 12px; font-size:10px;
+  font-weight:800; letter-spacing:.4px; border-radius:var(--r-pill);
+  border:1px solid var(--stroke-2); background:var(--bg-item); color:var(--text-mid); white-space:nowrap; }
+.chip.danger { color:#ffd2d6; border-color:rgba(255,71,87,.55);
+  background:linear-gradient(180deg,rgba(255,71,87,.25),rgba(255,71,87,.08));
+  box-shadow:var(--glow-red); animation:chipPulse 1.1s ease-in-out infinite alternate; }
+@keyframes chipPulse { to { box-shadow:0 0 28px rgba(255,71,87,.6); } }
+
+/* --- Recursos --- */
+.res {
+  display:inline-flex; align-items:center; gap:7px; padding:7px 14px;
+  border-radius:var(--r-pill); border:1px solid var(--stroke-2);
+  background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.02));
+  font-variant-numeric:tabular-nums; white-space:nowrap; box-shadow:var(--sh-1);
+  position:relative;
+}
+.res i { font-style:normal; font-size:14px; line-height:1; }
+.res b { font-size:14px; font-weight:800; }
+.res.gold { border-color:var(--gold-border); } .res.gold b { color:var(--text-gold); }
+.res.adn b { color:var(--cyan); }
+.res.ess b { color:var(--violet); }
+.res .rate { font-size:9px; color:var(--green2); font-weight:700; opacity:.85; }
+.res.gain { animation:resGain .5s ease-out; }
+@keyframes resGain { 0%{box-shadow:0 0 0 0 rgba(255,215,0,.5);} 100%{box-shadow:0 0 0 12px rgba(255,215,0,0);} }
+
+/* Texto "+N" que sube desde el contador al cobrar */
+.resFly { position:fixed; z-index:130; pointer-events:none; font-family:var(--font-pixel);
+  font-size:10px; color:var(--gold); text-shadow:0 0 10px rgba(255,215,0,.7);
+  animation:resFly 1s cubic-bezier(.2,.9,.3,1) forwards; }
+@keyframes resFly { 0%{opacity:0;transform:translateY(4px) scale(.8);} 20%{opacity:1;transform:none;}
+  100%{opacity:0;transform:translateY(-26px);} }
+
+/* --- Botones de la topbar --- */
+.tbtn { position:relative; font-size:16px; padding:9px 12px; border-radius:var(--r-m);
+  border:1px solid var(--stroke-2); color:var(--text); cursor:pointer;
+  background:radial-gradient(120% 120% at 30% 20%,rgba(255,255,255,.14),rgba(255,255,255,.03));
+  box-shadow:var(--sh-1); transition:transform var(--t-fast),border-color var(--t-fast),box-shadow var(--t-fast); }
+.tbtn:hover { border-color:rgba(255,215,0,.55); box-shadow:var(--glow-gold); transform:translateY(-1px); }
+.menuBtn { display:inline-flex; align-items:center; gap:8px; padding:9px 16px;
+  border-color:var(--gold-border); background:linear-gradient(180deg,rgba(255,215,0,.18),rgba(255,215,0,.05)); }
+.menuBtn .mbIco { font-size:15px; }
+.menuBtn .mbTxt { font-family:var(--font-pixel); font-size:9px; color:var(--text-gold); letter-spacing:.5px; }
+.dot { position:absolute; top:-5px; right:-5px; width:11px; height:11px; border-radius:50%;
+  background:var(--red); display:none; box-shadow:0 0 10px var(--red); border:1px solid #1a0b0e;
+  animation:dotPulse 1.4s ease-in-out infinite; }
+@keyframes dotPulse { 50% { transform:scale(1.28); } }
+#speedBtn { color:var(--cyan); font-size:10px; font-weight:800; font-family:var(--font-pixel); }
+
+/* ---------------- CAMPO DE BATALLA ---------------- */
 #battleWrap { flex:1; position:relative; overflow:hidden; }
-#battleWrap::after { content:''; position:absolute; inset:0; pointer-events:none;
-  box-shadow:inset 0 0 90px rgba(0,0,0,.5); z-index:2; }
+#battleWrap::after { content:''; position:absolute; inset:0; pointer-events:none; z-index:2;
+  box-shadow:inset 0 0 120px rgba(0,0,0,.62), inset 0 30px 60px rgba(0,0,0,.35); }
 #battleWrap canvas, #cv { position:absolute; inset:0; display:block; width:100%; height:100%;
   image-rendering:pixelated; image-rendering:crisp-edges; }
-#bossBar { position:absolute; top:10px; left:50%; transform:translateX(-50%);
-  width:min(420px,70%); height:18px; background:rgba(20,4,8,.7); border:1px solid rgba(255,71,87,.6);
-  border-radius:10px; overflow:hidden; z-index:3; backdrop-filter:var(--blur-soft); }
-#bossFill { height:100%; width:100%; background:linear-gradient(90deg,var(--red),var(--gold2),var(--red));
-  background-size:200% 100%; animation:bossShine 2s linear infinite; }
-@keyframes bossShine { to { background-position:200% 0; } }
-#bossTime { position:absolute; inset:0; text-align:center; color:var(--text); font-size:11px;
-  font-weight:800; line-height:18px; text-shadow:1px 1px 0 #000; }
-/* ===== L26: medidor de combo ===== */
-#comboBox { position:absolute; right:12px; top:12px; z-index:3; display:flex; flex-direction:column;
-  align-items:flex-end; gap:2px; padding:6px 12px; border-radius:12px; pointer-events:none;
-  background:rgba(10,12,26,.7); backdrop-filter:var(--blur-soft);
-  border:1px solid var(--gold-border); box-shadow:0 0 16px rgba(255,215,0,.18); }
-#comboBox b { font-family:var(--font-pixel); font-size:15px; color:var(--gold);
-  text-shadow:0 0 10px rgba(255,215,0,.55); line-height:1.1; }
-#comboBox span { font-size:9px; color:var(--text-dim); }
-#comboBar { width:88px; height:4px; background:rgba(0,0,0,.55); border-radius:3px; overflow:hidden; }
-#comboBar i { display:block; height:100%; width:0%;
-  background:linear-gradient(90deg,var(--gold2),var(--gold)); transition:width .12s linear; }
-#comboBox.hot { border-color:var(--red); box-shadow:0 0 22px rgba(255,71,87,.45); animation:comboPulse .5s ease-in-out infinite alternate; }
-#comboBox.hot b { color:#ff9a76; text-shadow:0 0 12px rgba(255,71,87,.7); }
-@keyframes comboPulse { to { transform:scale(1.06); } }
-#heroHpWrap { position:absolute; left:12px; bottom:12px; width:200px; height:14px;
-  background:rgba(10,12,26,.6); backdrop-filter:var(--blur-soft); border:1px solid rgba(255,255,255,.15);
-  border-radius:10px; overflow:hidden; z-index:3; }
-#heroHp { height:100%; width:100%; background:linear-gradient(90deg,var(--red),var(--pink)); transition:width .2s; }
-#heroHpWrap.squad { width:240px; height:auto; border-radius:12px; padding:6px 8px;
-  display:flex; flex-direction:column; gap:4px; overflow:visible; }
-.sqRow { display:flex; align-items:center; gap:6px; }
-.sqRow.dead { opacity:.35; filter:grayscale(1); }
-.sqName { font-family:var(--font-pixel); font-size:8px; width:16px; text-align:center; }
-.sqHp { flex:1; height:8px; background:rgba(0,0,0,.55); border:1px solid rgba(255,255,255,.25); border-radius:4px; overflow:hidden; }
-.sqHp i { display:block; height:100%; background:linear-gradient(90deg,var(--green),var(--green2)); transition:width .15s; }
-.sqEn { width:60px; height:5px; background:rgba(0,0,0,.55); border-radius:3px; overflow:hidden; }
-.sqEn i { display:block; height:100%; background:linear-gradient(90deg,var(--cyan),var(--cyan2)); transition:width .15s; }
-#bottombar { min-height:112px; display:flex; gap:10px; padding:10px 12px;
-  background:var(--bg-bar); backdrop-filter:var(--blur); border-top:1px solid var(--gold-soft); align-items:stretch; }
-#heroStats { display:flex; flex-direction:column; justify-content:center; gap:4px; font-size:13px;
-  min-width:120px; font-variant-numeric:tabular-nums; }
-#ups { display:flex; gap:8px; flex:1; overflow-x:auto; padding:2px; }
-.ucard { flex:1; min-width:118px; max-width:190px; border-radius:var(--r-m); padding:7px 9px;
-  display:flex; flex-direction:column; justify-content:space-between; color:var(--text);
-  background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.02));
-  border:1px solid var(--border-soft); border-top:2px solid transparent; transition:transform .12s,border-color .12s; }
-.ucard:hover { transform:translateY(-2px); }
+
+/* Dock inferior: escuadrón (izq) + habilidades (der) */
+#combatDock { position:absolute; left:0; right:0; bottom:10px; z-index:4;
+  display:flex; align-items:flex-end; justify-content:space-between; gap:12px;
+  padding:0 12px; pointer-events:none; }
+
+/* --- Escuadrón --- */
+#heroHpWrap { width:238px; padding:7px 9px; pointer-events:none;
+  background:var(--bg-glass); backdrop-filter:var(--blur-soft);
+  border:1px solid var(--stroke-2); border-radius:var(--r-m); box-shadow:var(--sh-2); }
+#heroHp { height:10px; width:100%; border-radius:5px; background:linear-gradient(90deg,var(--red),var(--pink)); }
+#heroHpWrap.squad { display:flex; flex-direction:column; gap:6px; }
+.sqRow { display:flex; align-items:center; gap:7px; transition:opacity var(--t-med),filter var(--t-med); }
+.sqRow.dead { opacity:.3; filter:grayscale(1); }
+.sqRow.ready .sqName { animation:sqReady .7s ease-in-out infinite alternate; }
+@keyframes sqReady { to { text-shadow:0 0 12px currentColor; transform:scale(1.14); } }
+.sqName { font-family:var(--font-pixel); font-size:9px; width:18px; height:18px; flex:0 0 18px;
+  display:grid; place-items:center; border-radius:6px; background:rgba(255,255,255,.07);
+  border:1px solid currentColor; }
+.sqBars { flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; }
+.sqHp { height:8px; background:rgba(0,0,0,.6); border:1px solid var(--stroke); border-radius:4px; overflow:hidden; }
+.sqHp i { display:block; height:100%; transition:width .18s linear;
+  background:linear-gradient(90deg,var(--green),var(--green2)); }
+.sqHp.low i { background:linear-gradient(90deg,#c0392b,var(--red)); }
+.sqEn { height:4px; background:rgba(0,0,0,.6); border-radius:3px; overflow:hidden; }
+.sqEn i { display:block; height:100%; transition:width .18s linear;
+  background:linear-gradient(90deg,var(--cyan2),var(--cyan)); }
+.sqEn.full i { background:linear-gradient(90deg,var(--gold2),var(--gold)); box-shadow:0 0 8px var(--gold); }
+
+/* ---------------- BOTTOMBAR ---------------- */
+#bottombar { min-height:116px; display:flex; gap:12px; padding:11px 14px; align-items:stretch;
+  background:linear-gradient(0deg,rgba(16,13,34,.96),var(--bg-bar));
+  backdrop-filter:var(--blur); border-top:1px solid var(--gold-soft);
+  box-shadow:0 -6px 22px rgba(0,0,0,.45); }
+#heroStats { display:flex; flex-direction:column; justify-content:center; gap:5px;
+  min-width:132px; font-variant-numeric:tabular-nums; }
+.hsRow { display:flex; align-items:baseline; gap:6px; font-size:13px; }
+.hsRow span { font-size:12px; }
+.hsRow b { font-weight:800; }
+.hsRow small { font-size:9px; color:var(--text-dim); }
+.hsRow.dim b { color:var(--green2); }
+#buyQtyBtn { margin-top:3px; align-self:flex-start; }
+
+/* --- Tarjetas de mejora --- */
+#ups { display:flex; gap:9px; flex:1; overflow-x:auto; padding:2px; }
+.ucard { position:relative; flex:1; min-width:126px; max-width:200px; border-radius:var(--r-m);
+  padding:8px 10px 9px; display:flex; flex-direction:column; justify-content:space-between; gap:6px;
+  color:var(--text); overflow:hidden;
+  background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.015));
+  border:1px solid var(--stroke); border-top:2px solid transparent;
+  transition:transform var(--t-fast),border-color var(--t-fast),box-shadow var(--t-fast); }
+.ucard:hover { transform:translateY(-2px); box-shadow:var(--sh-2); }
+/* barra de "cuánto falta para poder comprarla" pintada en el fondo de la tarjeta */
+.ucard::before { content:''; position:absolute; left:0; bottom:0; height:2px; width:var(--afford,0%);
+  background:linear-gradient(90deg,var(--gold2),var(--gold)); opacity:.75; transition:width var(--t-med); }
+.ucard.can { border-color:rgba(126,237,159,.45); }
+.ucard.can::before { width:100%; background:linear-gradient(90deg,var(--green),var(--green2)); }
+.ucard.best { border-color:var(--gold); box-shadow:var(--glow-gold); }
+.ucard.best .uBadge { display:block; }
+.uBadge { display:none; position:absolute; top:5px; right:6px; font-size:7px; font-family:var(--font-pixel);
+  color:#3a2a00; background:linear-gradient(180deg,var(--gold),var(--gold2));
+  padding:3px 5px; border-radius:5px; letter-spacing:.3px; }
 #ups .ucard:nth-child(1){border-top-color:var(--red);} #ups .ucard:nth-child(2){border-top-color:var(--pink);}
 #ups .ucard:nth-child(3){border-top-color:var(--green2);} #ups .ucard:nth-child(4){border-top-color:var(--violet);}
 #ups .ucard:nth-child(5){border-top-color:var(--gold);}
-.ucard .un { font-size:12px; font-weight:700; }
-.ucard .ul { font-size:10px; color:var(--text-dim); }
-.ubuy { border:none; border-radius:var(--r-s); padding:7px 4px; font-weight:800; font-size:10px;
-  font-family:var(--font-pixel); color:#06301a; cursor:pointer;
-  background:linear-gradient(180deg,#57e07a,var(--green)); box-shadow:0 2px 0 #1d9e50,0 3px 8px rgba(0,0,0,.4); transition:filter .12s; }
-.ubuy:hover:not(:disabled) { filter:brightness(1.1); }
-.ubuy:disabled { filter:grayscale(1); opacity:.45; cursor:not-allowed; box-shadow:none; }
+.ucard .un { font-size:11.5px; font-weight:700; display:flex; align-items:center; gap:5px; }
+.ucard .ul { font-size:9.5px; color:var(--text-dim); margin-left:auto; font-variant-numeric:tabular-nums; }
+.ucard .udelta { font-size:9px; color:var(--cyan); font-weight:700; min-height:11px; letter-spacing:.2px; }
+.ubuy { border:none; border-radius:var(--r-s); padding:8px 4px; font-weight:800; font-size:10px;
+  font-family:var(--font-pixel); color:#06301a; cursor:pointer; letter-spacing:.3px;
+  background:linear-gradient(180deg,#57e07a,var(--green));
+  box-shadow:0 2px 0 #1d9e50,0 3px 10px rgba(0,0,0,.45); transition:filter var(--t-fast),transform var(--t-fast); }
+.ubuy:hover:not(:disabled) { filter:brightness(1.12); }
+.ubuy:disabled { filter:grayscale(1); opacity:.4; cursor:not-allowed; box-shadow:none; }
+.ubuy.flash { animation:buyFlash .4s ease-out; }
+@keyframes buyFlash { 0%{filter:brightness(2.4);} 100%{filter:brightness(1);} }

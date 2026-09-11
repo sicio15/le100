@@ -70,8 +70,13 @@ function analyze(c) {
 }
 const STRIP_H = 160;
 // hurt/death humanos estándar: 5 frames (dolor 0-2 · muerte 3-4)
+// FIX L27: img/boss_idle.png, boss_attack.png y boss_roar.png existían desde el
+// Lote 8 pero NUNCA se cargaban (no estaban en esta lista), así que boot-scene
+// caía siempre al fallback de 1 frame: el jefe estaba congelado en su pose de
+// caminar. Con los 3 sheets aquí, el Rey Bestia respira, golpea y ruge de verdad.
 const SHEETS = ['hero_walk', 'hero_idle', 'hero_attack', 'hero_cast', 'hero_hurt',
   'enemy_beetle', 'enemy_spider', 'enemy_boss', 'enemy_wasp', 'enemy_scorpion',
+  'boss_idle', 'boss_attack', 'boss_roar',
   'hero_human_a', 'hero_human_a_idle', 'hero_human_b', 'hero_human_b_idle', 'hero_human_c', 'hero_human_c_idle', 'acc_crown',
   'hero_human_a_attack', 'hero_human_b_attack', 'hero_human_c_attack',
   'hero_human_a_hurt', 'hero_human_b_hurt', 'hero_human_c_hurt'];
