@@ -24,12 +24,23 @@ function renderStats() {
     ['🛡️ Gremio', 'x' + (1 + 0.02 * ((S.colonyLevel || 1) - 1)).toFixed(2)],
     ['🛒 Tienda (Furia)', 'x' + (1 + 0.05 * shopLv('fury')).toFixed(2)],
     ['🏆 Rangos (' + rb.sCount + 'S · ' + rb.aCount + 'A)', 'x' + (1 + rb.damage).toFixed(3)],
+    ['📖 Códice (' + codexStars().stars + '★)', 'x' + codexMult().toFixed(3)],
+    ['🏺 Reliquias (' + countRelics() + ')', 'x' + relicDmg().toFixed(2)],
     ['✨ Evento semanal', evHas('furia') ? 'x1.30' : 'x1.00'],
     ['🌠 Relámpago', 'x' + flashMult('dano').toFixed(2)],
     ['= DAÑO BASE', fmt(dps()) + '/s'],
     ['🔥 Combo actual', 'x' + comboMult().toFixed(2) + ' (' + Math.floor(combo) + ' kills)'],
+    ['🌑 Maldición', curseT > 0 ? 'x' + BOSS_CURSE_MULT.toFixed(2) + ' (' + curseT.toFixed(1) + 's)' : 'x1.00'],
     ['= DAÑO EN COMBATE', fmt(liveDps()) + '/s'],
     ['📈 Daño real medido', fmt(dmgPerSec()) + '/s']
+  ];
+  const zi = zoneIndex(S.stage), zb = zoneBoss(zi);
+  const worldRows = [
+    ['🌄 Zona actual', zoneOf(S.stage).name],
+    ['👑 Jefe de zona', zb.ico + ' ' + zb.name],
+    ['📖 Bestiario', codexStars().stars + '/' + codexStars().maxStars + ' ★ (' + Math.round(codexProgress() * 100) + '%)'],
+    ['🏺 Reliquias', countRelics() + '/' + BOSSES.length],
+    ['⚔️ Jefes de zona vencidos', countBossesBeaten() + '/' + BOSSES.length]
   ];
   const skillRows = SKILLS.map(s => {
     const lv = skillLv(s.id);
@@ -67,6 +78,7 @@ function renderStats() {
   const sec = (title, rows) => '<h3 style="margin:14px 0 6px;text-align:left">' + title + '</h3>' +
     rows.map(r => '<div class="mrow"><span>' + r[0] + '</span><b style="color:var(--cyan)">' + r[1] + '</b></div>').join('');
   box.innerHTML = sec('⚔️ CÓMO SE ARMA TU DAÑO', dmgRows) +
+    sec('🌍 MUNDO', worldRows) +
     sec('✨ HABILIDADES', skillRows) +
     sec('📈 OTROS', otherRows) +
     sec('🏅 TU HISTORIA', lifeRows);

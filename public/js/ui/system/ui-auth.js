@@ -52,7 +52,8 @@ if (typeof socket !== 'undefined' && socket) {
 let offlinePending = 0, offlineWired = false;
 function afterLogin() {
   Audio.init(); Audio.startMusic();
-  Audio.setChapter(Math.floor((S.stage - 1) / 10));
+  Audio.setChapter(zoneOf(S.stage).music);   // L28: la música la elige la zona
+  lastChapter = zoneIndex(S.stage);
   initSquad();
   if (typeof checkSkillUnlocks === 'function') checkSkillUnlocks(); // L27
   if (typeof checkDailyResets === 'function') checkDailyResets();
@@ -90,7 +91,19 @@ function afterLogin() {
   if (authed) netScore(S.name, S.best);
   persist();
   toast('¡Hola, ' + S.name + '!');
-  if (!SETTINGS.tutorialDone) startTutorial();
+  // L28: la zona en la que arrancás queda registrada en el códice, y si nunca
+  // leíste su presentación se reproduce ahora (incluye la apertura del juego).
+  setTimeout(() => {
+    const startTut = () => { if (!SETTINGS.tutorialDone) startTutorial(); };
+    const zi = zoneIndex(S.stage), z = ZONES[zi];
+    if (typeof playZoneIntro === 'function' && !loreSeen('zi_' + z.id)) {
+      playZoneIntro(zi);
+      queueScene(startTut);   // el tutorial espera a que termine la cinemática
+    } else {
+      if (typeof codexZone === 'function' && codexZone(zi)) persist();
+      startTut();
+    }
+  }, 900);
 }
 // ===== Tutorial =====
 const TUT_STEPS = [

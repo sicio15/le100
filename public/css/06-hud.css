@@ -10,8 +10,8 @@
 @keyframes bossIn { from { opacity:0; transform:translateX(-50%) translateY(-18px) scale(.9); }
   to { opacity:1; transform:translateX(-50%); } }
 .bfTop { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
-.bfName { font-family:var(--font-pixel); font-size:9px; color:#ffd2d6; letter-spacing:1px;
-  text-shadow:0 0 12px rgba(255,71,87,.7); }
+.bfName { font-family:var(--font-pixel); font-size:9px; color:var(--bc,#ffd2d6); letter-spacing:1px;
+  text-shadow:0 0 12px currentColor, 1px 1px 0 #000; }
 .bfPhases { display:flex; gap:4px; margin-left:auto; }
 .bfPhases i { width:9px; height:9px; border-radius:50%; background:rgba(255,255,255,.16);
   border:1px solid rgba(255,255,255,.25); transition:all var(--t-med); }

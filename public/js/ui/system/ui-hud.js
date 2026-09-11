@@ -138,12 +138,13 @@ if ($('speedBtn')) $('speedBtn').textContent = '⏩ x' + SETTINGS.speed;
 const KEYMAP = {
   m: 'btnMap', e: 'btnGear', p: 'btnPrestige', t: 'btnTower', r: 'btnRogue',
   a: 'btnArena', d: 'btnDaily', s: 'btnShop', c: 'btnMissions', b: 'btnBattlePass',
-  g: 'btnGuild', l: 'btnLb', v: 'btnStats', o: 'btnSettings', h: 'btnSkills'
+  g: 'btnGuild', l: 'btnLb', v: 'btnStats', o: 'btnSettings', h: 'btnSkills', x: 'btnCodex'
 };
 window.addEventListener('keydown', e => {
   if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
   const tag = (e.target && e.target.tagName) || '';
   if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+  if (dialogueActive) return; // L28: durante una cinemática manda ui-dialogue.js
   // Tab = drawer
   if (e.key === 'Tab') { e.preventDefault(); const b = $('btnHub'); if (b) b.click(); return; }
   // 1/2/3 = habilidades activas
@@ -175,6 +176,13 @@ function openSettings() {
   $('setReduce').checked = SETTINGS.reduceFx;
   if ($('setAuto')) $('setAuto').checked = S.skillAuto !== false;
   if ($('setHint')) $('setHint').checked = SETTINGS.hintBest !== false;
+  // L28: el slider va al revés que el valor (izq = lento, der = instantáneo)
+  if ($('setTextSpeed')) {
+    $('setTextSpeed').value = Math.max(0, 40 - (+SETTINGS.textSpeed || 0));
+    const l = $('setTextSpeedV');
+    if (l) l.textContent = SETTINGS.textSpeed === 0 ? 'Instantáneo' : SETTINGS.textSpeed > 25 ? 'Lento' : 'Normal';
+  }
+  if ($('setSkipCut')) $('setSkipCut').checked = !!SETTINGS.skipCutscenes;
   $('mSettings').style.display = 'flex';
 }
 wire('btnSettings', 'click', openSettings);

@@ -4,9 +4,8 @@ const TARGET_H = { hero: 105, human_a: 105, human_b: 105, human_c: 105, beetle: 
 const ROLE_SCALE = { dps: 1.05, archer: 1, mage: 0.95 };
 const baseScale = kind => (TARGET_H[kind] || 100) / (typeof STRIP_H !== 'undefined' ? STRIP_H : 160);
 const lookOf = m => m.def.look || 'human_a';
-// MEJORA: fondos por capítulo (antes nunca cambiaban)
-const CHAPTER_BG = ['bg', 'bg_cave', 'bg_swamp', 'bg_tower', 'bg_tower'];
-const chapterBg = () => CHAPTER_BG[Math.min(CHAPTER_BG.length - 1, Math.floor((S.stage - 1) / 10))];
+// L28: el fondo lo decide la zona (ZONES[n].bg en core/config.js)
+const chapterBg = () => zoneOf(S.stage).bg;
 // L27: capas de profundidad explícitas — antes todo compartía depth 0 y el orden
 // dependía de en qué frame se había creado cada sprite.
 const Z = { bg: -20, grade: -5, parts: -4, fog: -3, shadow: -1, sprite: 0, crown: 2, bars: 12, badge: 13, fx: 20 };
@@ -170,13 +169,16 @@ class BattleScene extends Phaser.Scene {
     const alive = new Set();
     enemies.forEach(e => {
       alive.add(e);
-      const kind = e.boss ? 'boss' : e.kind;
+      // L28: `animKind` desacopla el sprite del rol. Un Jefe de Zona puede ser un
+      // escarabajo gigante o el Rey Bestia: usa las anims del bicho que sea.
+      const kind = e.animKind || (e.boss ? 'boss' : e.kind);
       if (!e.sprite && this.anims.exists(kind + '_walk')) {
         e.sprite = this.add.sprite(e.x, gy, kind + '_walk').setOrigin(0.5, 1).setDepth(Z.sprite);
         this.safePlay(e.sprite, kind + '_walk');
         this.seen.add(e);
         if (e.boss) {
-          showBanner('👑 JEFE', chapterOf(S.stage).name + ' · Etapa ' + S.stage, 'bnRed');
+          showBanner(bossIco(e) + ' ' + (e.mini ? pixelUpper('Guardián') : 'JEFE DE ZONA'),
+            bossName(e) + ' · ' + (e.mini ? 'Etapa ' + S.stage : e.def.title), 'bnRed');
           this.cameras.main.shake(400, 0.02);
           vfxZoomPulse(this, 1.14, 220);
         } else {
@@ -216,7 +218,8 @@ class BattleScene extends Phaser.Scene {
         e.sprite.y = gy + hop;
         // LOTE 8: boss con anims propios (attack con restart, idle, walk)
         // L27: + boss_roar, que existía como arte y como anim pero nunca se reproducía.
-        if (e.boss) {
+        // L28: sólo el sprite 'boss' tiene ese set; los jefes-bicho usan su walk.
+        if (e.boss && kind === 'boss') {
           const des = bossRoarT > 0 ? 'boss_roar'
             : (e.state === 'windup' || e.state === 'strike') ? 'boss_attack'
             : e.state === 'idle' ? 'boss_idle' : 'boss_walk';
@@ -225,8 +228,9 @@ class BattleScene extends Phaser.Scene {
             if (this.anims.exists(des)) { try { e.sprite.play(des); } catch (err) {} }
           }
         }
-        // L26: élites en dorado · L27: los afijos tienen su propio tinte
+        // L26: élites en dorado · L27: afijos con tinte · L28: cada jefe, el suyo
         if (e.flash > 0) e.sprite.setTint(0xffffff);
+        else if (e.boss) { if (e.def.tint === 0xffffff) e.sprite.clearTint(); else e.sprite.setTint(e.def.tint); }
         else if (e.elite) e.sprite.setTint(0xffd76b);
         else if (e.affix) e.sprite.setTint(affixDef(e.affix).tint);
         else e.sprite.clearTint();
@@ -260,6 +264,23 @@ class BattleScene extends Phaser.Scene {
         this.shadows.fillStyle(e.elite ? 0xffd700 : toColor(aff.css), pulse);
         this.shadows.fillEllipse(bx, gy + 4, 66 * su, 16);
       }
+      // L28 · 🔆 escudo de jefe: burbuja alrededor del sprite
+      if (e.boss && e.shield > 0 && !SETTINGS.reduceFx) {
+        const a = 0.18 + Math.sin(t * 4) * 0.08;
+        const rr = 52 * su;
+        this.bars.lineStyle(3, 0x7efcff, a + 0.3);
+        this.bars.strokeEllipse(bx, gy - rr * 0.75, rr * 2, rr * 1.9);
+        this.bars.fillStyle(0x7efcff, a * 0.5);
+        this.bars.fillEllipse(bx, gy - rr * 0.75, rr * 2, rr * 1.9);
+      }
+      // L28 · 💢 aviso de embate en el suelo, delante del escuadrón
+      if (e.boss && e.slamTell > 0 && !SETTINGS.reduceFx) {
+        const p = 1 - e.slamTell / BOSS_SLAM_TELL;
+        this.shadows.fillStyle(0xff4757, 0.12 + p * 0.28);
+        this.shadows.fillEllipse(heroX() + advance + 20, gy + 6, 460, 76);
+        this.shadows.lineStyle(3, 0xff4757, 0.5 + p * 0.5);
+        this.shadows.strokeEllipse(heroX() + advance + 20, gy + 6, 460 * p, 76 * p);
+      }
       this.bars.fillStyle(0x000000, 0.65); this.bars.fillRect(bx - bw / 2 - 1, by - 1, bw + 2, 8);
       this.bars.fillStyle(e.boss ? 0xff4757 : e.elite ? 0xffd700 : aff ? toColor(aff.css) : 0x7bed9f, 1);
       this.bars.fillRect(bx - bw / 2, by, bw * Math.max(0, e.hp / e.max), 6);
@@ -282,7 +303,8 @@ class BattleScene extends Phaser.Scene {
     this.bars.clear();
     if (S.stage !== this.lastStage) {
       this.lastStage = S.stage;
-      showBanner('⚔️ ETAPA ' + S.stage, chapterOf(S.stage).name);
+      // durante una cinemática de zona el cartel grande ya cuenta dónde estás
+      if (!dialogueActive) showBanner('⚔️ ETAPA ' + S.stage, zoneOf(S.stage).name);
     }
     const wantCrown = !!(S.look && S.look.crown);
     this.syncSquad(gy, t, wantCrown);

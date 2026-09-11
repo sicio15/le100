@@ -7,6 +7,9 @@
 /* Con un panel abierto los toasts caían justo sobre su título y lo tapaban.
    Mientras haya un modal en pantalla se van abajo, donde no estorban. */
 body:has(.modal[style*="flex"]) #toasts { top:auto; bottom:16px; }
+/* L28: lo mismo con el marco del jefe — el aviso "¡JEFE DE ZONA!" aterrizaba
+   justo encima de su nombre. Con un jefe en pantalla, los toasts bajan. */
+body:has(#bossFrame:not(.hidden)) #toasts { top:182px; }
 .toast { display:flex; align-items:center; gap:8px; max-width:92vw;
   background:linear-gradient(180deg,rgba(24,20,48,.95),rgba(12,10,26,.92));
   backdrop-filter:var(--blur-soft); border:1px solid var(--gold-border); border-left:3px solid var(--gold);

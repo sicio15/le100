@@ -63,6 +63,16 @@ let bossPhase = 0;
 let bossRoarT = 0;
 function bossRoar() { bossRoarT = 1.1; if (HOOKS.bossRoar) HOOKS.bossRoar(); }
 
+// ===== L28: MALDICIÓN DE JEFE — recorta tu daño mientras dura =====
+let curseT = 0;
+const curseMult = () => curseT > 0 ? BOSS_CURSE_MULT : 1;
+
+// ===== L28: CINEMÁTICAS — mientras haya un diálogo en pantalla el combate se
+// congela. No es una pausa "dura": los temporizadores de UI siguen y el diálogo
+// avanza solo a los DLG_AUTO_MS, así que un jugador AFK nunca queda trabado.
+let dialogueActive = false;
+const bossIntroShown = {};   // idJefe → ya mostramos su charla en esta partida
+
 // ===== L27: medidor de rendimiento (oro/s y daño/s REALES de la sesión) =====
 // Ventana deslizante de 5s: es lo que el HUD muestra, en vez de un número teórico.
 const _perfWin = 5;
@@ -80,8 +90,10 @@ const goldPerSec = () => _perfSum(_perfGold);
 const dmgPerSec = () => _perfSum(_perfDmg);
 
 const HOOKS = { ult: null, crit: null, kill: null, cutin: null, bossShow: null, bossHide: null,
-  bossTick: null, bossRoar: null, tap: null, comboTier: null, skill: null, bossPhase: null };
-const VFX = { float(){}, burst(){}, coin(){}, puff(){}, shockwave(){}, beam(){}, nova(){}, slash(){}, spark(){} };
+  bossTick: null, bossRoar: null, tap: null, comboTier: null, skill: null, bossPhase: null,
+  zoneIn: null, bossIntro: null, bossDefeat: null, portal: null };
+const VFX = { float(){}, burst(){}, coin(){}, puff(){}, shockwave(){}, beam(){}, nova(){}, slash(){},
+  spark(){}, projectile(){}, portal(){}, telegraph(){} };
 const notify = t => { if (typeof toast !== 'undefined') toast(t); };
 function float(x, y, txt, color, big) { VFX.float(x, y, txt, color, big); }
 function burst(x, y, color, n) { VFX.burst(x, y, color, n); }

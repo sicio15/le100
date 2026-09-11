@@ -76,6 +76,7 @@ const SKILL_FX = { smash: castSmash, frenzy: castFrenzy, aegis: castAegis };
 function castSkill(id, silent) {
   const d = skillDef(id);
   if (!d) return false;
+  if (dialogueActive) return false; // L28: no se lanza nada durante una cinemática
   if (!skillUnlocked(id)) { if (!silent) toast('🔒 ' + d.n + ' se desbloquea en la etapa ' + d.unlock); return false; }
   if (!skillReady(id)) {
     if (!silent) { toast('⏳ ' + d.n + ': ' + Math.ceil(skillCd[id]) + 's'); Audio.SFX.click(); }

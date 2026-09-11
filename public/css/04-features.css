@@ -35,15 +35,32 @@
 
 /* ---------------- MAPA ---------------- */
 #mapBody { text-align:left; }
-.mapChapter { margin-bottom:20px; border-bottom:1px solid var(--stroke); padding-bottom:12px; }
-.mapChapter h3 { font-family:var(--font-pixel); font-size:10px; color:var(--gold); margin-bottom:12px; }
+.mapBonus { background:var(--gold-soft); border:1px solid var(--gold-border);
+  border-radius:var(--r-m); padding:13px; margin-bottom:15px; }
+.mapBonus h3 { margin-bottom:9px; }
+.mbGrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:7px; font-size:11.5px; }
+.mapChapter { margin-bottom:20px; padding:12px; border-radius:var(--r-m);
+  border:1px solid var(--stroke); border-left:3px solid var(--zc,var(--gold));
+  background:linear-gradient(180deg,rgba(255,255,255,.035),transparent); }
+.mapZoneHead { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:8px; }
+.mzTitle h3 { font-family:var(--font-pixel); font-size:10px; color:var(--zc,var(--gold)); line-height:1.5; }
+.mzTitle small { display:block; font-size:10px; color:var(--text-faint); font-style:italic; margin-top:3px; }
+.mzStats { font-size:10px; color:var(--text-dim); white-space:nowrap; flex:0 0 auto; }
+.mzBoss { font-size:11px; color:var(--text-dim); background:rgba(0,0,0,.28);
+  border:1px solid var(--stroke); border-radius:var(--r-s); padding:7px 10px; margin-bottom:10px; }
+.mzBoss b { color:var(--zc,var(--text)); }
+.mzBoss.done { border-color:rgba(126,237,159,.35); }
 .mapGrid { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
-.mapNode { background:rgba(255,255,255,.05); border:2px solid var(--stroke);
+.mapNode { position:relative; background:rgba(255,255,255,.05); border:2px solid var(--stroke);
   border-radius:var(--r-m); padding:10px 0; display:flex; flex-direction:column;
   align-items:center; gap:4px; cursor:pointer; transition:all var(--t-fast); }
 .mapNode.unlocked:hover { background:var(--gold-soft); border-color:var(--gold); transform:translateY(-2px); }
 .mapNode.current { border-color:var(--cyan); background:rgba(126,252,252,.12); box-shadow:var(--glow-cyan); }
 .mapNode.locked { opacity:.28; cursor:not-allowed; filter:grayscale(1); }
+.mapNode.miniBoss { border-color:rgba(255,167,38,.5); }
+.mapNode.zoneBoss { border-color:var(--zc,var(--red)); background:rgba(255,71,87,.12); }
+.nodeTag { position:absolute; top:-8px; right:-4px; font-size:13px;
+  filter:drop-shadow(0 2px 3px rgba(0,0,0,.8)); }
 .nodeStage { font-family:var(--font-pixel); font-size:10px; color:var(--text); }
 .nodeRank { font-family:var(--font-pixel); font-size:12px; font-weight:bold; }
 

@@ -21,6 +21,7 @@ function nextStage() {
     invalidateRankBonus(); // el bonus de daño por rangos S/A cambió → recalcular
     if (rank === 'S') toast('🌟 ¡RANGO S EN ETAPA ' + S.stage + '!');
   }
+  const prevZone = zoneIndex(S.stage);
   S.stage++; S.best = Math.max(S.best, S.stage); S.ks = 0;
   startStageClock();
   resetSquad(); initSquad();
@@ -28,12 +29,18 @@ function nextStage() {
   reEnter();
   enemies = []; spawnT = 0.6;
   stageFlash = 0.5;
-  const ch = Math.floor((S.stage - 1) / 10);
-  if (ch !== lastChapter) { lastChapter = ch; Audio.setChapter(ch); Audio.SFX.levelup(); notify('🌄 ' + chapterOf(S.stage).name); }
-  else Audio.SFX.levelup();
+  curseT = 0;
+  // L28: cambio de ZONA — transición cinemática + diálogo + registro en el códice
+  const zi = zoneIndex(S.stage);
+  if (zi !== prevZone || lastChapter < 0) {
+    lastChapter = zi;
+    Audio.setChapter(zoneOf(S.stage).music);
+    Audio.SFX.levelup();
+    if (HOOKS.zoneIn) HOOKS.zoneIn(zi);
+  } else Audio.SFX.levelup();
   addSeasonXp(10);
   persist(); netScore(S.name, S.best);
-  notify('⚔️ Etapa ' + S.stage + (isBossStage() ? ' 👑' : ''));
+  notify('⚔️ Etapa ' + S.stage + (isZoneBossStage(S.stage) ? ' 👑' : isMiniBossStage(S.stage) ? ' 🛡️' : ''));
 }
 
 // ----- Escuadrón: mover, atacar, curar -----
@@ -56,25 +63,24 @@ function updateSquad(dt, hx, gy) {
     const mult = m.def.role === 'dps' ? 1 : m.def.role === 'archer' ? 0.85 : 0.55;
     const isCrit = Math.random() < critChance();
     const d = liveDps() * 0.5 * mult * (isCrit ? critMult() : 1) * affixDmgTaken(t);
-    t.hp -= d; t.flash = 0.15; t.kb = isCrit ? 11 : 7;
-    trackDmg(d);
-    float(t.x, gy - 70 * t.size, fmt(d), isCrit ? '#ffeb3b' : '#fff', isCrit);
+    t.flash = 0.15; t.kb = isCrit ? 11 : 7;
+    const dealt = damageEnemy(t, d);
+    float(t.x, gy - 70 * t.size, fmt(dealt), isCrit ? '#ffeb3b' : '#fff', isCrit);
     burst(t.x, gy - 45 * t.size, isCrit ? '#ffeb3b' : '#ffffff', isCrit ? 10 : 6);
     if (isCrit) { shake = Math.max(shake, 3); Audio.SFX.crit(); } else Audio.SFX.hit();
     if (isCrit && HOOKS.crit) HOOKS.crit(t.x, gy - 45 * t.size);
     gainEnergy(m, 8);
-    if (t.boss) checkBossPhase(t);
-    if (t.hp <= 0) killEnemy(t);
   });
 }
 
-// ----- Enemigos: avance, golpes, afijos -----
+// ----- Enemigos: avance, golpes, afijos, habilidades de jefe -----
 function updateEnemies(dt, hx, gy) {
   enemies.forEach(e => {
     e.flash = Math.max(0, e.flash - dt);
     e.kb = Math.max(0, e.kb - dt * 40);
     e.pop = Math.min(1, e.pop + dt * 3);
     if (e.dying !== null) { e.dying -= dt; return; }
+    if (e.boss) bossTickAbilities(e, dt); // L28
     const ex = hx + advance + 150 + e.slot * 46;
     let lungeT = 0;
     if (e.x > ex) {
@@ -89,12 +95,15 @@ function updateEnemies(dt, hx, gy) {
         if (e.atkT <= 0.3 && e.atkT > 0.12) { e.state = 'windup'; lungeT = 10 * e.size; }
         else if (e.atkT <= 0.12) { e.state = 'strike'; lungeT = -18 * e.size; }
         if (e.atkT <= 0) {
-          // 💨 Veloz pega más seguido · 👑 el jefe acelera con cada fase
-          e.atkT = (1 + Math.random() * 0.4) * affixAtkSpd(e) * (e.boss ? bossPhaseSpd() : 1);
+          // 💨 Veloz pega más seguido · 👑 el jefe acelera con cada fase y con la agonía
+          e.atkT = (1 + Math.random() * 0.4) * affixAtkSpd(e)
+            * (e.boss ? bossPhaseSpd() * bossHasteMult(e) : 1);
           e.state = 'idle';
           // L26: el jefe pega más fuerte por cada ciclo de 30s que dejás pasar
-          // L27: …y por cada fase superada. La Égida recorta el golpe un 60%.
-          const raw = eDmg(S.stage) * (e.boss ? 3 * bossRageMult() * bossPhaseDmg() : e.elite ? 1.6 : 1);
+          // L27: …y por cada fase. L28: …y por su propio dmgMul. La Égida lo recorta.
+          const raw = eDmg(S.stage) * (e.boss
+            ? (e.mini ? 2 : 3) * e.def.dmgMul * bossRageMult() * bossPhaseDmg()
+            : e.elite ? 1.6 : 1);
           const d = raw * damageTakenMult();
           m.hp -= d; m.flash = 0.15;
           float(m.px, gy - 80, '-' + fmt(d), hasBuff('aegis') ? '#7bed9f' : '#ff4757');
@@ -102,6 +111,7 @@ function updateEnemies(dt, hx, gy) {
           Audio.SFX.hit();
           gainEnergy(m, 6);
           affixOnDealDamage(e, d); // 🩸 el Vampírico se cura con lo que pega
+          if (e.boss) bossDrain(e, d); // 🩸 …y los jefes con Drenaje también
           if (m.hp <= 0) killHero(m);
         }
       }
@@ -118,10 +128,15 @@ function updateBoss(dt) {
   bossT -= dt;
   if (HOOKS.bossTick) {
     HOOKS.bossTick({
+      name: bossName(boss), ico: bossIco(boss), color: boss.def.color,
+      title: boss.mini ? 'Guardián de zona' : boss.def.title,
+      chips: bossAbilityChips(boss),
       time: Math.max(0, bossT / BOSS_TIMER) * 100,
       secs: Math.max(0, Math.ceil(bossT)),
       hp: Math.max(0, boss.hp / boss.max) * 100,
       hpTxt: fmt(Math.max(0, boss.hp)) + ' / ' + fmt(boss.max),
+      shield: boss.shieldMax > 0 ? Math.max(0, boss.shield / boss.shieldMax) * 100 : 0,
+      hasShield: boss.shieldMax > 0,
       rage: bossRage,
       phase: bossPhase,
       phases: BOSS_PHASES.length
@@ -134,17 +149,21 @@ function updateBoss(dt) {
     shake = Math.max(shake, 8);
     bossRoar();
     Audio.SFX.boss();
-    notify('🔥 ¡El jefe ENFURECE! +' + Math.round((bossRageMult() - 1) * 100) + '% daño');
+    notify('🔥 ¡' + bossName(boss) + ' ENFURECE! +' + Math.round((bossRageMult() - 1) * 100) + '% daño');
   }
 }
 
 function update(rawDt) {
   const dt = rawDt * SETTINGS.speed;
   time += dt;
+  // L28: durante una cinemática el combate se congela, pero el reloj de la escena
+  // sigue para que las animaciones de fondo (ambiente, parallax) no se corten.
+  if (dialogueActive) return;
   stageFlash = Math.max(0, stageFlash - dt);
   petCastT = Math.max(0, petCastT - dt);
   tapCd = Math.max(0, tapCd - dt);
   bossRoarT = Math.max(0, bossRoarT - dt);
+  curseT = Math.max(0, curseT - dt);
   tickBuffs(dt);                                        // L27
   if (typeof tickSkills === 'function') tickSkills(dt); // L27
   // L26: el combo decae si dejás de matar (no se pierde de golpe: se desangra)
@@ -178,13 +197,10 @@ function update(rawDt) {
       Audio.SFX.venom();
       petCastT = 0.9;
       aliveE.forEach(e => {
-        const dd = d * affixDmgTaken(e);
-        e.hp -= dd; e.flash = 0.15; e.kb = 5;
-        trackDmg(dd);
+        e.flash = 0.15; e.kb = 5;
+        damageEnemy(e, d * affixDmgTaken(e));
         burst(e.x, gy - 30, '#a020f0', 8);
         squad.forEach(m => { if (m.alive) gainEnergy(m, 3); });
-        if (e.boss) checkBossPhase(e);
-        if (e.hp <= 0) killEnemy(e);
       });
     }
   }

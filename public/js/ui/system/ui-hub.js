@@ -22,7 +22,9 @@ const HUB_SECTIONS = [
     { id: 'btnArena', ico: '⚔️', n: 'Arena PvP', key: 'A', hint: () => S.arenaPts + ' pts' }
   ]},
   { t: 'PROGRESO', items: [
-    { id: 'btnMap', ico: '🗺️', n: 'Mapa', key: 'M', hint: () => 'Récord: etapa ' + S.best },
+    { id: 'btnCodex', ico: '📖', n: 'Códice', dot: 'codexDot', key: 'X',
+      hint: () => Math.round(codexProgress() * 100) + '% · +' + (codexStars().damage * 100).toFixed(1) + '% daño' },
+    { id: 'btnMap', ico: '🗺️', n: 'Mapa', key: 'M', hint: () => zoneOf(S.stage).name },
     { id: 'btnMissions', ico: '📜', n: 'Misiones', dot: 'misDot', key: 'C', hint: () => 'Diarias' },
     { id: 'btnAch', ico: '🏅', n: 'Logros', dot: 'achDot', hint: () => Object.keys(S.ach).length + '/' + ACH.length },
     { id: 'btnStats', ico: '📊', n: 'Estadísticas', key: 'V', hint: () => fmt(S.kills) + ' kills' },
@@ -56,7 +58,7 @@ function renderHub() {
   const box = $('hubBody'); if (!box) return;
   const nm = $('drawerName'), sb = $('drawerSub');
   if (nm) nm.textContent = S.name || 'Invitado';
-  if (sb) sb.textContent = 'Etapa ' + S.stage + ' · récord ' + S.best + ' · ' + S.prestiges + ' 🧬 prestigios';
+  if (sb) sb.textContent = zoneOf(S.stage).name + ' · etapa ' + S.stage + ' · récord ' + S.best;
   box.innerHTML = '';
   HUB_SECTIONS.forEach(sec => {
     const h = document.createElement('div');
@@ -89,6 +91,6 @@ function renderHub() {
 // Dot agregado: avisa si hay ALGO pendiente en cualquier sección
 setInterval(() => {
   const d = $('hubDot'); if (!d) return;
-  const any = ['dailyDot', 'misDot', 'achDot', 'gearDot', 'weekDot', 'prDot', 'bpDot', 'skillDot'].some(dotOn);
+  const any = ['dailyDot', 'misDot', 'achDot', 'gearDot', 'weekDot', 'prDot', 'bpDot', 'skillDot', 'codexDot'].some(dotOn);
   d.style.display = any ? 'block' : 'none';
 }, 2000);

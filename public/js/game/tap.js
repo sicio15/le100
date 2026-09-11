@@ -25,9 +25,10 @@ function doTap(x, y) {
   const gy = groundY();
   const isCrit = Math.random() < critChance();
   const d = liveDps() * TAP_MULT * (isCrit ? critMult() : 1) * affixDmgTaken(t);
-  t.hp -= d; t.flash = 0.18; t.kb = isCrit ? 14 : 9;
-  trackDmg(d);
-  float(t.x, gy - 76 * t.size, fmt(d), isCrit ? '#ffeb3b' : '#7efcff', isCrit);
+  t.flash = 0.18; t.kb = isCrit ? 14 : 9;
+  // L28: pasa por damageEnemy → respeta escudos de jefe, espinas y fases
+  const dealt = damageEnemy(t, d);
+  float(t.x, gy - 76 * t.size, fmt(dealt), isCrit ? '#ffeb3b' : '#7efcff', isCrit);
   burst(t.x, gy - 44 * t.size, isCrit ? '#ffeb3b' : '#7efcff', isCrit ? 14 : 9);
   VFX.spark(t.x, gy - 44 * t.size, isCrit ? '#ffeb3b' : '#7efcff');
   shake = Math.max(shake, isCrit ? 5 : 2);
@@ -37,8 +38,6 @@ function doTap(x, y) {
   else Audio.SFX.hit();
   if (HOOKS.tap) HOOKS.tap(x, y);
   squad.forEach(m => { if (m.alive) { m.lunge = 1; gainEnergy(m, TAP_ENERGY); } });
-  if (t.boss) checkBossPhase(t);
-  if (t.hp <= 0) killEnemy(t);
   return true;
 }
 
@@ -47,7 +46,8 @@ function doTap(x, y) {
   const wrap = document.getElementById('battleWrap');
   if (!wrap) return;
   const onDown = ev => {
-    // Ignorar si hay un modal abierto por encima
+    // Ignorar si hay un modal o una cinemática abiertos por encima
+    if (dialogueActive) return;
     if (document.querySelector('.modal[style*="flex"]')) return;
     const r = wrap.getBoundingClientRect();
     const p = (ev.touches && ev.touches[0]) || ev;

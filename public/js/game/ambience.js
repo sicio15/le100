@@ -23,7 +23,9 @@ function ambienceInit(scene) {
 }
 
 function ambienceBuild(idx) {
-  const def = CHAPTER_FX[Math.min(CHAPTER_FX.length - 1, Math.max(0, idx))];
+  // L28: el clima se busca por el id que declara la zona, no por posición en el
+  // array — así se pueden reordenar o insertar zonas sin desalinear el ambiente.
+  const def = chapterFx(ZONES[Math.min(ZONES.length - 1, Math.max(0, idx))].fx);
   AMB.def = def;
   AMB.ch = idx;
   AMB.parts = [];
@@ -80,6 +82,18 @@ function ambienceUpdate(dt, t) {
         y = f.y * H;
         a = 0.35 + Math.sin(t * 5 * f.v + f.p) * 0.3; r = 2.2 * f.s;
         break;
+      case 'spore':  // esporas del sotobosque: flotan lento y a la deriva
+        f.y -= dt * 0.03 * f.v; if (f.y < -0.05) { f.y = 1.03; f.x = Math.random(); }
+        x = (f.x + Math.sin(t * 0.6 * f.v + f.p) * 0.06 - drift) * W;
+        y = f.y * H;
+        a = 0.22 + Math.sin(t * 1.4 + f.p) * 0.14; r = 3.4 * f.s;
+        break;
+      case 'shard':  // esquirlas de cristal: caen rectas y destellan al girar
+        f.y += dt * 0.12 * f.v; if (f.y > 1.05) { f.y = -0.05; f.x = Math.random(); }
+        x = (f.x - drift) * W;
+        y = f.y * H * 0.95;
+        a = 0.2 + Math.abs(Math.sin(t * 3 * f.v + f.p)) * 0.65; r = 2.6 * f.s;
+        break;
       default:       // 'star': motas del vacío que titilan en su sitio
         x = (f.x + Math.sin(t * 0.2 * f.v + f.p) * 0.01 - drift * 0.4) * W;
         y = (f.y * 0.8) * H;
@@ -93,6 +107,11 @@ function ambienceUpdate(dt, t) {
       g.fillEllipse(x, y, w, h);
     } else if (def.kind === 'drip') {
       g.fillRect(x, y, 1.5, r * 4);
+    } else if (def.kind === 'shard') {
+      // rombo: dos triángulos que giran sobre su eje vertical
+      const w = r * (0.3 + Math.abs(Math.cos(t * 2.4 + f.p)) * 0.9);
+      g.fillTriangle(x, y - r * 1.6, x - w, y, x + w, y);
+      g.fillTriangle(x, y + r * 1.6, x - w, y, x + w, y);
     } else {
       g.fillCircle(x, y, r);
     }

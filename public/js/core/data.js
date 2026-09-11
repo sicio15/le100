@@ -152,13 +152,52 @@ const BOSS_PHASE_DMG = 0.3;   // +30% daño por fase
 const BOSS_PHASE_SPD = 0.25;  // +25% velocidad de ataque por fase
 const BOSS_PHASE_ADDS = 2;    // esbirros invocados en cada cambio de fase
 
-// ----- AMBIENTE POR CAPÍTULO (game/ambience.js) -----
-// Partículas + gradación de color: cada capítulo se SIENTE distinto aunque
-// comparta sprites. `grade` es un velo de color sobre la escena.
+// ----- AMBIENTE POR ZONA (game/ambience.js) -----
+// Partículas + gradación de color: cada zona se SIENTE distinta aunque comparta
+// sprites y fondos. `grade` es un velo de color sobre la escena.
+// L28: se busca por id (ZONES[n].fx), no por índice, para poder reordenar zonas.
 const CHAPTER_FX = [
-  { id: 'forest', kind: 'leaf',  color: 0x9ad46a, n: 18, grade: 0x123a1e, gradeA: 0.10, fog: 0 },
-  { id: 'cave',   kind: 'drip',  color: 0x8fd8ff, n: 14, grade: 0x0b1740, gradeA: 0.22, fog: 0.12 },
+  { id: 'forest', kind: 'leaf',   color: 0x9ad46a, n: 18, grade: 0x123a1e, gradeA: 0.10, fog: 0 },
+  { id: 'cave',   kind: 'drip',   color: 0x8fd8ff, n: 14, grade: 0x0b1740, gradeA: 0.22, fog: 0.12 },
   { id: 'swamp',  kind: 'bubble', color: 0x7bed9f, n: 16, grade: 0x0d2a1c, gradeA: 0.20, fog: 0.22 },
-  { id: 'tower',  kind: 'ember', color: 0xffa726, n: 22, grade: 0x3a0e12, gradeA: 0.20, fog: 0.08 },
-  { id: 'void',   kind: 'star',  color: 0xc86bfa, n: 26, grade: 0x1a0a34, gradeA: 0.24, fog: 0.10 }
+  { id: 'tower',  kind: 'ember',  color: 0xffa726, n: 22, grade: 0x3a0e12, gradeA: 0.20, fog: 0.08 },
+  { id: 'deep',   kind: 'spore',  color: 0xc86bfa, n: 20, grade: 0x1b0f30, gradeA: 0.26, fog: 0.18 },
+  { id: 'ash',    kind: 'ember',  color: 0xff7043, n: 30, grade: 0x3d1205, gradeA: 0.28, fog: 0.10 },
+  { id: 'crystal',kind: 'shard',  color: 0xe0c3fc, n: 22, grade: 0x241442, gradeA: 0.24, fog: 0.06 },
+  { id: 'void',   kind: 'star',   color: 0xb388ff, n: 28, grade: 0x140a2e, gradeA: 0.30, fog: 0.12 }
 ];
+const chapterFx = id => CHAPTER_FX.find(f => f.id === id) || CHAPTER_FX[0];
+
+// ===================== LOTE 28 =====================
+// ----- Jefes de zona y mini-jefes (game/bosses.js) -----
+const ZONE_BOSS_HP   = 22;   // multiplicador de eHP para el Jefe de Zona (etapa %10)
+const MINI_BOSS_HP   = 9;    // …y para el mini-jefe (etapa %5)
+const MINI_BOSS_SIZE = 0.62; // escala relativa al jefe de la zona
+const MINI_BOSS_GOLD = 4;
+const ZONE_BOSS_GOLD = 14;
+// Ciclos y potencias de las habilidades de jefe
+const BOSS_SHIELD_PCT   = 0.35;  // escudo = 35% de su vida máxima, por fase
+const BOSS_SLAM_CD      = 11;    // s entre embates
+const BOSS_SLAM_TELL    = 1.3;   // s de aviso antes del golpe
+const BOSS_SLAM_DMG     = 1.7;   // xeDmg a TODO el escuadrón (telegrafiado: se puede cortar con la Égida)
+const BOSS_DRAIN        = 0.45;  // se cura el 45% del daño que hace
+const BOSS_CURSE_CD     = 16;
+const BOSS_CURSE_DUR    = 6;
+const BOSS_CURSE_MULT   = 0.65;  // tu daño x0.65 mientras dure
+const BOSS_VOLLEY_CD    = 8;
+const BOSS_VOLLEY_N     = 3;
+const BOSS_VOLLEY_DMG   = 0.9;
+const BOSS_REFLECT      = 0.05;  // te devuelve el 5% del daño que le hacés…
+const BOSS_REFLECT_CAP  = 0.04;  // …con tope del 4% de la vida máxima del héroe por golpe.
+// Sin ese tope las Espinas escalaban con TU daño: cuanto más fuerte te hacías,
+// más te mataban ellas solas. El tope las deja molestas pero nunca letales de golpe.
+const BOSS_HASTE_MAX    = 0.9;   // hasta +90% de velocidad de ataque con 0% de vida
+
+// ----- Códice / bestiario (core/codex.js) -----
+const CODEX_TIERS      = [25, 100, 500];  // kills para ★ ★★ ★★★ de un bicho
+const CODEX_BOSS_TIERS = [1, 5, 25];      // victorias para ★ ★★ ★★★ de un jefe
+const CODEX_STAR_DMG   = 0.005;           // +0.5% de daño por estrella
+
+// ----- Diálogos (ui/system/ui-dialogue.js) -----
+const DLG_AUTO_MS = 5200;  // si no tocás nada, la línea avanza sola (AFK-friendly)
+const DLG_MIN_MS  = 700;   // tiempo mínimo antes de poder saltar una línea

@@ -5,19 +5,26 @@ const DEF_SAVE = { gold: 0, adn: 0, stage: 1, best: 1, kills: 0, prestiges: 0, p
   gear: { equipped: { fang: null, shell: null, antenna: null, charm: null }, inv: [] },
   tickets: 3, ticketDate: '', tower: 1, towerBest: 1, rlTickets: 2, rlDate: '',
   arenaPts: 0, arenaTickets: 5, arenaDate: '', colony: '', colonyLevel: 1, bossTicketDate: '',
-  mDate: '', mBase: { kills: 0, tower: 1, prestiges: 0 }, mClaimed: {},
+  mDate: '', mBase: { kills: 0, tower: 1, prestiges: 0, bossKills: 0, skillCasts: 0, affixKills: 0 }, mClaimed: {},
   shop: { lv: {}, skins: [], skin: '' },
   look: { pet: true, crown: false },
   stageRanks: {}, weekTower: 1, weekClaimedKey: 0, milestones: {},
   essence: 0, amulets: 0, bagSize: 30, autoSalvage: -1,
   flashType: '', flashEnd: 0, flashNext: 0, season: 1, seasonXp: 0, seasonLevel: 1, hasPremiumPass: false, seasonClaimed: {}, seasonStart: Date.now(),
   skills: {}, skillAuto: true,
+  codex: { kills: {}, bosses: {}, zones: {}, lore: {}, relics: {} },
   stats: { goldEarned: 0, bossKills: 0, elites: 0, ultimates: 0, bestCombo: 0, playMs: 0,
     skillCasts: 0, affixKills: 0, taps: 0 } };
 const SHOP_MAX = { fury: 10, vita: 10, fort: 10, regen: 10, crit: 5 };
 // L27: habilidades activas — ids y tope de nivel espejo de public/js/core/data.js
 const SKILL_IDS = ['smash', 'frenzy', 'aegis'];
 const SKILL_MAX_LV = 10;
+// L28: códice — espejo de public/js/core/lore.js. Si acá falta un id, el cliente
+// lo pierde en cada round-trip con el servidor, así que van juntos o no van.
+const CODEX_KINDS  = ['beetle', 'spider', 'wasp', 'scorpion'];
+const CODEX_BOSSES = ['escarabajo', 'tejedora', 'reina', 'reybestia', 'obsidiana', 'cenizas', 'prismatica', 'vacio'];
+const CODEX_ZONES  = ['bosque', 'cuevas', 'pantano', 'torre', 'soto', 'ceniza', 'cristal', 'vacio'];
+const CODEX_RELICS = ['corteza', 'eco', 'bilis', 'corona', 'aguijon_neg', 'brasa', 'prisma', 'borde'];
 const SKIN_IDS = ['oro', 'hielo', 'sombra', 'bronce', 'plata'];
 const VALID_RANKS = ['S', 'A', 'B', 'C', 'R'];
 const MILESTONE_IDS = ['t10', 't25', 't50', 't100'];
@@ -64,7 +71,8 @@ function sanitizeSave(s) {
   o.bossTicketDate = String(s.bossTicketDate || '').slice(0, 10);
   o.mDate = String(s.mDate || '').slice(0, 10);
   const mb = s.mBase || {};
-  o.mBase = { kills: num(mb.kills, 1e9), tower: Math.max(1, num(mb.tower, 9999)), prestiges: num(mb.prestiges, 1e6) };
+  o.mBase = { kills: num(mb.kills, 1e9), tower: Math.max(1, num(mb.tower, 9999)), prestiges: num(mb.prestiges, 1e6),
+    bossKills: num(mb.bossKills, 1e9), skillCasts: num(mb.skillCasts, 1e9), affixKills: num(mb.affixKills, 1e9) };
   o.mClaimed = (s.mClaimed && typeof s.mClaimed === 'object')
     ? Object.fromEntries(Object.entries(s.mClaimed).filter(([, v]) => v).map(([k]) => [String(k).slice(0, 16), 1]))
     : {};
@@ -117,6 +125,25 @@ o.seasonStart = num(s.seasonStart, 1e15) || Date.now();
   o.skills = {};
   SKILL_IDS.forEach(id => { o.skills[id] = Math.max(0, Math.min(SKILL_MAX_LV, num(sk[id], SKILL_MAX_LV))); });
   o.skillAuto = s.skillAuto !== false;
+  // L28: códice (bestiario + jefes + zonas + lore leído + reliquias)
+  const cx = (s.codex && typeof s.codex === 'object') ? s.codex : {};
+  const flags = (src, white) => {
+    const out = {};
+    if (src && typeof src === 'object') {
+      Object.keys(src).forEach(k => { if ((!white || white.includes(k)) && src[k]) out[k] = 1; });
+    }
+    return out;
+  };
+  o.codex = { kills: {}, bosses: {}, zones: {}, lore: {}, relics: {} };
+  CODEX_KINDS.forEach(k => { o.codex.kills[k] = num((cx.kills || {})[k], 1e9); });
+  CODEX_BOSSES.forEach(k => { o.codex.bosses[k] = num((cx.bosses || {})[k], 1e6); });
+  o.codex.zones = flags(cx.zones, CODEX_ZONES);
+  o.codex.relics = flags(cx.relics, CODEX_RELICS);
+  // las claves de lore son libres (zi_/bi_/bd_ + id) pero acotadas en número y largo
+  o.codex.lore = {};
+  Object.keys(cx.lore || {}).slice(0, 120).forEach(k => {
+    if (cx.lore[k]) o.codex.lore[String(k).slice(0, 32)] = 1;
+  });
   // L26: estadísticas de vida (sólo lectura para el panel 📊, nunca alimentan fórmulas)
   const st = (s.stats && typeof s.stats === 'object') ? s.stats : {};
   o.stats = { goldEarned: num(st.goldEarned, 1e15), bossKills: num(st.bossKills, 1e9),

@@ -7,14 +7,23 @@ const Audio = (() => {
 
     // Escala menor pentatónica en La (frecuencias Hz)
     const SCALE = [220, 261.63, 293.66, 329.63, 392, 440, 523.25, 587.33];
-    // Progresión de acordes (índices a la escala) por "capítulo"
+    // L28: una progresión por ZONA (antes había 3 y se repetían en bucle desde el
+    // capítulo 4) + un tema exclusivo de pelea contra jefe.
     const PROG = [
-        [0, 3, 4, 3],   // bosque
-        [0, 5, 3, 4],   // cueva
-        [3, 0, 4, 5]    // pantano
+        [0, 3, 4, 3],   // 0 bosque    — abierto
+        [0, 5, 3, 4],   // 1 cuevas    — cerrado
+        [3, 0, 4, 5],   // 2 pantano   — pesado
+        [0, 4, 5, 4],   // 3 torre     — marcial
+        [5, 3, 0, 3],   // 4 sotobosque— descendente
+        [4, 5, 4, 0],   // 5 ceniza    — inquieto
+        [2, 5, 1, 4],   // 6 cristal   — disonante
+        [0, 6, 4, 6]    // 7 vacío     — sin resolver
     ];
+    const BOSS_PROG = [0, 1, 0, 6];   // tenso y repetitivo
     // Patrón de bajo (16 pasos), notas en octava baja
     const BASS = [0,0,3,3,4,4,3,3, 0,0,5,5,4,4,0,0];
+    const BOSS_BASS = [0,0,0,1, 0,0,0,1, 3,3,3,4, 3,3,1,1];
+    let bossMode = false;
 
     function init() {
         if (ctx) return;
@@ -51,48 +60,63 @@ const Audio = (() => {
     }
 
     // ===== Loop musical =====
+    const bpmNow = () => bossMode ? 152 : 132;
     function tick() {
         if (!ctx || !enabled) return;
-        const prog = PROG[chapter % PROG.length];
+        const prog = bossMode ? BOSS_PROG : PROG[chapter % PROG.length];
+        const bass = bossMode ? BOSS_BASS : BASS;
         const chord = prog[Math.floor(step / 4) % prog.length];
-        const bpm = 132, spb = 60 / bpm / 2; // 8th notes
+        const spb = 60 / bpmNow() / 2; // 8th notes
         const t = ctx.currentTime;
 
         // Bajo
-        const bn = BASS[step % 16];
-        beep(SCALE[bn] / 2, spb * 0.9, 'triangle', musicGain, 0.5, t);
+        const bn = bass[step % 16];
+        beep(SCALE[bn] / 2, spb * 0.9, bossMode ? 'sawtooth' : 'triangle', musicGain, bossMode ? 0.6 : 0.5, t);
 
         // Melodía (pentatónica sobre el acorde) cada 2 pasos
         if (step % 2 === 0) {
             const idx = (chord + [0, 2, 4, 2, 1, 3][Math.floor(step / 2) % 6]) % SCALE.length;
-            beep(SCALE[idx] * 2, spb * 1.4, 'square', musicGain, 0.18, t);
+            beep(SCALE[idx] * 2, spb * 1.4, 'square', musicGain, bossMode ? 0.22 : 0.18, t);
         }
         // Arpegio suave
         if (step % 4 === 2) {
             beep(SCALE[(chord + 2) % SCALE.length] * 1.5, spb * 0.8, 'sine', musicGain, 0.1, t);
         }
-        // Hi-hat
+        // Hi-hat (doble en modo jefe: sube la tensión sin cambiar la melodía)
         if (step % 2 === 1) noise(0.04, 0.06);
-        // Kick cada 4
-        if (step % 4 === 0) {
+        if (bossMode && step % 2 === 0) noise(0.03, 0.035);
+        // Kick cada 4 (cada 2 en modo jefe)
+        if (step % (bossMode ? 2 : 4) === 0) {
             const o = ctx.createOscillator(), g = ctx.createGain();
             o.frequency.setValueAtTime(120, t);
             o.frequency.exponentialRampToValueAtTime(40, t + 0.12);
-            g.gain.setValueAtTime(0.4, t);
+            g.gain.setValueAtTime(bossMode ? 0.5 : 0.4, t);
             g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
             o.connect(g); g.connect(musicGain); o.start(t); o.stop(t + 0.16);
         }
         step = (step + 1) % 16;
     }
 
+    function restartLoop() {
+        if (!loopId) return;
+        clearInterval(loopId);
+        loopId = setInterval(tick, 60000 / bpmNow() / 2);
+    }
     function startMusic() {
         init();
         if (!ctx || loopId) return;
         if (ctx.state === 'suspended') ctx.resume();
-        loopId = setInterval(tick, 60000 / 132 / 2);
+        loopId = setInterval(tick, 60000 / bpmNow() / 2);
     }
     function stopMusic() { if (loopId) { clearInterval(loopId); loopId = null; } }
-    function setChapter(c) { chapter = c; }
+    function setChapter(c) { chapter = Math.max(0, c | 0); step = 0; }
+    // L28: la pelea contra un jefe cambia de tema (más rápido, bajo saw, kick doble)
+    function setBossMode(v) {
+        v = !!v;
+        if (v === bossMode) return;
+        bossMode = v; step = 0;
+        restartLoop();
+    }
 
     // ===== SFX =====
     const SFX = {
@@ -106,10 +130,15 @@ const Audio = (() => {
         click()  { beep(700, 0.04, 'square', sfxGain, 0.15); },
         buy()    { beep(600, 0.05, 'square', sfxGain, 0.2); beep(900, 0.08, 'square', sfxGain, 0.2, ctx && ctx.currentTime + 0.05); },
         ult()    { [392,523,659,784].forEach((f,i)=> beep(f, 0.1, 'square', sfxGain, 0.3, ctx && ctx.currentTime + i*0.06)); noise(0.2, 0.15); },
+        // L28
+        shield() { [880,1174,1568].forEach((f,i)=> beep(f, 0.07, 'square', sfxGain, 0.22, ctx && ctx.currentTime + i*0.04)); },
+        zone()   { [262,330,392,523,659].forEach((f,i)=> beep(f, 0.16, 'triangle', musicGain, 0.32, ctx && ctx.currentTime + i*0.11)); },
+        relic()  { [523,784,1047,1568].forEach((f,i)=> beep(f, 0.18, 'sine', sfxGain, 0.28, ctx && ctx.currentTime + i*0.1)); noise(0.25, 0.1); },
+        page()   { beep(520, 0.03, 'square', sfxGain, 0.1); beep(660, 0.04, 'square', sfxGain, 0.08, ctx && ctx.currentTime + 0.03); },
     };
 
     return {
-        init, startMusic, stopMusic, setChapter, SFX,
+        init, startMusic, stopMusic, setChapter, setBossMode, SFX,
         get enabled() { return enabled; },
         setEnabled(v) { enabled = v; if (!v) stopMusic(); else startMusic(); saveSettings(); },
         setMusicVol(v) { mVol = v; if (musicGain) musicGain.gain.value = v * 0.25; saveSettings(); },

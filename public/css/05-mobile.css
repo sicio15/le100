@@ -35,6 +35,7 @@
   #bossTime { font-size:8px; top:-13px; }
   /* por debajo del marco del jefe: si no, los toasts lo tapaban justo al aparecer */
   #toasts { top:128px; max-width:94vw; gap:4px; z-index:70; }
+  body:has(#bossFrame:not(.hidden)) #toasts { top:158px; }
   #toasts .toast { font-size:10px; padding:6px 13px; }
   #toasts .toast:nth-child(n+4) { display:none; }
   #cutin { top:16%; gap:5px; }

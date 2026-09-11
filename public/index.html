@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="css/03-components.css">
 <link rel="stylesheet" href="css/04-features.css">
 <link rel="stylesheet" href="css/06-hud.css">
+<link rel="stylesheet" href="css/07-lore.css">
 <link rel="stylesheet" href="css/05-mobile.css">
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
@@ -62,6 +63,7 @@
     <button class="tbtn" id="btnLook">🎩</button>
     <button class="tbtn" id="btnGear">🎒<span class="dot" id="gearDot"></span></button>
     <button class="tbtn" id="btnSkills">✨<span class="dot" id="skillDot"></span></button>
+    <button class="tbtn" id="btnCodex">📖<span class="dot" id="codexDot"></span></button>
     <button class="tbtn" id="btnDaily">🎯<span class="dot" id="dailyDot"></span></button>
     <button class="tbtn" id="btnTower">🗼</button>
     <button class="tbtn" id="btnRogue">🌀</button>
@@ -75,16 +77,21 @@
 
   <!-- ============ CAMPO DE BATALLA ============ -->
   <div id="battleWrap">
-    <!-- Marco del jefe: vida + fases + reloj de furia -->
+    <!-- Marco del jefe: nombre, título, mecánicas, escudo, fases y reloj de furia -->
     <div id="bossFrame" class="hidden">
       <div class="bfTop">
-        <span class="bfName">👑 REY BESTIA</span>
+        <span class="bfName" id="bossName">👑 REY BESTIA</span>
         <span class="bfPhases" id="bossPhases"></span>
         <span class="bfRage hidden" id="bossRage">🔥 x0</span>
       </div>
+      <div class="bfSub"><span class="bfTitle" id="bossTitle"></span><span class="bfChips" id="bossChips"></span></div>
       <div class="bfBar"><div id="bossFill"></div><span id="bossHpTxt">0 / 0</span></div>
+      <div class="bfShield hidden" id="bossShieldWrap"><div id="bossShieldFill"></div><span>🔆</span></div>
       <div class="bfTimer"><div id="bossTimeFill"></div><span id="bossTime">30s</span></div>
     </div>
+
+    <!-- Frases sueltas de jefe (no congelan el combate) -->
+    <div id="barks"></div>
 
     <!-- Medidor de combo -->
     <div id="comboBox" class="hidden">
@@ -118,6 +125,22 @@
 <div id="cutin"></div>
 <div id="tipLayer"></div>
 
+<!-- ===== CINEMÁTICAS (L28) ===== -->
+<div id="zoneCard" class="hidden"></div>
+<div id="dialogue" class="hidden">
+  <div class="dlgCard">
+    <div class="dlgFace" id="dlgFace"></div>
+    <div class="dlgBody">
+      <div class="dlgName" id="dlgName"></div>
+      <p class="dlgText" id="dlgText"></p>
+      <div class="dlgBtns">
+        <button class="dlgSkip" id="dlgSkip">⏭ SALTAR</button>
+        <button class="dlgNext" id="dlgNext">SIGUIENTE ▶</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODALES ===== -->
 <div class="modal" id="mAuth"><div class="mcard">
   <img id="logoImg" alt="" style="width:120px;margin:0 auto 8px;display:block;">
@@ -149,6 +172,8 @@
   <label class="setRow"><span>🎨 Reducir efectos</span><input type="checkbox" id="setReduce"></label>
   <label class="setRow"><span>🤖 Auto-lanzar habilidades</span><input type="checkbox" id="setAuto"></label>
   <label class="setRow"><span>💡 Sugerir mejor mejora</span><input type="checkbox" id="setHint"></label>
+  <label class="setRow"><span>💬 Velocidad del texto</span><input type="range" id="setTextSpeed" min="0" max="40" step="2" value="18"><span id="setTextSpeedV">Normal</span></label>
+  <label class="setRow"><span>⏭️ Saltar cinemáticas</span><input type="checkbox" id="setSkipCut"></label>
   <button class="mbtn" id="setClose">CERRAR</button>
   <button class="mbtn gray" id="setLogout">CERRAR SESIÓN</button>
 </div></div>
@@ -165,6 +190,12 @@
   <h2>✨ HABILIDADES</h2>
   <div id="skillsBody"></div>
   <button class="mbtn gray" id="skillsClose">CERRAR</button>
+</div></div>
+
+<div class="modal" id="mCodex"><div class="mcard wide">
+  <h2>📖 CODICE</h2>
+  <div id="codexBody"></div>
+  <button class="mbtn gray" id="codexClose">CERRAR</button>
 </div></div>
 
 <div class="modal" id="mAch"><div class="mcard">
@@ -280,6 +311,8 @@
 <!-- ===== CORE (orden crítico: data antes que store, formulas antes que game) ===== -->
 <script src="js/core/config.js"></script>
 <script src="js/core/data.js"></script>
+<script src="js/core/lore.js"></script>
+<script src="js/core/codex.js"></script>
 <script src="js/core/assets.js"></script>
 <script src="js/core/audio.js"></script>
 <script src="js/core/net.js"></script>
@@ -298,6 +331,7 @@
 <script src="js/game/vfx.js"></script>
 <script src="js/game/battle-state.js"></script>
 <script src="js/game/affixes.js"></script>
+<script src="js/game/bosses.js"></script>
 <script src="js/game/skills.js"></script>
 <script src="js/game/squad.js"></script>
 <script src="js/game/enemies.js"></script>
@@ -308,7 +342,9 @@
 
 <!-- ===== UI: system + panels ===== -->
 <script src="js/ui/system/ui-hud.js"></script>
+<script src="js/ui/system/ui-dialogue.js"></script>
 <script src="js/ui/system/ui-skills.js"></script>
+<script src="js/ui/panels/ui-codex.js"></script>
 <script src="js/ui/panels/ui-gear.js"></script>
 <script src="js/ui/panels/autoequip.js"></script>
 <script src="js/ui/panels/ui-shop.js"></script>

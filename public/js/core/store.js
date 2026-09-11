@@ -6,7 +6,7 @@ const DEF = { name: '', gold: 0, adn: 0, stage: 1, best: 1, kills: 0, ks: 0, pre
   gear: { equipped: { fang: null, shell: null, antenna: null, charm: null }, inv: [] },
   tickets: 3, ticketDate: '', tower: 1, towerBest: 1, rlTickets: 2, rlDate: '',
   arenaPts: 0, arenaTickets: 5, arenaDate: '', colony: '', colonyLevel: 1, bossTicketDate: '',
-  mDate: '', mBase: { kills: 0, tower: 1, prestiges: 0 }, mClaimed: {},
+  mDate: '', mBase: { kills: 0, tower: 1, prestiges: 0, bossKills: 0, skillCasts: 0, affixKills: 0 }, mClaimed: {},
   shop: { lv: {}, skins: [], skin: '' },
   stageRanks: {}, weekTower: 1, weekClaimedKey: 0, milestones: {},
   essence: 0, amulets: 0, bagSize: 30, autoSalvage: -1,
@@ -14,6 +14,8 @@ const DEF = { name: '', gold: 0, adn: 0, stage: 1, best: 1, kills: 0, ks: 0, pre
   season: 1, seasonXp: 0, seasonLevel: 1, hasPremiumPass: false, seasonClaimed: {}, seasonStart: Date.now(),
   // L27: niveles de las habilidades activas + auto-cast (idle-friendly)
   skills: {}, skillAuto: true,
+  // L28: códice — bestiario, jefes derrotados, zonas visitadas, lore leído, reliquias
+  codex: { kills: {}, bosses: {}, zones: {}, lore: {}, relics: {} },
   // L26: estadísticas de vida para el panel 📊 (nunca alimentan fórmulas)
   stats: { goldEarned: 0, bossKills: 0, elites: 0, ultimates: 0, bestCombo: 0, playMs: 0,
     skillCasts: 0, affixKills: 0, taps: 0 } };
@@ -62,7 +64,7 @@ function loadCache() {
       out.adn = Math.min(out.adn || 0, 5000);
       out.prBase = Math.max(1, out.prBase || 1);
       out.gear = normGear(s.gear);
-      out.mBase = Object.assign({ kills: 0, tower: 1, prestiges: 0 }, s.mBase || {});
+      out.mBase = Object.assign({ kills: 0, tower: 1, prestiges: 0, bossKills: 0, skillCasts: 0, affixKills: 0 }, s.mBase || {});
       out.mClaimed = (s.mClaimed && typeof s.mClaimed === 'object') ? s.mClaimed : {};
       out.shop = normShop(s.shop);
       out.stageRanks = (s.stageRanks && typeof s.stageRanks === 'object') ? s.stageRanks : {};
@@ -82,11 +84,17 @@ function loadCache() {
       out.seasonStart = +s.seasonStart || Date.now();
       out.skills = normSkills(s.skills);
       out.skillAuto = s.skillAuto !== false;
+      out.codex = normCodex(s.codex);
       out.stats = normStats(s.stats);
       return out;
     }
   } catch (e) {}
-  return JSON.parse(JSON.stringify(DEF));
+  // Partida nueva: el DEF trae los contenedores vacíos, así que hay que
+  // normalizarlos igual que un save cargado (si no, el códice nunca registra).
+  const fresh = JSON.parse(JSON.stringify(DEF));
+  fresh.skills = normSkills(null);
+  fresh.codex = normCodex(null);
+  return fresh;
 }
 function persist() {
   S.last = Date.now();
@@ -113,17 +121,20 @@ function applyServerSave(save) {
   S = Object.assign({}, JSON.parse(JSON.stringify(DEF)), save || {});
   S.ups = Object.assign({}, DEF.ups, (save || {}).ups);
   S.gear = normGear((save || {}).gear);
-  S.mBase = Object.assign({ kills: 0, tower: 1, prestiges: 0 }, (save || {}).mBase || {});
+  S.mBase = Object.assign({ kills: 0, tower: 1, prestiges: 0, bossKills: 0, skillCasts: 0, affixKills: 0 }, (save || {}).mBase || {});
   S.mClaimed = ((save || {}).mClaimed && typeof (save || {}).mClaimed === 'object') ? save.mClaimed : {};
   S.shop = normShop((save || {}).shop);
   S.stageRanks = ((save || {}).stageRanks && typeof (save || {}).stageRanks === 'object') ? save.stageRanks : {};
   S.milestones = ((save || {}).milestones && typeof (save || {}).milestones === 'object') ? save.milestones : {};
   S.skills = normSkills((save || {}).skills);
   S.skillAuto = (save || {}).skillAuto !== false;
+  S.codex = normCodex((save || {}).codex);
   S.stats = normStats((save || {}).stats);
   S.name = name; S.ks = 0;
-  // el save entrante trae otros rangos → el bonus de daño cacheado ya no vale
+  // el save entrante trae otros rangos/códice → los bonus cacheados ya no valen
   if (typeof invalidateRankBonus === 'function') invalidateRankBonus();
+  if (typeof invalidateCodex === 'function') invalidateCodex();
+  if (typeof invalidateRelics === 'function') invalidateRelics();
 }
 // ===== Resets diarios (usa dayHas de events.js en tiempo de llamada) =====
 function checkDailyResets() {
@@ -133,7 +144,11 @@ function checkDailyResets() {
   if (S.rlDate !== d) { S.rlDate = d; S.rlTickets = 2 + (dayHas('soto') ? 1 : 0); }
   if (S.mDate !== d) {
     S.mDate = d;
-    S.mBase = { kills: S.kills, tower: S.tower, prestiges: S.prestiges };
+    // L28: las misiones nuevas (jefes, habilidades, afijos) también necesitan
+    // su marca de inicio del día, si no se completan solas al primer login.
+    const st = S.stats || {};
+    S.mBase = { kills: S.kills, tower: S.tower, prestiges: S.prestiges,
+      bossKills: st.bossKills || 0, skillCasts: st.skillCasts || 0, affixKills: st.affixKills || 0 };
     S.mClaimed = {};
   }
 }

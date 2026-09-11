@@ -1,0 +1,165 @@
+/* ===== 07-lore (LOTE 28): diálogos, cartel de zona, códice, cine ===== */
+
+/* ---------------- DIÁLOGO ---------------- */
+/* El velo tapa por completo la barra de mejoras: durante una conversación la
+   atención va al texto, no a los precios de abajo. */
+#dialogue { position:fixed; inset:0; z-index:150; display:flex; align-items:flex-end;
+  justify-content:center; padding:0 16px calc(20px + env(safe-area-inset-bottom));
+  background:linear-gradient(180deg,rgba(2,1,8,0) 26%,rgba(2,1,8,.66) 56%,rgba(2,1,8,.94) 100%);
+  cursor:pointer; }
+#dialogue.in .dlgCard { animation:dlgIn .34s cubic-bezier(.2,1.15,.4,1) both; }
+@keyframes dlgIn { from { opacity:0; transform:translateY(26px) scale(.97); } to { opacity:1; transform:none; } }
+.dlgCard { display:flex; gap:16px; align-items:flex-start; width:min(860px,100%);
+  padding:16px 18px; border-radius:var(--r-l);
+  background:linear-gradient(180deg,rgba(22,18,48,.97),rgba(11,9,24,.97));
+  border:1px solid var(--sp,var(--gold-border)); border-left:4px solid var(--sp,var(--gold));
+  box-shadow:var(--sh-4), 0 0 40px rgba(0,0,0,.5); backdrop-filter:var(--blur); }
+.dlgFace { position:relative; width:82px; height:82px; flex:0 0 auto; border-radius:var(--r-m);
+  overflow:hidden; display:grid; place-items:center;
+  background:radial-gradient(circle at 50% 30%, rgba(255,255,255,.10), rgba(0,0,0,.35));
+  border:1px solid var(--sp,var(--stroke-2)); box-shadow:inset 0 0 24px rgba(0,0,0,.6); }
+.dlgFace img { width:130%; height:130%; object-fit:contain; object-position:center top;
+  image-rendering:pixelated; filter:drop-shadow(0 3px 6px rgba(0,0,0,.7));
+  animation:faceBob 2.4s ease-in-out infinite; }
+@keyframes faceBob { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-3px);} }
+.dlgFace .dlgGlyph { font-size:34px; }
+.dlgFace.narr { border-style:dashed; opacity:.7; }
+.dlgBody { flex:1; min-width:0; text-align:left; }
+.dlgName { font-family:var(--font-pixel); font-size:11px; letter-spacing:1px; margin-bottom:8px;
+  text-shadow:0 0 14px currentColor; }
+.dlgText { font-size:15px; line-height:1.62; color:var(--text-mid); min-height:3.2em;
+  white-space:pre-wrap; }
+#dialogue.narrLine .dlgText { font-style:italic; color:#aab6dd; }
+.dlgBtns { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:12px; }
+.dlgSkip { background:none; border:1px solid var(--stroke); color:var(--text-faint);
+  border-radius:var(--r-pill); padding:6px 14px; font-size:10px; font-weight:700; cursor:pointer;
+  transition:color var(--t-fast),border-color var(--t-fast); }
+.dlgSkip:hover { color:var(--text); border-color:var(--stroke-2); }
+.dlgNext { background:linear-gradient(135deg,var(--sp,var(--gold)),rgba(255,255,255,.15));
+  border:none; border-radius:var(--r-pill); padding:9px 20px; cursor:pointer;
+  font-family:var(--font-pixel); font-size:9px; color:#14101f; letter-spacing:.5px;
+  box-shadow:var(--sh-2); animation:nextPulse 1.6s ease-in-out infinite; }
+@keyframes nextPulse { 50% { filter:brightness(1.22); } }
+
+/* ---------------- CARTEL DE ZONA ---------------- */
+#zoneCard { position:fixed; inset:0; z-index:140; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:10px; pointer-events:none; text-align:center;
+  background:radial-gradient(60% 50% at 50% 50%, rgba(0,0,0,.55), rgba(0,0,0,.85)); }
+#zoneCard.in { animation:zcFade 2.6s ease-out both; }
+@keyframes zcFade { 0%{opacity:0;} 8%{opacity:1;} 82%{opacity:1;} 100%{opacity:0;} }
+.zcNum { font-family:var(--font-pixel); font-size:9px; letter-spacing:3px; color:var(--zc,var(--gold));
+  opacity:.9; animation:zcSlide .7s cubic-bezier(.2,1,.3,1) both; }
+.zcName { font-family:var(--font-pixel); font-size:30px; color:#fff; letter-spacing:2px;
+  text-shadow:0 0 34px var(--zc,var(--gold)), 3px 3px 0 #000;
+  animation:zcSlide .7s .1s cubic-bezier(.2,1,.3,1) both; }
+.zcSub { font-size:15px; font-style:italic; color:var(--text-mid); letter-spacing:1px;
+  animation:zcSlide .7s .2s cubic-bezier(.2,1,.3,1) both; }
+.zcBoss { margin-top:10px; font-size:12px; font-weight:700; color:var(--zc,var(--gold));
+  padding:7px 18px; border:1px solid var(--zc,var(--gold)); border-radius:var(--r-pill);
+  background:rgba(0,0,0,.45); animation:zcSlide .7s .32s cubic-bezier(.2,1,.3,1) both; }
+@keyframes zcSlide { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:none; } }
+/* línea horizontal que barre el cartel */
+#zoneCard::before, #zoneCard::after { content:''; position:absolute; left:0; right:0; height:2px;
+  background:linear-gradient(90deg,transparent,var(--zc,var(--gold)),transparent); opacity:.85; }
+#zoneCard::before { top:34%; animation:zcBar .8s cubic-bezier(.2,1,.3,1) both; }
+#zoneCard::after  { bottom:34%; animation:zcBar .8s .06s cubic-bezier(.2,1,.3,1) both; }
+@keyframes zcBar { from { transform:scaleX(0); } to { transform:scaleX(1); } }
+
+/* ---------------- BARRIDO DE PANTALLA ---------------- */
+.wipe { position:fixed; inset:0; z-index:139; pointer-events:none;
+  background:linear-gradient(90deg,transparent,var(--wc,#ffd700),transparent);
+  opacity:.5; animation:wipeGo 1.1s cubic-bezier(.7,0,.3,1) forwards; }
+@keyframes wipeGo { from { transform:translateX(-100%); } to { transform:translateX(100%); } }
+
+/* ---------------- BARRAS DE CINE ---------------- */
+body.cineBars::before, body.cineBars::after { content:''; position:fixed; left:0; right:0;
+  height:8vh; background:#000; z-index:118; pointer-events:none;
+  animation:cineIn .5s cubic-bezier(.2,1,.3,1) both; }
+body.cineBars::before { top:0; } body.cineBars::after { bottom:0; }
+@keyframes cineIn { from { transform:scaleY(0); } to { transform:scaleY(1); } }
+body.cineBars::before { transform-origin:top; } body.cineBars::after { transform-origin:bottom; }
+
+/* ---------------- FRASES DE JEFE (barks) ---------------- */
+#barks { position:absolute; left:50%; top:126px; transform:translateX(-50%); z-index:5;
+  display:flex; flex-direction:column; align-items:center; gap:6px; pointer-events:none;
+  width:min(560px,86%); }
+.bark { max-width:100%; padding:8px 16px; border-radius:var(--r-m); font-size:13px; font-style:italic;
+  text-align:center; color:#fff; background:rgba(8,6,18,.9); backdrop-filter:var(--blur-soft);
+  border:1px solid var(--bk,var(--red)); border-left:3px solid var(--bk,var(--red));
+  box-shadow:var(--sh-2); animation:barkIn 4.2s cubic-bezier(.2,1,.3,1) forwards; }
+@keyframes barkIn { 0%{opacity:0;transform:translateY(-10px) scale(.94);} 8%{opacity:1;transform:none;}
+  88%{opacity:1;} 100%{opacity:0;transform:translateY(-6px);} }
+
+/* ---------------- MARCO DE JEFE: extras L28 ---------------- */
+#bossFrame { border-color:var(--bc,rgba(255,71,87,.55)); }
+#bossFrame.mini { width:min(380px,68%); opacity:.96; }
+.bfSub { display:flex; align-items:center; gap:8px; margin:-2px 0 6px; }
+.bfTitle { font-size:9.5px; font-style:italic; color:var(--text-dim); flex:1; min-width:0;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bfChips { font-size:11px; letter-spacing:2px; flex:0 0 auto; }
+.bfShield { position:relative; height:8px; margin-top:4px; border-radius:4px; overflow:hidden;
+  background:rgba(0,0,0,.6); border:1px solid rgba(126,252,255,.35); }
+#bossShieldFill { height:100%; width:100%; transition:width .15s linear;
+  background:linear-gradient(90deg,#4fc3f7,#7efcff); box-shadow:0 0 10px rgba(126,252,255,.6); }
+.bfShield span { position:absolute; right:4px; top:-3px; font-size:8px; }
+
+/* ---------------- CÓDICE ---------------- */
+#codexBody { text-align:left; }
+.cxTop { margin-bottom:12px; }
+.cxProg { position:relative; height:20px; border-radius:var(--r-pill); overflow:hidden;
+  background:rgba(0,0,0,.5); border:1px solid var(--gold-border); }
+.cxProgFill { height:100%; transition:width var(--t-slow);
+  background:linear-gradient(90deg,var(--gold2),var(--gold)); }
+.cxProg span { position:absolute; inset:0; display:grid; place-items:center; font-size:10px;
+  font-weight:800; color:#fff; text-shadow:1px 1px 2px #000; }
+.cxBonus { margin-top:7px; font-size:11px; color:var(--text-dim); text-align:center; }
+.cxTabs { margin:12px 0 10px; flex-wrap:wrap; }
+.cxTabs .tab { padding:8px 13px; font-size:8.5px; }
+.cxList { display:flex; flex-direction:column; gap:9px; max-height:52vh; overflow-y:auto; padding-right:4px; }
+.cxRow { display:flex; gap:12px; align-items:flex-start; padding:12px;
+  background:var(--bg-item); border:1px solid var(--stroke);
+  border-left:3px solid var(--cc,var(--gold)); border-radius:var(--r-m); }
+.cxRow.locked { opacity:.45; filter:grayscale(.8); border-left-color:var(--stroke-2); }
+.cxIco { width:52px; height:52px; flex:0 0 auto; display:grid; place-items:center; font-size:26px;
+  border-radius:var(--r-s); background:rgba(0,0,0,.35); border:1px solid var(--stroke); overflow:hidden; }
+.cxIco img { width:110%; height:110%; object-fit:contain; object-position:center top; image-rendering:pixelated; }
+.cxInfo { flex:1; min-width:0; }
+.cxInfo b { font-size:13px; color:var(--cc,var(--text)); }
+.cxInfo small { display:block; font-size:10px; color:var(--text-faint); margin-top:2px; }
+.cxInfo p { font-size:11.5px; line-height:1.55; color:var(--text-dim); margin-top:6px; }
+.cxMeta { margin-top:7px; font-size:10px; color:var(--text-faint); }
+.cxStars { font-size:11px; color:var(--gold); letter-spacing:1px; }
+.cxStars i { color:rgba(255,255,255,.16); font-style:normal; }
+.cxChips { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
+.cxChip { font-size:9.5px; padding:4px 8px; border-radius:var(--r-pill);
+  background:rgba(255,255,255,.06); border:1px solid var(--stroke); color:var(--text-mid); cursor:help; }
+.cxRow .claim { flex:0 0 auto; align-self:center; }
+
+/* ---------------- MOBILE ---------------- */
+@media (orientation: portrait), (max-width: 700px) {
+  #dialogue { padding:0 8px calc(10px + env(safe-area-inset-bottom)); }
+  .dlgCard { gap:10px; padding:11px 12px; border-radius:var(--r-m); }
+  .dlgFace { width:58px; height:58px; }
+  .dlgFace .dlgGlyph { font-size:24px; }
+  .dlgName { font-size:9px; margin-bottom:5px; }
+  .dlgText { font-size:12.5px; line-height:1.5; min-height:3.6em; }
+  .dlgBtns { margin-top:8px; }
+  .dlgNext { padding:7px 14px; font-size:8px; }
+  .dlgSkip { padding:5px 10px; font-size:9px; }
+  .zcName { font-size:17px; letter-spacing:1px; padding:0 12px; }
+  .zcSub { font-size:11px; padding:0 16px; }
+  .zcNum { font-size:7px; letter-spacing:2px; }
+  .zcBoss { font-size:10px; padding:5px 12px; }
+  #barks { top:auto; bottom:96px; width:92%; }
+  .bark { font-size:11px; padding:6px 12px; }
+  .bfSub { margin:-1px 0 4px; }
+  .bfTitle { font-size:8px; }
+  .bfChips { font-size:9px; letter-spacing:1px; }
+  body.cineBars::before, body.cineBars::after { height:5vh; }
+  .cxRow { padding:9px; gap:9px; }
+  .cxIco { width:42px; height:42px; font-size:20px; }
+  .cxInfo b { font-size:11.5px; }
+  .cxInfo p { font-size:10.5px; }
+  .cxList { max-height:56vh; }
+  .cxTabs .tab { padding:7px 10px; font-size:7.5px; }
+}

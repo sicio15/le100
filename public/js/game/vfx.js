@@ -96,6 +96,46 @@ function vfxNova(scene, x, y, color) {
     },
     onComplete: () => g.destroy() });
 }
+// L28 · Proyectil: viaja de (x0,y0) a (x1,y1) dejando estela
+function vfxProjectile(scene, x0, y0, x1, y1, color, delay) {
+  const c = toColor(color || '#ff6b81');
+  const dot = scene.add.circle(x0, y0, 5, c).setDepth(19);
+  const glow = scene.add.circle(x0, y0, 10, c, 0.28).setDepth(18);
+  scene.tweens.add({ targets: [dot, glow], x: x1, y: y1, duration: 260, delay: delay || 0,
+    ease: 'Quad.easeIn',
+    onUpdate: () => { if (!SETTINGS.reduceFx && Math.random() < 0.55) VFX.puff(dot.x, dot.y); },
+    onComplete: () => { dot.destroy(); glow.destroy(); vfxRing(scene, x1, y1, c, 4, 30, 240); } });
+}
+// L28 · Portal de aparición: los bichos ya no se materializan en el aire
+function vfxPortal(scene, x, y, color) {
+  if (SETTINGS.reduceFx) return;
+  const c = toColor(color || '#c86bfa');
+  const o = { p: 0 };
+  const g = scene.add.graphics().setDepth(-1);
+  scene.tweens.add({ targets: o, p: 1, duration: 620, ease: 'Cubic.easeOut',
+    onUpdate: () => {
+      g.clear();
+      const a = Math.sin(o.p * Math.PI);           // abre y cierra
+      const rw = 34 * a, rh = 12 * a;
+      g.fillStyle(c, a * 0.5); g.fillEllipse(x, y, rw * 2, rh * 2);
+      g.lineStyle(3, 0xffffff, a * 0.8); g.strokeEllipse(x, y, rw * 2.2, rh * 2.2);
+    },
+    onComplete: () => g.destroy() });
+}
+// L28 · Telegrafía: el círculo rojo que avisa el embate del jefe
+function vfxTelegraph(scene, x, y, rx, ms) {
+  const o = { p: 0 };
+  const g = scene.add.graphics().setDepth(-1);
+  scene.tweens.add({ targets: o, p: 1, duration: ms || 1300, ease: 'Linear',
+    onUpdate: () => {
+      g.clear();
+      g.fillStyle(0xff4757, 0.15 + o.p * 0.3);
+      g.fillEllipse(x, y, rx * 2, rx * 0.5);
+      g.lineStyle(3, 0xff4757, 0.5 + o.p * 0.5);
+      g.strokeEllipse(x, y, rx * 2 * o.p, rx * 0.5 * o.p);
+    },
+    onComplete: () => g.destroy() });
+}
 // Hit-stop por niveles: 'light' para críticos, 'heavy' para jefes/ultimates
 function vfxHitStop(scene, sc, ms) {
   if (!fxOn()) return;
@@ -177,6 +217,9 @@ function attachVFX(scene) {
   VFX.beam = (x, y, color) => vfxBeam(scene, x, y, color);
   VFX.nova = (x, y, color) => vfxNova(scene, x, y, toColor(color));
   VFX.slash = (x, y, color) => vfxSlash(scene, x, y, color);
+  VFX.projectile = (x0, y0, x1, y1, color, delay) => vfxProjectile(scene, x0, y0, x1, y1, color, delay);
+  VFX.portal = (x, y, color) => vfxPortal(scene, x, y, color);
+  VFX.telegraph = (x, y, r, ms) => vfxTelegraph(scene, x, y, r, ms);
 
   // ----- HOOKS de cámara / pantalla -----
   HOOKS.crit = (x, y) => {
@@ -200,10 +243,16 @@ function attachVFX(scene) {
     scene.cameras.main.shake(500, 0.03);
     vfxHitStop(scene, 0.25, 350);
   };
-  HOOKS.bossPhase = ph => {
-    showBanner('👑 FASE ' + (ph + 1), 'El Rey Bestia invoca a los suyos', 'bnRed');
+  HOOKS.bossPhase = (ph, e) => {
+    showBanner((e ? bossIco(e) : '👑') + ' FASE ' + (ph + 1),
+      e ? bossName(e) + ' cambia de forma' : '', 'bnRed');
     vfxZoomPulse(scene, 1.12, 180);
+    ambienceFlash(0x4a0d16, 0.45, 420);
+    // línea suelta del jefe encima de la pelea (no congela el combate)
+    if (typeof playBossEnrage === 'function') playBossEnrage(e);
   };
+  // L28: portal de aparición de cada enemigo, con el color de su zona
+  HOOKS.portal = e => VFX.portal(e.x - 10, groundY() - 4, zoneOf(S.stage).color);
   HOOKS.comboTier = tier => {
     const box = $('comboBox');
     if (box) { box.classList.remove('flash'); void box.offsetWidth; box.classList.add('flash'); }
@@ -228,14 +277,36 @@ function attachVFX(scene) {
 
   // ----- Marco del jefe (DOM) -----
   const bb = $('bossFrame'), bf = $('bossFill'), bhp = $('bossHpTxt'),
-        bt = $('bossTime'), btf = $('bossTimeFill'), brg = $('bossRage'), bph = $('bossPhases');
+        bt = $('bossTime'), btf = $('bossTimeFill'), brg = $('bossRage'), bph = $('bossPhases'),
+        bnm = $('bossName'), bti = $('bossTitle'), bch = $('bossChips'),
+        bsh = $('bossShieldWrap'), bsf = $('bossShieldFill');
   if (bb && bf) {
-    HOOKS.bossShow = () => { bb.classList.remove('hidden'); bb.classList.add('in'); };
-    HOOKS.bossHide = () => { bb.classList.add('hidden'); bb.classList.remove('in'); };
+    HOOKS.bossShow = e => {
+      bb.classList.remove('hidden'); bb.classList.remove('in'); void bb.offsetWidth; bb.classList.add('in');
+      if (e && e.def) {
+        bb.style.setProperty('--bc', e.def.color);
+        bb.classList.toggle('mini', !!e.mini);
+      }
+      // Entrada del Jefe de Zona: barras de cine + zoom + rugido
+      if (e && !e.mini) {
+        document.body.classList.add('cineBars');
+        setTimeout(() => document.body.classList.remove('cineBars'), 2600);
+        vfxZoomPulse(scene, 1.18, 420);
+      }
+    };
+    HOOKS.bossHide = () => {
+      bb.classList.add('hidden'); bb.classList.remove('in');
+      document.body.classList.remove('cineBars');
+    };
     HOOKS.bossTick = d => {
+      if (bnm) bnm.textContent = d.ico + ' ' + pixelUpper(d.name);
+      if (bti) bti.textContent = d.title || '';
+      if (bch) bch.textContent = d.chips || '';
       bf.style.width = d.hp + '%';
       bf.classList.toggle('low', d.hp < 30);
       if (bhp) bhp.textContent = d.hpTxt;
+      if (bsh) bsh.classList.toggle('hidden', !d.hasShield || d.shield <= 0);
+      if (bsf) bsf.style.width = d.shield + '%';
       if (btf) btf.style.width = d.time + '%';
       if (bt) bt.textContent = d.secs + 's';
       if (brg) {
@@ -249,6 +320,17 @@ function attachVFX(scene) {
       if (bph) Array.prototype.forEach.call(bph.children, (el, i) => el.classList.toggle('on', i <= d.phase));
     };
   }
+}
+
+// ===== L28: barrido de pantalla al cambiar de zona =====
+// DOM puro: la escena de Phaser sigue corriendo por debajo mientras tapa.
+function screenWipe(color) {
+  if (SETTINGS.reduceFx) return;
+  const d = document.createElement('div');
+  d.className = 'wipe';
+  if (color) d.style.setProperty('--wc', color);
+  document.body.appendChild(d);
+  setTimeout(() => d.remove(), 1200);
 }
 // '#rrggbb' → [r,g,b] para cameras.flash
 function hexRgb(c) {
